@@ -39,7 +39,7 @@ object EventStoreActor {
 }
 
 final class EventStoreActor[S, E, M](
-  val persistenceId: String,
+  override val persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
   recoveryActorRef: ActorRef[RecoveryDone[S]])
@@ -52,35 +52,34 @@ final class EventStoreActor[S, E, M](
     case RecoveryCompleted =>
       recoveryActorRef ! RecoveryDone(state)
     case event =>
-      // Use type test and cast instead of pattern matching
       if (event != null) {
         val e = event.asInstanceOf[E]
         state = applyEvent(state, e)
       }
   }
 
-  override def receiveCommand: Receive = { case cmd =>
-    // Use explicit type tests instead of pattern matching
-    if (cmd.isInstanceOf[PersistSingleEvent[?, ?]]) {
-      log.debug("PersistSingleEvent: {}", cmd)
-      val typedCmd = cmd.asInstanceOf[PersistSingleEvent[S, E]]
-      val event = typedCmd.event
-      val replyTo = typedCmd.replyTo
-      persist(event) { evt =>
-        replyTo ! SingleEventPersisted(evt)
-      }
-    } else if (cmd.isInstanceOf[PersistEventSequence[?, ?]]) {
-      log.debug("PersistEventSequence: {}", cmd)
-      val typedCmd = cmd.asInstanceOf[PersistEventSequence[S, E]]
-      val events = typedCmd.events
-      val replyTo = typedCmd.replyTo
-      var counter = 0
-      persistAll(events) { evt =>
-        counter += 1
-        if (counter == events.size) {
-          replyTo ! EventSequencePersisted(events)
+  override def receiveCommand: Receive = { cmd =>
+    cmd.asMatchable match {
+      case cmd: PersistSingleEvent[?, ?] =>
+        log.debug("PersistSingleEvent: {}", cmd)
+        val typedCmd = cmd.asInstanceOf[PersistSingleEvent[S, E]]
+        val event = typedCmd.event
+        val replyTo = typedCmd.replyTo
+        persist(event) { evt =>
+          replyTo ! SingleEventPersisted(evt)
         }
-      }
+      case cmd: PersistEventSequence[?, ?] =>
+        log.debug("PersistEventSequence: {}", cmd)
+        val typedCmd = cmd.asInstanceOf[PersistEventSequence[S, E]]
+        val events = typedCmd.events
+        val replyTo = typedCmd.replyTo
+        var counter = 0
+        persistAll(events) { evt =>
+          counter += 1
+          if (counter == events.size) {
+            replyTo ! EventSequencePersisted(events)
+          }
+        }
     }
   }
 }

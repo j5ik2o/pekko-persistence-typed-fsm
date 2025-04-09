@@ -1,6 +1,5 @@
 package com.github.j5ik2o.pekko.persistence.typed.fsm
 
-// 相互変換可能なISOを定義するトレイト - 余分な型パラメータを削除
 trait MessageConverter[S, E, M <: Matchable] {
 
   def wrapPersisted(events: Seq[E]): M & PersistedEvent[E, M]
