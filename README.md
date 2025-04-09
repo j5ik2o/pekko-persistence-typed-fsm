@@ -66,52 +66,79 @@ trait MessageConverter[S, E, M <: Matchable] {
 
 ## Usage Examples
 
-### Basic Usage
+### BankAccount Example
 
 ```scala
 // 1. Define state and state transition function
 enum State {
-  case NotCreated(aggregateId: EntityId)
-  case Created(aggregateId: EntityId, entity: Entity)
-  
-  def applyEvent(event: Event): State = // Implementation of state transition
+  def aggregateId: BankAccountId
+  case NotCreated(aggregateId: BankAccountId)
+  case Created(aggregateId: BankAccountId, bankAccount: BankAccount)
+
+  def applyEvent(event: BankAccountEvent): State = (this, event) match {
+    case (State.NotCreated(aggregateId), BankAccountEvent.Created(id, _)) =>
+      Created(id, BankAccount(id))
+    case (State.Created(id, bankAccount), BankAccountEvent.CashDeposited(_, amount, _)) =>
+      bankAccount
+        .add(amount)
+        .fold(
+          error => throw new IllegalStateException(s"Failed to apply event: $error"),
+          result => State.Created(id, result._1),
+        )
+    case (State.Created(id, bankAccount), BankAccountEvent.CashWithdrew(_, amount, _)) =>
+      bankAccount
+        .subtract(amount)
+        .fold(
+          error => throw new IllegalStateException(s"Failed to apply event: $error"),
+          result => State.Created(id, result._1),
+        )
+    case _ =>
+      throw new IllegalStateException(s"Invalid state transition: $this -> $event")
+  }
 }
 
 // 2. Configure EffectorConfig
-val config = EffectorConfig[State, Event, Command](
-  persistenceId = entityId.toString,
-  initialState = State.NotCreated(entityId),
+val config = EffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+  persistenceId = actorName(aggregateId),
+  initialState = State.NotCreated(aggregateId),
   applyEvent = (state, event) => state.applyEvent(event),
-  messageConverter = Command.messageConverter  // Or specify individual conversion functions
+  messageConverter = BankAccountCommand.messageConverter,
 )
 
 // 3. Create an actor using Effector
-Behaviors.setup[Command] { implicit ctx =>
-  Effector.create[State, Event, Command](config) {
-    case (state: State.NotCreated, effector) =>
-      handleNotCreated(state, effector)
-    case (state: State.Created, effector) =>
-      handleCreated(state, effector)
+Behaviors.setup[BankAccountCommand] { implicit ctx =>
+  Effector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](config) {
+    case (initialState: State.NotCreated, effector) =>
+      handleNotCreated(initialState, effector)
+    case (initialState: State.Created, effector) =>
+      handleCreated(initialState, effector)
   }
 }
 
 // 4. Implement handlers according to state
-private def handleCreated(state: State.Created, effector: Effector[State, Event, Command]): Behavior[Command] =
+private def handleCreated(
+  state: BankAccountAggregate.State.Created,
+  effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+  : Behavior[BankAccountCommand] =
   Behaviors.receiveMessagePartial {
-    case Command.DoSomething(id, param, replyTo) =>
+    case BankAccountCommand.DepositCash(aggregateId, amount, replyTo) =>
       // Execute domain logic
-      state.entity.doSomething(param) match {
-        case Right((newEntity, event)) =>
-          // Persist the event
-          effector.persist(event) { _ =>
-            replyTo ! Reply.Success(id)
-            // Update with new state
-            handleCreated(newState.copy(entity = newEntity), effector)
-          }
-        case Left(error) =>
-          replyTo ! Reply.Failed(id, error)
-          Behaviors.same
-      }
+      state.bankAccount
+        .add(amount)
+        .fold(
+          error => {
+            replyTo ! DepositCashReply.Failed(aggregateId, error)
+            Behaviors.same
+          },
+          { case (newBankAccount, event) =>
+            // Persist the event
+            effector.persist(event) { _ =>
+              replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
+              // Update with new state
+              handleCreated(state.copy(bankAccount = newBankAccount), effector)
+            }
+          },
+        )
   }
 ```
 
