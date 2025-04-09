@@ -1,4 +1,4 @@
-package com.github.j5ik2o.eff.sm.splitter
+package com.github.j5ik2o.pekko.persistence.typed.fsm
 
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit

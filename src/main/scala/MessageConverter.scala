@@ -1,4 +1,4 @@
-package com.github.j5ik2o.eff.sm.splitter
+package com.github.j5ik2o.pekko.persistence.typed.fsm
 
 // 相互変換可能なISOを定義するトレイト - 余分な型パラメータを削除
 trait MessageConverter[S, E, M <: Matchable] {

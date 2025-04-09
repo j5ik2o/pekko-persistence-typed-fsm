@@ -24,7 +24,7 @@ lazy val root = (project in file("."))
       "-no-indent", // インデント構文を拒否し、中括弧に変換
       "-experimental",
     ),
-    idePackagePrefix := Some("com.github.j5ik2o.eff.sm.splitter"),
+    idePackagePrefix := Some("com.github.j5ik2o.pekko.persistence.typed.fsm"),
     libraryDependencies ++= Seq(
       logback.classic % Test,
       slf4j.api,

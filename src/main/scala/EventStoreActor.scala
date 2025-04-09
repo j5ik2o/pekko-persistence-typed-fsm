@@ -1,6 +1,6 @@
-package com.github.j5ik2o.eff.sm.splitter
+package com.github.j5ik2o.pekko.persistence.typed.fsm
 
-import com.github.j5ik2o.eff.sm.splitter.EventStoreActor.{
+import EventStoreActor.{
   EventSequencePersisted,
   PersistEventSequence,
   PersistSingleEvent,
