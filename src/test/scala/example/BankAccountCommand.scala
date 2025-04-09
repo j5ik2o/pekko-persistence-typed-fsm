@@ -5,6 +5,7 @@ import org.apache.pekko.actor.typed.ActorRef
 
 enum BankAccountCommand {
   case GetBalance(override val aggregateId: BankAccountId, replyTo: ActorRef[GetBalanceReply])
+  case Stop(override val aggregateId: BankAccountId, replyTo: ActorRef[StopReply])
   case Create(override val aggregateId: BankAccountId, replyTo: ActorRef[CreateReply])
   case DepositCash(
     override val aggregateId: BankAccountId,
@@ -24,6 +25,7 @@ enum BankAccountCommand {
 
   def aggregateId: BankAccountId = this match {
     case GetBalance(aggregateId, _) => aggregateId
+    case Stop(aggregateId, _) => aggregateId
     case Create(aggregateId, _) => aggregateId
     case DepositCash(aggregateId, _, _) => aggregateId
     case WithdrawCash(aggregateId, _, _) => aggregateId
@@ -37,6 +39,10 @@ object BankAccountCommand
   override type Message = BankAccountCommand
   def wrappedISO: WrappedISO[BankAccountAggregate.State, BankAccountEvent, Message] =
     WrappedISO(EventPersisted.apply, StateRecovered.apply)
+}
+
+enum StopReply {
+  case Succeeded(aggregateId: BankAccountId)
 }
 
 enum GetBalanceReply {

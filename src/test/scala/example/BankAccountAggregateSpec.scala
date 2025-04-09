@@ -93,9 +93,16 @@ class BankAccountAggregateSpec
       depositResponse.aggregateId shouldBe accountId
       depositResponse.amount shouldBe depositAmount
 
+      // 口座の停止
+      val stopProbe = createTestProbe[StopReply]()
+      bankAccountActor ! BankAccountCommand.Stop(accountId, stopProbe.ref)
+      stopProbe.expectMessageType[StopReply.Succeeded]
+
+      val bankAccountActor2 = spawn(BankAccountAggregate(accountId))
+
       // 残高確認
       val balanceProbe = createTestProbe[GetBalanceReply]()
-      bankAccountActor ! BankAccountCommand.GetBalance(accountId, balanceProbe.ref)
+      bankAccountActor2 ! BankAccountCommand.GetBalance(accountId, balanceProbe.ref)
 
       val balanceResponse = balanceProbe.expectMessageType[GetBalanceReply.Succeeded]
       balanceResponse.balance shouldBe depositAmount
@@ -177,25 +184,25 @@ class BankAccountAggregateSpec
       failedResponse.aggregateId shouldBe accountId
       failedResponse.error shouldBe BankAccountError.LimitOverError
     }
-//
-//    "fail to deposit when over limit" in {
-//      val accountId = BankAccountId(UUID.randomUUID())
-//
-//      val bankAccountActor = spawn(BankAccountAggregate(accountId))
-//
-//      // 口座作成
-//      val createProbe = createTestProbe[CreateReply]()
-//      bankAccountActor ! BankAccountCommand.Create(accountId, createProbe.ref)
-//      createProbe.expectMessageType[CreateReply.Succeeded]
-//
-//      // 上限を超える預金試行
-//      val depositAmount = Money(150000, Money.JPY) // 上限は100000円
-//      val depositProbe = createTestProbe[DepositCashReply]()
-//      bankAccountActor ! BankAccountCommand.DepositCash(accountId, depositAmount, depositProbe.ref)
-//
-//      val failedResponse = depositProbe.expectMessageType[DepositCashReply.Failed]
-//      failedResponse.aggregateId shouldBe accountId
-//      failedResponse.error shouldBe BankAccountError.LimitOverError
-//    }
+
+    "fail to deposit when over limit" in {
+      val accountId = BankAccountId(UUID.randomUUID())
+
+      val bankAccountActor = spawn(BankAccountAggregate(accountId))
+
+      // 口座作成
+      val createProbe = createTestProbe[CreateReply]()
+      bankAccountActor ! BankAccountCommand.Create(accountId, createProbe.ref)
+      createProbe.expectMessageType[CreateReply.Succeeded]
+
+      // 上限を超える預金試行
+      val depositAmount = Money(150000, Money.JPY) // 上限は100000円
+      val depositProbe = createTestProbe[DepositCashReply]()
+      bankAccountActor ! BankAccountCommand.DepositCash(accountId, depositAmount, depositProbe.ref)
+
+      val failedResponse = depositProbe.expectMessageType[DepositCashReply.Failed]
+      failedResponse.aggregateId shouldBe accountId
+      failedResponse.error shouldBe BankAccountError.LimitOverError
+    }
   }
 }

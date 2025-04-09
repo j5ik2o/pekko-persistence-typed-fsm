@@ -188,6 +188,93 @@ class EffectorSpec
         evts should contain.theSameElementsAs(initialEvents)
       }
     }
+
+    "restore state after actor is stopped and restarted with the same id" in {
+      // 固定のpersistenceIDを使用して再起動時にも同じIDで識別できるようにする
+      val persistenceId = s"test-restore-state-${java.util.UUID.randomUUID()}"
+      val initialState = TestState()
+      val event1 = TestEvent.TestEventA("event1")
+      val event2 = TestEvent.TestEventB(42)
+
+      // 1回目のアクター実行で記録されるイベント
+      val firstRunEvents = ArrayBuffer.empty[TestMessage]
+
+      // 1回目の設定
+      val config1 = EffectorConfig[TestState, TestEvent, TestMessage](
+        persistenceId = persistenceId,
+        initialState = initialState,
+        applyEvent = (state, event) => state.applyEvent(event),
+        wrappedISO = wrappedISO,
+      )
+
+      // 1回目のアクターを実行してイベントを永続化
+      val behavior1 = spawn(Behaviors.setup[TestMessage] { context =>
+        Effector.create[TestState, TestEvent, TestMessage](config1) { case (state, effector) =>
+          // 最初に1つ目のイベントを永続化
+          effector.persist(event1) { (state1, _) =>
+            // 次に2つ目のイベントを永続化
+            effector.persist(event2) { (state2, _) =>
+              firstRunEvents += TestMessage.EventPersisted(state2, Seq(event1, event2))
+              // イベント永続化完了後にアクターを停止
+              Behaviors.stopped
+            }
+          }
+        }(using context)
+      })
+
+      // 最初のアクターが処理を完了するまで待機
+      eventually {
+        firstRunEvents.size shouldBe 1
+        val TestMessage.EventPersisted(state, _) = firstRunEvents.head: @unchecked
+        // 両方のイベントが適用された状態になっていることを確認
+        state.values should contain.allOf("event1", "42")
+      }
+
+      // 2回目のアクター実行で記録される復元された状態
+      val secondRunRecoveredState = ArrayBuffer.empty[TestState]
+
+      // 2回目の設定（同じpersistenceIDを使用）
+      val config2 = EffectorConfig[TestState, TestEvent, TestMessage](
+        persistenceId = persistenceId,
+        initialState = initialState, // 初期状態は同じものを渡すが、復元されるはず
+        applyEvent = (state, event) => state.applyEvent(event),
+        wrappedISO = wrappedISO,
+      )
+
+      // 新しいプローブを作成
+      val probe2 = createTestProbe[TestMessage]()
+
+      // 2回目のアクターを実行（同じID）
+      val behavior2 = spawn(Behaviors.setup[TestMessage] { context =>
+        Effector.create[TestState, TestEvent, TestMessage](config2) { case (state, effector) =>
+          // 復元された状態を記録
+          secondRunRecoveredState += state
+          // プローブにメッセージを送信して状態を通知
+          probe2.ref ! TestMessage.StateRecovered(state)
+          Behaviors.receiveMessage { _ =>
+            Behaviors.same
+          }
+        }(using context)
+      })
+
+      // 状態が正しく復元されていることを確認
+      eventually {
+        secondRunRecoveredState.size shouldBe 1
+        val recoveredState = secondRunRecoveredState.head
+        // 1回目のアクターで永続化したイベントが適用された状態が復元されていることを確認
+        recoveredState.values should contain.allOf("event1", "42")
+        recoveredState.values.size shouldBe 2
+      }
+
+      // プローブが正しいメッセージを受け取ったことを確認
+      val msg = probe2.receiveMessage()
+      msg match {
+        case TestMessage.StateRecovered(state) =>
+          state.values should contain.allOf("event1", "42")
+          state.values.size shouldBe 2
+        case _ => fail("Expected StateRecovered message")
+      }
+    }
   }
 
   override def afterAll(): Unit = {

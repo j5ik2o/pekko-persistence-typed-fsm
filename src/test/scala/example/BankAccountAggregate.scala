@@ -1,8 +1,6 @@
 package com.github.j5ik2o.eff.sm.splitter
 package example
 
-import example.BankAccountAggregate.State.NotCreated
-
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 
@@ -79,6 +77,9 @@ object BankAccountAggregate {
     effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
     : Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial {
+      case BankAccountCommand.Stop(aggregateId, replyTo) =>
+        replyTo ! StopReply.Succeeded(aggregateId)
+        Behaviors.stopped
       case BankAccountCommand.GetBalance(aggregateId, replyTo) =>
         replyTo ! GetBalanceReply.Succeeded(aggregateId, state.bankAccount.balance)
         Behaviors.same

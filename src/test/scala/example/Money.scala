@@ -26,13 +26,16 @@ class Money(private val amount: BigDecimal, private val currency: Currency)
     "Scale of amount does not match currency",
   )
 
-  override def equals(obj: Any): Boolean = obj match {
-    case that: Money => amount == that.amount && currency == that.currency
-    //    case bd: BigDecimal => amount == bd
-    //    case n: Int => amount == n
-    //    case f: Float => amount == f
-    //    case d: Double => amount == d
-    case _ => false
+  override def equals(obj: Any): Boolean = {
+    import scala.compiletime.asMatchable
+    obj.asMatchable match {
+      case that: Money => amount == that.amount && currency == that.currency
+      //    case bd: BigDecimal => amount == bd
+      //    case n: Int => amount == n
+      //    case f: Float => amount == f
+      //    case d: Double => amount == d
+      case _ => false
+    }
   }
 
   override def hashCode: Int = 31 * (amount.hashCode + currency.hashCode)
@@ -127,9 +130,8 @@ class Money(private val amount: BigDecimal, private val currency: Currency)
    *   金額
    */
   def dividedBy(divisor: BigDecimal, roundingMode: BigDecimal.RoundingMode.Value): Money = {
-    val newAmount =
-      amount.bigDecimal.divide(divisor.bigDecimal, roundingMode.id)
-    Money(BigDecimal(newAmount), currency)
+    val newAmount = amount / divisor
+    Money(newAmount.setScale(currency.getDefaultFractionDigits, roundingMode), currency)
   }
 
   /**
