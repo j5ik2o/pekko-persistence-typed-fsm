@@ -103,10 +103,10 @@ private def handleCreated(state: State.Created, effector: Effector[State, Event,
       state.entity.doSomething(param) match {
         case Right((newEntity, event)) =>
           // イベントを永続化
-          effector.persist(event) { (newState, _) =>
+          effector.persist(event) { _ =>
             replyTo ! Reply.Success(id)
             // 新しい状態で更新
-            handleCreated(newState.asInstanceOf[State.Created], effector)
+            handleCreated(state.copy(entity = newEntity), effector)
           }
         case Left(error) =>
           replyTo ! Reply.Failed(id, error)
