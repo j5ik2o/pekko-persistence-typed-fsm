@@ -34,8 +34,8 @@ A core trait that provides event persistence functionality.
 
 ```scala
 trait Effector[S, E, M] {
-  def persist(event: E)(onPersisted: (Option[S], E) => Behavior[M]): Behavior[M]
-  def persistAll(events: Seq[E])(onPersisted: (Option[S], Seq[E]) => Behavior[M]): Behavior[M]
+  def persist(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
+  def persistAll(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
 }
 ```
 
