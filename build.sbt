@@ -16,8 +16,8 @@ ThisBuild / developers := List(
 )
 ThisBuild / scmInfo := Some(
   ScmInfo(
-    url("https://github.com/j5ik2o/pekko-persistence-dynamodb"),
-    "scm:git@github.com:j5ik2o/pekko-persistence-dynamodb.git",
+    url("https://github.com/j5ik2o/pekko-persistence-typed-fsm"),
+    "scm:git@github.com:j5ik2o/pekko-persistence-typed-fsm.git",
   ),
 )
 
