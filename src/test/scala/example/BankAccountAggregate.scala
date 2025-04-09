@@ -44,7 +44,7 @@ object BankAccountAggregate {
       persistenceId = actorName(aggregateId),
       initialState = State.NotCreated(aggregateId),
       applyEvent = (state, event) => state.applyEvent(event),
-      wrappedISO = BankAccountCommand.wrappedISO,
+      messageConverter = BankAccountCommand.messageConverter,
     )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
       Effector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](

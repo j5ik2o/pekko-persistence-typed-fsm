@@ -12,7 +12,8 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
 
 object EffectorSpec {
-  val config: Config = ConfigFactory.parseString("""
+  val config: Config = ConfigFactory
+    .parseString("""
                                            |pekko {
                                            |  actor {
                                            |    provider = local
@@ -49,6 +50,7 @@ object EffectorSpec {
                                            |  coordinated-shutdown.run-by-actor-system-terminate = off
                                            |}
                                            |""".stripMargin)
+    .withFallback(ConfigFactory.load("test-reference"))
 }
 
 class EffectorSpec
@@ -78,15 +80,15 @@ class EffectorSpec
   enum TestMessage {
     case StateRecovered(state: TestState)
       extends TestMessage
-      with WrappedRecovered[TestState, TestMessage]
+      with RecoveredState[TestState, TestMessage]
 
     case EventPersisted(events: Seq[TestEvent])
       extends TestMessage
-      with WrappedPersisted[TestEvent, TestMessage]
+      with PersistedEvent[TestEvent, TestMessage]
   }
 
-  val wrappedISO: WrappedISO[TestState, TestEvent, TestMessage] =
-    WrappedISO[TestState, TestEvent, TestMessage](
+  val messageConverter: MessageConverter[TestState, TestEvent, TestMessage] =
+    MessageConverter[TestState, TestEvent, TestMessage](
       TestMessage.EventPersisted.apply,
       TestMessage.StateRecovered.apply)
 
@@ -99,7 +101,7 @@ class EffectorSpec
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
-        wrappedISO = wrappedISO,
+        messageConverter = messageConverter,
       )
 
       val recoveredEvents = ArrayBuffer.empty[TestMessage]
@@ -132,7 +134,7 @@ class EffectorSpec
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
-        wrappedISO = wrappedISO,
+        messageConverter = messageConverter,
       )
 
       val probe = createTestProbe[TestMessage]()
@@ -164,10 +166,10 @@ class EffectorSpec
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
-        wrapPersisted = wrappedISO.wrapPersisted,
-        wrapRecovered = wrappedISO.wrapRecovered,
-        unwrapPersisted = wrappedISO.unwrapPersisted,
-        unwrapRecovered = wrappedISO.unwrapRecovered,
+        wrapPersisted = messageConverter.wrapPersisted,
+        wrapRecovered = messageConverter.wrapRecovered,
+        unwrapPersisted = messageConverter.unwrapPersisted,
+        unwrapRecovered = messageConverter.unwrapRecovered,
       )
 
       val probe = createTestProbe[TestMessage]()
@@ -203,7 +205,7 @@ class EffectorSpec
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
-        wrappedISO = wrappedISO,
+        messageConverter = messageConverter,
       )
 
       // 1回目のアクターを実行してイベントを永続化
@@ -235,7 +237,7 @@ class EffectorSpec
         persistenceId = persistenceId,
         initialState = initialState, // 初期状態は同じものを渡すが、復元されるはず
         applyEvent = (state, event) => state.applyEvent(event),
-        wrappedISO = wrappedISO,
+        messageConverter = messageConverter,
       )
 
       // 新しいプローブを作成

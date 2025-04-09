@@ -18,10 +18,10 @@ enum BankAccountCommand {
 
   private case StateRecovered(state: BankAccountAggregate.State)
     extends BankAccountCommand
-    with WrappedRecovered[BankAccountAggregate.State, BankAccountCommand]
+    with RecoveredState[BankAccountAggregate.State, BankAccountCommand]
   private case EventPersisted(events: Seq[BankAccountEvent])
     extends BankAccountCommand
-    with WrappedPersisted[BankAccountEvent, BankAccountCommand]
+    with PersistedEvent[BankAccountEvent, BankAccountCommand]
 
   def aggregateId: BankAccountId = this match {
     case GetBalance(aggregateId, _) => aggregateId
@@ -35,11 +35,10 @@ enum BankAccountCommand {
   }
 }
 
-object BankAccountCommand
-  extends WrappedSupportProtocol[BankAccountAggregate.State, BankAccountEvent] {
+object BankAccountCommand extends MessageProtocol[BankAccountAggregate.State, BankAccountEvent] {
   override type Message = BankAccountCommand
-  def wrappedISO: WrappedISO[BankAccountAggregate.State, BankAccountEvent, Message] =
-    WrappedISO(EventPersisted.apply, StateRecovered.apply)
+  def messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, Message] =
+    MessageConverter(EventPersisted.apply, StateRecovered.apply)
 }
 
 enum StopReply {

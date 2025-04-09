@@ -8,6 +8,7 @@ final case class EffectorConfig[S, E, M](
   wrapRecovered: S => M,
   unwrapPersisted: M => Option[Seq[E]],
   unwrapRecovered: M => Option[S],
+  stashSize: Int = 32,
 )
 
 object EffectorConfig {
@@ -32,13 +33,13 @@ object EffectorConfig {
     persistenceId: String,
     initialState: S,
     applyEvent: (S, E) => S,
-    wrappedISO: WrappedISO[S, E, M]): EffectorConfig[S, E, M] = apply(
+    messageConverter: MessageConverter[S, E, M]): EffectorConfig[S, E, M] = apply(
     persistenceId,
     initialState,
     applyEvent,
-    wrappedISO.wrapPersisted,
-    wrappedISO.wrapRecovered,
-    wrappedISO.unwrapPersisted,
-    wrappedISO.unwrapRecovered,
+    messageConverter.wrapPersisted,
+    messageConverter.wrapRecovered,
+    messageConverter.unwrapPersisted,
+    messageConverter.unwrapRecovered,
   )
 }

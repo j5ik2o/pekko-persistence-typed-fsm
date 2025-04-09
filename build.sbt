@@ -26,7 +26,7 @@ lazy val root = (project in file("."))
     ),
     idePackagePrefix := Some("com.github.j5ik2o.eff.sm.splitter"),
     libraryDependencies ++= Seq(
-      logback.classic,
+      logback.classic % Test,
       slf4j.api,
       slf4j.julToSlf4J,
       scalatest.scalatest % Test,
