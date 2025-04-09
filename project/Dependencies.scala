@@ -20,6 +20,7 @@ object Dependencies {
     val actorTyped = "org.apache.pekko" %% "pekko-actor-typed" % Version.pekko
     val actorTestKitTyped = "org.apache.pekko" %% "pekko-actor-testkit-typed" % Version.pekko
 
+    val persistence = "org.apache.pekko" %% "pekko-persistence" % Version.pekko
     val persistenceTyped = "org.apache.pekko" %% "pekko-persistence-typed" % Version.pekko
     val persistenceTestkit = "org.apache.pekko" %% "pekko-persistence-testkit" % Version.pekko
 
