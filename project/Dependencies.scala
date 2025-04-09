@@ -27,7 +27,7 @@ object Dependencies {
   }
 
   object logback {
-    val classic = "ch.qos.logback" % "logback-classic" % "1.3.14"
+    val classic = "ch.qos.logback" % "logback-classic" % "1.5.18"
   }
 
   object slf4j {
