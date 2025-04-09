@@ -3,7 +3,7 @@ package com.github.j5ik2o.eff.sm.splitter
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, OptionValues}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -56,7 +56,8 @@ class EffectorSpec
   with AnyWordSpecLike
   with Matchers
   with Eventually
-  with BeforeAndAfterAll {
+  with BeforeAndAfterAll
+  with OptionValues {
 
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 5.seconds, interval = 100.millis)
@@ -79,9 +80,9 @@ class EffectorSpec
       extends TestMessage
       with WrappedRecovered[TestState, TestMessage]
 
-    case EventPersisted(state: TestState, events: Seq[TestEvent])
+    case EventPersisted(events: Seq[TestEvent])
       extends TestMessage
-      with WrappedPersisted[TestState, TestEvent, TestMessage]
+      with WrappedPersisted[TestEvent, TestMessage]
   }
 
   val wrappedISO: WrappedISO[TestState, TestEvent, TestMessage] =
@@ -138,8 +139,8 @@ class EffectorSpec
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
         Effector.create[TestState, TestEvent, TestMessage](config) { case (state, effector) =>
-          effector.persist(event) { (newState, _) =>
-            events += TestMessage.EventPersisted(newState, Seq(event))
+          effector.persist(event) { _ =>
+            events += TestMessage.EventPersisted(Seq(event))
             Behaviors.stopped
           }
         }(using context)
@@ -147,8 +148,7 @@ class EffectorSpec
 
       eventually {
         events.size shouldBe 1
-        val TestMessage.EventPersisted(state, evts) = events.head: @unchecked
-        state.values should contain("test1")
+        val TestMessage.EventPersisted(evts) = events.head: @unchecked
         evts should contain(event)
       }
     }
@@ -174,8 +174,8 @@ class EffectorSpec
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
         Effector.create[TestState, TestEvent, TestMessage](config) { case (state, effector) =>
-          effector.persistAll(initialEvents) { (newState, _) =>
-            events += TestMessage.EventPersisted(newState, initialEvents)
+          effector.persistAll(initialEvents) { _ =>
+            events += TestMessage.EventPersisted(initialEvents)
             Behaviors.stopped
           }
         }(using context)
@@ -183,8 +183,7 @@ class EffectorSpec
 
       eventually {
         events.size shouldBe 1
-        val TestMessage.EventPersisted(state, evts) = events.head: @unchecked
-        state.values should contain.allOf("test1", "2")
+        val TestMessage.EventPersisted(evts) = events.head: @unchecked
         evts should contain.theSameElementsAs(initialEvents)
       }
     }
@@ -211,10 +210,10 @@ class EffectorSpec
       val behavior1 = spawn(Behaviors.setup[TestMessage] { context =>
         Effector.create[TestState, TestEvent, TestMessage](config1) { case (state, effector) =>
           // 最初に1つ目のイベントを永続化
-          effector.persist(event1) { (state1, _) =>
+          effector.persist(event1) { _ =>
             // 次に2つ目のイベントを永続化
-            effector.persist(event2) { (state2, _) =>
-              firstRunEvents += TestMessage.EventPersisted(state2, Seq(event1, event2))
+            effector.persist(event2) { _ =>
+              firstRunEvents += TestMessage.EventPersisted(Seq(event1, event2))
               // イベント永続化完了後にアクターを停止
               Behaviors.stopped
             }
@@ -225,9 +224,7 @@ class EffectorSpec
       // 最初のアクターが処理を完了するまで待機
       eventually {
         firstRunEvents.size shouldBe 1
-        val TestMessage.EventPersisted(state, _) = firstRunEvents.head: @unchecked
-        // 両方のイベントが適用された状態になっていることを確認
-        state.values should contain.allOf("event1", "42")
+        val TestMessage.EventPersisted(_) = firstRunEvents.head: @unchecked
       }
 
       // 2回目のアクター実行で記録される復元された状態

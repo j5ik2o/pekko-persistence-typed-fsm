@@ -4,9 +4,9 @@ final case class EffectorConfig[S, E, M](
   persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
-  wrapPersisted: (S, Seq[E]) => M,
+  wrapPersisted: Seq[E] => M,
   wrapRecovered: S => M,
-  unwrapPersisted: M => Option[(S, Seq[E])],
+  unwrapPersisted: M => Option[Seq[E]],
   unwrapRecovered: M => Option[S],
 )
 
@@ -15,9 +15,9 @@ object EffectorConfig {
     persistenceId: String,
     initialState: S,
     applyEvent: (S, E) => S,
-    wrapPersisted: (S, Seq[E]) => M,
+    wrapPersisted: Seq[E] => M,
     wrapRecovered: S => M,
-    unwrapPersisted: M => Option[(S, Seq[E])],
+    unwrapPersisted: M => Option[Seq[E]],
     unwrapRecovered: M => Option[S]): EffectorConfig[S, E, M] = new EffectorConfig(
     persistenceId,
     initialState,

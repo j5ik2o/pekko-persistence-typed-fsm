@@ -19,9 +19,9 @@ enum BankAccountCommand {
   private case StateRecovered(state: BankAccountAggregate.State)
     extends BankAccountCommand
     with WrappedRecovered[BankAccountAggregate.State, BankAccountCommand]
-  private case EventPersisted(state: BankAccountAggregate.State, events: Seq[BankAccountEvent])
+  private case EventPersisted(events: Seq[BankAccountEvent])
     extends BankAccountCommand
-    with WrappedPersisted[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand]
+    with WrappedPersisted[BankAccountEvent, BankAccountCommand]
 
   def aggregateId: BankAccountId = this match {
     case GetBalance(aggregateId, _) => aggregateId
@@ -30,7 +30,8 @@ enum BankAccountCommand {
     case DepositCash(aggregateId, _, _) => aggregateId
     case WithdrawCash(aggregateId, _, _) => aggregateId
     case StateRecovered(state) => state.aggregateId
-    case EventPersisted(state, _) => state.aggregateId
+    case EventPersisted(_) =>
+      throw new UnsupportedOperationException("EventPersisted does not have aggregateId")
   }
 }
 
