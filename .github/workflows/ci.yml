@@ -58,7 +58,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version:
+          java-version: 17
           cache: 'sbt'
       - uses: sbt/setup-sbt@v1
       - uses: coursier/cache-action@v6
