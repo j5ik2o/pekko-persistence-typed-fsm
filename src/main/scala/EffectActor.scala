@@ -6,7 +6,6 @@ import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.{ActorLogging, Props}
 import org.apache.pekko.persistence.{PersistentActor, RecoveryCompleted}
 
-import scala.collection.mutable.ArrayBuffer
 import scala.compiletime.asMatchable
 
 object EffectActor {
@@ -55,12 +54,12 @@ class EffectActor[S, E, M](
       val typedCmd = cmd.asInstanceOf[PersistAll[S, E]]
       val events = typedCmd.events
       val replyTo = typedCmd.replyTo
-      val _events = ArrayBuffer.empty[E]
+      var counter = 0
       persistAll(events) { evt =>
-        _events += evt
-      }
-      if (_events.nonEmpty) {
-        replyTo ! PersistedAllCompleted(_events.toSeq)
+        counter += 1
+        if (counter == events.size) {
+          replyTo ! PersistedAllCompleted(events)
+        }
       }
     }
   }
