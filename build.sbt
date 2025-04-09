@@ -1,8 +1,25 @@
 import Dependencies.*
 
-ThisBuild / organization := "com.github.j5ik2o"
+ThisBuild / organization := "io.github.j5ik2o"
+ThisBuild / organizationName := "io.github.j5ik2o"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.6.4"
+ThisBuild / homepage := Some(url("https://github.com/j5ik2o/pkko-persistence-typed-fsm"))
+ThisBuild / licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.html"))
+ThisBuild / developers := List(
+  Developer(
+    id = "j5ik2o",
+    name = "Junichi Kato",
+    email = "j5ik2o@gmail.com",
+    url = url("https://blog.j5ik2o.me"),
+  ),
+)
+ThisBuild / scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/j5ik2o/pekko-persistence-dynamodb"),
+    "scm:git@github.com:j5ik2o/pekko-persistence-dynamodb.git",
+  ),
+)
 
 lazy val root = (project in file("."))
   .settings(
