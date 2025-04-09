@@ -48,10 +48,7 @@ final case class EffectorConfig[S, E, M](
   persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
-  wrapPersisted: (Option[S], Seq[E]) => M,
-  wrapRecovered: S => M,
-  unwrapPersisted: M => Option[(Option[S], Seq[E])],
-  unwrapRecovered: M => Option[S]
+  messageConverter: MessageConverter[S, E, M]
 )
 ```
 
