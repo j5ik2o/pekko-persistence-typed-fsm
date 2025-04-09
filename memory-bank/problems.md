@@ -160,10 +160,125 @@ object BankAccountAggregate {
 - この方法ではEventSourcedBehaviorを集約アクターの子アクターとするため、上記の問題を解消できます。
 - 通常のアクタープログラミングの実装方法をそのまま適用可能です。
 - 通常のアクタープログラミングの実装から永続化対応されることが比較的容易です。
-- 実装例では完全なインメモリモードを提供しているので、初期実装を書く上ではAkka Persistence Typedさえ不要になります。
+- 実装例では完全なインメモリモードを提供しているので、初期実装を書く上ではPekko Persistence Typedさえ不要になります。
 
-[BankAccountAggregate](https://github.com/j5ik2o/akka-at-least-once-delivery/blob/main/src/main/scala/example/persistence/styleEffector/BankAccountAggregate.scala)
+```scala
+object BankAccountAggregate {
+  def actorName(aggregateId: BankAccountId): String =
+    s"${aggregateId.aggregateTypeName}-${aggregateId.asString}"
 
+  enum State {
+    def aggregateId: BankAccountId
+    case NotCreated(aggregateId: BankAccountId)
+    case Created(aggregateId: BankAccountId, bankAccount: BankAccount)
+
+    def applyEvent(event: BankAccountEvent): State = (this, event) match {
+      case (State.NotCreated(aggregateId), BankAccountEvent.Created(id, _)) =>
+        Created(id, BankAccount(id))
+      case (State.Created(id, bankAccount), BankAccountEvent.CashDeposited(_, amount, _)) =>
+        bankAccount
+          .add(amount)
+          .fold(
+            error => throw new IllegalStateException(s"Failed to apply event: $error"),
+            result => State.Created(id, result._1),
+          )
+      case (State.Created(id, bankAccount), BankAccountEvent.CashWithdrew(_, amount, _)) =>
+        bankAccount
+          .subtract(amount)
+          .fold(
+            error => throw new IllegalStateException(s"Failed to apply event: $error"),
+            result => State.Created(id, result._1),
+          )
+      case _ =>
+        throw new IllegalStateException(
+          s"Invalid state transition: $this -> $event",
+        )
+    }
+  }
+
+  def apply(
+    aggregateId: BankAccountId,
+  ): Behavior[BankAccountCommand] = {
+    val config = EffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+      persistenceId = actorName(aggregateId),
+      initialState = State.NotCreated(aggregateId),
+      applyEvent = (state, event) => state.applyEvent(event),
+      wrappedISO = BankAccountCommand.wrappedISO,
+    )
+    Behaviors.setup[BankAccountCommand] { implicit ctx =>
+      Effector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+        config,
+      ) {
+        case (initialState: State.NotCreated, effector) =>
+          handleNotCreated(initialState, effector)
+        case (initialState: State.Created, effector) =>
+          handleCreated(initialState, effector)
+      }
+    }
+  }
+
+  private def handleNotCreated(
+    created: BankAccountAggregate.State.NotCreated,
+    effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+    : Behavior[BankAccountCommand] =
+    Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
+      val (_, event) = BankAccount.create(cmd.aggregateId)
+      effector.persist(event) {
+        case (newState: BankAccountAggregate.State.Created, _) =>
+          cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
+          handleCreated(newState, effector)
+        case _ => Behaviors.unhandled
+      }
+    }
+
+  private def handleCreated(
+    state: BankAccountAggregate.State.Created,
+    effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+    : Behavior[BankAccountCommand] =
+    Behaviors.receiveMessagePartial {
+      case BankAccountCommand.Stop(aggregateId, replyTo) =>
+        replyTo ! StopReply.Succeeded(aggregateId)
+        Behaviors.stopped
+      case BankAccountCommand.GetBalance(aggregateId, replyTo) =>
+        replyTo ! GetBalanceReply.Succeeded(aggregateId, state.bankAccount.balance)
+        Behaviors.same
+      case BankAccountCommand.DepositCash(aggregateId, amount, replyTo) =>
+        state.bankAccount
+          .add(amount)
+          .fold(
+            error => {
+              replyTo ! DepositCashReply.Failed(aggregateId, error)
+              Behaviors.same
+            },
+            { case (_, event) =>
+              effector.persist(event) {
+                case (newState: BankAccountAggregate.State.Created, _) =>
+                  replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
+                  handleCreated(newState, effector)
+                case _ => Behaviors.unhandled
+              }
+            },
+          )
+      case BankAccountCommand.WithdrawCash(aggregateId, amount, replyTo) =>
+        state.bankAccount
+          .subtract(amount)
+          .fold(
+            error => {
+              replyTo ! WithdrawCashReply.Failed(aggregateId, error)
+              Behaviors.same
+            },
+            { case (_, event) =>
+              effector.persist(event) {
+                case (newState: BankAccountAggregate.State.Created, _) =>
+                  replyTo ! WithdrawCashReply.Succeeded(aggregateId, amount)
+                  handleCreated(newState, effector)
+                case _ => Behaviors.unhandled
+              }
+            },
+          )
+    }
+}
+```
 
 ## まとめ
 
