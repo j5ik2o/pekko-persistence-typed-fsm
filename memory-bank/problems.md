@@ -197,13 +197,13 @@ object BankAccountAggregate {
   }
 
   def apply(
-    aggregateId: BankAccountId,
-  ): Behavior[BankAccountCommand] = {
+             aggregateId: BankAccountId,
+           ): Behavior[BankAccountCommand] = {
     val config = EffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
       persistenceId = actorName(aggregateId),
       initialState = State.NotCreated(aggregateId),
       applyEvent = (state, event) => state.applyEvent(event),
-      wrappedISO = BankAccountCommand.wrappedISO,
+      messageConverter = BankAccountCommand.messageConverter,
     )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
       Effector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
@@ -218,23 +218,21 @@ object BankAccountAggregate {
   }
 
   private def handleNotCreated(
-    created: BankAccountAggregate.State.NotCreated,
-    effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
-    : Behavior[BankAccountCommand] =
+                                state: BankAccountAggregate.State.NotCreated,
+                                effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+  : Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
-      val (_, event) = BankAccount.create(cmd.aggregateId)
-      effector.persist(event) {
-        case (newState: BankAccountAggregate.State.Created, _) =>
-          cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
-          handleCreated(newState, effector)
-        case _ => Behaviors.unhandled
+      val (bankAccount, event) = BankAccount.create(cmd.aggregateId)
+      effector.persist(event) { _ =>
+        cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
+        handleCreated(State.Created(state.aggregateId, bankAccount), effector)
       }
     }
 
   private def handleCreated(
-    state: BankAccountAggregate.State.Created,
-    effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
-    : Behavior[BankAccountCommand] =
+                             state: BankAccountAggregate.State.Created,
+                             effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+  : Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial {
       case BankAccountCommand.Stop(aggregateId, replyTo) =>
         replyTo ! StopReply.Succeeded(aggregateId)
@@ -250,12 +248,10 @@ object BankAccountAggregate {
               replyTo ! DepositCashReply.Failed(aggregateId, error)
               Behaviors.same
             },
-            { case (_, event) =>
-              effector.persist(event) {
-                case (newState: BankAccountAggregate.State.Created, _) =>
-                  replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
-                  handleCreated(newState, effector)
-                case _ => Behaviors.unhandled
+            { case (newBankAccount, event) =>
+              effector.persist(event) { _ =>
+                replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
+                handleCreated(state.copy(bankAccount = newBankAccount), effector)
               }
             },
           )
@@ -267,12 +263,10 @@ object BankAccountAggregate {
               replyTo ! WithdrawCashReply.Failed(aggregateId, error)
               Behaviors.same
             },
-            { case (_, event) =>
-              effector.persist(event) {
-                case (newState: BankAccountAggregate.State.Created, _) =>
-                  replyTo ! WithdrawCashReply.Succeeded(aggregateId, amount)
-                  handleCreated(newState, effector)
-                case _ => Behaviors.unhandled
+            { case (newBankAccount, event) =>
+              effector.persist(event) { _ =>
+                replyTo ! WithdrawCashReply.Succeeded(aggregateId, amount)
+                handleCreated(state.copy(bankAccount = newBankAccount), effector)
               }
             },
           )
