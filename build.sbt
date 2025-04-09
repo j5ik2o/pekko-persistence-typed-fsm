@@ -6,7 +6,7 @@ ThisBuild / scalaVersion := "3.6.4"
 
 lazy val root = (project in file("."))
   .settings(
-    name := "eff-sm-splitter",
+    name := "pekko-persistence-typed-fsm",
     scalacOptions ++= Seq(
       "-encoding",
       "utf8", // ソースファイルの文字コード指定

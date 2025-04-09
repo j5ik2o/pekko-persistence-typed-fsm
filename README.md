@@ -55,14 +55,14 @@ final case class EffectorConfig[S, E, M](
 )
 ```
 
-### WrappedISO
+### MessageConverter
 
 A trait that defines the conversions between state (S), event (E), and message (M).
 
 ```scala
-trait WrappedISO[S, E, M <: Matchable] {
-  def wrapPersisted(state: Option[S], events: Seq[E]): M & WrappedPersisted[S, E, M]
-  def wrapRecovered(state: S): M & WrappedRecovered[S, M]
+trait MessageConverter[S, E, M <: Matchable] {
+  def wrapPersisted(events: Seq[E]): M & PersistedEvent[E, M]
+  def wrapRecovered(state: S): M & RecoveredState[S, M]
   // ...
 }
 ```
@@ -85,7 +85,7 @@ val config = EffectorConfig[State, Event, Command](
   persistenceId = entityId.toString,
   initialState = State.NotCreated(entityId),
   applyEvent = (state, event) => state.applyEvent(event),
-  wrappedISO = Command.wrappedISO  // Or specify individual conversion functions
+  messageConverter = Command.messageConverter  // Or specify individual conversion functions
 )
 
 // 3. Create an actor using Effector

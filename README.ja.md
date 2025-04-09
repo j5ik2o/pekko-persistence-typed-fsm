@@ -55,14 +55,14 @@ final case class EffectorConfig[S, E, M](
 )
 ```
 
-### WrappedISO
+### MessageConverter
 
 状態(S)、イベント(E)、メッセージ(M)間の相互変換を定義するトレイトです。
 
 ```scala
-trait WrappedISO[S, E, M <: Matchable] {
-  def wrapPersisted(state: Option[S], events: Seq[E]): M & WrappedPersisted[S, E, M]
-  def wrapRecovered(state: S): M & WrappedRecovered[S, M]
+trait MessageConverter[S, E, M <: Matchable] {
+  def wrapPersisted(events: Seq[E]): M & PersistedEvent[E, M]
+  def wrapRecovered(state: S): M & RecoveredState[S, M]
   // ...
 }
 ```
@@ -85,7 +85,7 @@ val config = EffectorConfig[State, Event, Command](
   persistenceId = entityId.toString,
   initialState = State.NotCreated(entityId),
   applyEvent = (state, event) => state.applyEvent(event),
-  wrappedISO = Command.wrappedISO  // または個別の変換関数を指定
+  messageConverter = Command.messageConverter  // または個別の変換関数を指定
 )
 
 // 3. Effector を使用したアクターを作成
