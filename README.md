@@ -24,7 +24,7 @@ Traditional Pekko Persistence Typed has the following issues:
 2. **Reduced Maintainability with Complex State Transitions**: Code maintainability decreases due to complex match/case statements
 3. **Double Execution of Domain Logic**: Domain logic is executed in both command handlers and event handlers
 
-This library solves these problems by implementing "EventSourcedBehavior as a child actor of the aggregate actor."
+This library solves these problems by implementing "Persistent Actor as a child actor of the aggregate actor."
 
 ## Main Components
 
