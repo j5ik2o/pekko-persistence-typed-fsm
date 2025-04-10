@@ -90,7 +90,7 @@ final class EventStoreActor[S, E, M](
           }
         }
       case cmd: PersistSnapshot[?, ?] =>
-        log.debug("SaveSnapshot: {}", cmd)
+        log.debug("PersistSnapshot: {}", cmd)
         val typedCmd = cmd.asInstanceOf[PersistSnapshot[S, E]]
         val snapshot = typedCmd.snapshot
         val replyTo = typedCmd.replyTo

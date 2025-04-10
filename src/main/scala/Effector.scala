@@ -8,7 +8,7 @@ import org.apache.pekko.actor.typed.scaladsl.adapter.*
 trait Effector[S, E, M] {
   def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
   def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
-  def persistSnapshot(snapshot: S)(onSaved: S => Behavior[M]): Behavior[M]
+  def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M]
 }
 
 object Effector {
@@ -85,14 +85,15 @@ object Effector {
                 }
               }
 
-              override def persistSnapshot(snapshot: S)(onSaved: S => Behavior[M]): Behavior[M] = {
+              override def persistSnapshot(snapshot: S)(
+                onPersisted: S => Behavior[M]): Behavior[M] = {
                 ctx.log.debug("Persisted snapshot: {}", snapshot)
                 persistenceRef ! PersistSnapshot(snapshot, adapter)
                 Behaviors.receiveMessagePartial {
                   case msg if unwrapPersistedSnapshot(msg).isDefined =>
                     ctx.log.debug("Persisted snapshot: {}", msg)
                     val state = unwrapPersistedSnapshot(msg).get
-                    stashBuffer.unstashAll(onSaved(state))
+                    stashBuffer.unstashAll(onPersisted(state))
                   case other =>
                     ctx.log.debug("Stashing message: {}", other)
                     stashBuffer.stash(other)
