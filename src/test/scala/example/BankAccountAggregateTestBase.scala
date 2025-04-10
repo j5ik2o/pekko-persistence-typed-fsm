@@ -29,11 +29,9 @@ object BankAccountAggregateTestBase {
       |  }
       |  persistence {
       |    journal {
-      |      plugin = "pekko.persistence.journal.inmem"
-      |      inmem {
-      |        class = "org.apache.pekko.persistence.journal.inmem.InmemJournal"
-      |        plugin-dispatcher = "pekko.actor.default-dispatcher"
-      |      }
+      |      plugin = "pekko.persistence.journal.leveldb"
+      |      leveldb.dir = "target/journal"
+      |      leveldb.native = false
       |    }
       |    snapshot-store {
       |      plugin = "pekko.persistence.snapshot-store.local"

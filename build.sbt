@@ -52,7 +52,17 @@ lazy val root = (project in file("."))
       scalatest.scalatest % Test,
       apachePekko.actorTestKitTyped % Test,
       apachePekko.serializationJackson % Test,
+      "org.iq80.leveldb" % "leveldb" % "0.12" % Test,
+      "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8" % Test,
     ),
+    // IntelliJでのテスト実行時にLevelDBの依存関係が確実に含まれるようにする
+    Compile / unmanagedClasspath += baseDirectory.value / "target" / "scala-3.6.4" / "test-classes",
+    Test / testOptions += Tests.Setup(() => {
+      val journalDir = new java.io.File("target/journal")
+      val snapshotDir = new java.io.File("target/snapshot")
+      if (!journalDir.exists()) journalDir.mkdirs()
+      if (!snapshotDir.exists()) snapshotDir.mkdirs()
+    }),
     semanticdbEnabled := true,
     semanticdbVersion := scalafixSemanticdb.revision,
     Test / fork := true,

@@ -11,6 +11,34 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
 
+// テスト用のイベント、状態、メッセージの定義をトップレベルで定義
+// これによりテストクラスからの不要な参照を防ぎます
+enum TestEvent {
+  case TestEventA(value: String)
+  case TestEventB(value: Int)
+}
+
+case class TestState(values: Vector[String] = Vector.empty) {
+  def applyEvent(event: TestEvent): TestState = event match {
+    case TestEvent.TestEventA(value) => copy(values = values :+ value)
+    case TestEvent.TestEventB(value) => copy(values = values :+ value.toString)
+  }
+}
+
+enum TestMessage {
+  case StateRecovered(state: TestState)
+    extends TestMessage
+    with RecoveredState[TestState, TestMessage]
+
+  case SnapshotPersisted(state: TestState)
+    extends TestMessage
+    with PersistedState[TestState, TestMessage]
+
+  case EventPersisted(events: Seq[TestEvent])
+    extends TestMessage
+    with PersistedEvent[TestEvent, TestMessage]
+}
+
 object PersistenceEffectorTestBase {
   val config: Config = ConfigFactory
     .parseString("""
@@ -29,11 +57,9 @@ object PersistenceEffectorTestBase {
                    |  }
                    |  persistence {
                    |    journal {
-                   |      plugin = "pekko.persistence.journal.inmem"
-                   |      inmem {
-                   |        class = "org.apache.pekko.persistence.journal.inmem.InmemJournal"
-                   |        plugin-dispatcher = "pekko.actor.default-dispatcher"
-                   |      }
+                   |      plugin = "pekko.persistence.journal.leveldb"
+                   |      leveldb.dir = "target/journal"
+                   |      leveldb.native = false
                    |    }
                    |    snapshot-store {
                    |      plugin = "pekko.persistence.snapshot-store.local"
@@ -69,33 +95,6 @@ abstract class PersistenceEffectorTestBase
 
   // サブクラスで実装するメソッド - テスト対象のPersistenceMode
   def persistenceMode: PersistenceMode
-
-  // テスト用のイベント、状態、メッセージの定義
-  enum TestEvent {
-    case TestEventA(value: String)
-    case TestEventB(value: Int)
-  }
-
-  case class TestState(values: Vector[String] = Vector.empty) {
-    def applyEvent(event: TestEvent): TestState = event match {
-      case TestEvent.TestEventA(value) => copy(values = values :+ value)
-      case TestEvent.TestEventB(value) => copy(values = values :+ value.toString)
-    }
-  }
-
-  enum TestMessage {
-    case StateRecovered(state: TestState)
-      extends TestMessage
-      with RecoveredState[TestState, TestMessage]
-
-    case SnapshotPersisted(state: TestState)
-      extends TestMessage
-      with PersistedState[TestState, TestMessage]
-
-    case EventPersisted(events: Seq[TestEvent])
-      extends TestMessage
-      with PersistedEvent[TestEvent, TestMessage]
-  }
 
   val messageConverter: MessageConverter[TestState, TestEvent, TestMessage] =
     MessageConverter[TestState, TestEvent, TestMessage](
