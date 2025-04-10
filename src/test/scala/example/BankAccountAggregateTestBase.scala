@@ -10,6 +10,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration.*
 import java.util.UUID
+import org.apache.pekko.actor.typed.Behavior
 
 object BankAccountAggregateTestBase {
   val config: Config = ConfigFactory.parseString("""
@@ -68,7 +69,7 @@ abstract class BankAccountAggregateTestBase
   def persistenceMode: PersistenceMode
 
   // BankAccountAggregateを生成するヘルパーメソッド
-  def createBankAccountAggregate(accountId: BankAccountId) =
+  def createBankAccountAggregate(accountId: BankAccountId): Behavior[BankAccountCommand] =
     BankAccountAggregate(accountId, persistenceMode)
 
   s"BankAccountAggregate with ${persistenceMode} mode" should {
