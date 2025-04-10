@@ -37,7 +37,7 @@ private[effector] object InMemoryEventStore {
 
   def getLatestSnapshot[S](id: String): Option[S] =
     snapshots.get(id).map(_.asInstanceOf[S])
-  
+
   // スナップショット後のイベントのみを取得
   def getEventsAfterSnapshot[E](id: String): Vector[E] = {
     val allEvents = getEvents[E](id)

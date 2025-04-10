@@ -12,7 +12,6 @@ import PersistenceStoreActor.{
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.{ActorLogging, Props}
 import org.apache.pekko.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
-import org.slf4j.LoggerFactory
 
 import scala.compiletime.asMatchable
 
