@@ -48,6 +48,26 @@ trait PersistenceEffector[S, E, M] {
 }
 ```
 
+### InMemoryEffector
+
+An implementation of PersistenceEffector that stores events and snapshots in memory.
+
+```scala
+final class InMemoryEffector[S, E, M](
+  ctx: ActorContext[M],
+  stashBuffer: StashBuffer[M],
+  config: PersistenceEffectorConfig[S, E, M],
+) extends PersistenceEffector[S, E, M]
+```
+
+- **Key features**:
+  - In-memory storage of events and snapshots using the singleton `InMemoryEventStore`
+  - Events and snapshots are stored in memory, allowing for fast development without database setup
+  - State restoration from saved events during actor initialization
+  - Immediate persistence without the latency of actual database operations
+  - Perfect for development, testing, and prototyping phases
+  - Provides a seamless path to migrate to actual persistence later
+
 ### PersistenceEffectorConfig
 
 A case class that defines the configuration for PersistenceEffector.

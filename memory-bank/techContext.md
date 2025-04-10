@@ -122,7 +122,7 @@ trait RecoveredState[S, M]
 ## イベント永続化の内部実装
 
 1. **イベント永続化の流れ**:
-   - 集約アクターがPersistenceEffectorのpersistEvent/persistEventsメソッドを呼び出し
+   - 集約アクターがPersistenceEffectorのpersistEvent/persistEvents/persistSnapshotメソッドを呼び出し
    - 内部子アクター（Untyped PersistentActor）がイベントを処理
    - アダプタを通じて永続化完了通知を受け取り
    - コールバック関数を実行して新しいBehaviorを返却

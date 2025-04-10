@@ -162,6 +162,34 @@ object BankAccountAggregate {
 - 通常のアクタープログラミングの実装から永続化対応されることが比較的容易です。
 - 実装例では完全なインメモリモードを提供しているので、初期実装を書く上ではPekko Persistence Typedさえ不要になります。
 
+### InMemoryEffectorについて
+
+このライブラリの特長的な機能として、`InMemoryEffector`があります。これは`PersistenceEffector`の実装の一つで、イベントとスナップショットをメモリ内に保存します。
+
+```scala
+final class InMemoryEffector[S, E, M](
+  ctx: ActorContext[M],
+  stashBuffer: StashBuffer[M],
+  config: PersistenceEffectorConfig[S, E, M],
+) extends PersistenceEffector[S, E, M]
+```
+
+#### 主な特徴
+- シングルトンの`InMemoryEventStore`を使用してイベントとスナップショットをメモリに保存します
+- データベース設定なしで開発やテストを素早く行えます
+- アクター初期化時に保存されたイベントから状態を自動的に復元します
+- 実際のデータベース操作のような遅延なしで即時に永続化処理を行います
+
+#### 開発ワークフローの改善
+
+`InMemoryEffector`を使用することで、次のような開発ワークフローが可能になります：
+
+1. 最初はインメモリモードで開発を開始し、ビジネスロジックに集中
+2. ユニットテストを実装し、機能を検証
+3. アプリケーションが成熟した段階で、実際の永続化を設定
+
+このアプローチにより、開発初期段階ではデータベースの設定や永続化の詳細について考慮する必要がなく、ビジネスロジックの実装に集中できます。また、テストも高速に実行できるため、開発サイクルを短縮できます。
+
 ```scala
 object BankAccountAggregate {
   def actorName(aggregateId: BankAccountId): String =
