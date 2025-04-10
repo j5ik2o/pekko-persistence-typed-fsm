@@ -1,6 +1,6 @@
 package com.github.j5ik2o.pekko.persistence.typed.fsm
 
-import EventStoreActor.{
+import PersistenceStoreActor.{
   EventSequencePersisted,
   PersistEventSequence,
   PersistSingleEvent,
@@ -16,23 +16,23 @@ import org.apache.pekko.persistence.{PersistentActor, RecoveryCompleted}
 
 import scala.compiletime.asMatchable
 
-object EventStoreActor {
-  trait EventPersistenceCommand[S, E]
-  trait EventPersistenceReply[S, E]
+object PersistenceStoreActor {
+  trait PersistenceCommand[S, E]
+  trait PersistenceReply[S, E]
 
   final case class PersistSingleEvent[S, E](event: E, replyTo: ActorRef[SingleEventPersisted[S, E]])
-    extends EventPersistenceCommand[S, E]
-  final case class SingleEventPersisted[S, E](event: E) extends EventPersistenceReply[S, E]
+    extends PersistenceCommand[S, E]
+  final case class SingleEventPersisted[S, E](event: E) extends PersistenceReply[S, E]
 
   final case class PersistEventSequence[S, E](
     events: Seq[E],
     replyTo: ActorRef[EventSequencePersisted[S, E]],
-  ) extends EventPersistenceCommand[S, E]
-  final case class EventSequencePersisted[S, E](events: Seq[E]) extends EventPersistenceReply[S, E]
+  ) extends PersistenceCommand[S, E]
+  final case class EventSequencePersisted[S, E](events: Seq[E]) extends PersistenceReply[S, E]
 
   final case class PersistSnapshot[S, E](snapshot: S, replyTo: ActorRef[SnapshotPersisted[S, E]])
-    extends EventPersistenceCommand[S, E]
-  final case class SnapshotPersisted[S, E](snapshot: S) extends EventPersistenceReply[S, E]
+    extends PersistenceCommand[S, E]
+  final case class SnapshotPersisted[S, E](snapshot: S) extends PersistenceReply[S, E]
 
   final case class RecoveryDone[S](state: S)
 
@@ -42,10 +42,10 @@ object EventStoreActor {
     applyEvent: (S, E) => S,
     recoveryActorRef: ActorRef[RecoveryDone[S]],
   ): Props = Props(
-    new EventStoreActor[S, E, M](persistenceId, initialState, applyEvent, recoveryActorRef))
+    new PersistenceStoreActor[S, E, M](persistenceId, initialState, applyEvent, recoveryActorRef))
 }
 
-final class EventStoreActor[S, E, M](
+final class PersistenceStoreActor[S, E, M](
   override val persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,

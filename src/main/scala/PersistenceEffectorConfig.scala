@@ -1,6 +1,6 @@
 package com.github.j5ik2o.pekko.persistence.typed.fsm
 
-final case class EffectorConfig[S, E, M](
+final case class PersistenceEffectorConfig[S, E, M](
   persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
@@ -13,7 +13,7 @@ final case class EffectorConfig[S, E, M](
   stashSize: Int = 32,
 )
 
-object EffectorConfig {
+object PersistenceEffectorConfig {
   def apply[S, E, M](
     persistenceId: String,
     initialState: S,
@@ -23,23 +23,24 @@ object EffectorConfig {
     wrapRecoveredState: S => M,
     unwrapPersistedEvents: M => Option[Seq[E]],
     unwrapPersistedSnapshot: M => Option[S],
-    unwrapRecoveredState: M => Option[S]): EffectorConfig[S, E, M] = new EffectorConfig(
-    persistenceId,
-    initialState,
-    applyEvent,
-    wrapPersistedEvents,
-    wrapPersistedSnapshot,
-    wrapRecoveredState,
-    unwrapPersistedEvents,
-    unwrapPersistedSnapshot,
-    unwrapRecoveredState,
-  )
+    unwrapRecoveredState: M => Option[S]): PersistenceEffectorConfig[S, E, M] =
+    new PersistenceEffectorConfig(
+      persistenceId,
+      initialState,
+      applyEvent,
+      wrapPersistedEvents,
+      wrapPersistedSnapshot,
+      wrapRecoveredState,
+      unwrapPersistedEvents,
+      unwrapPersistedSnapshot,
+      unwrapRecoveredState,
+    )
 
   def apply[S, E, M <: Matchable](
     persistenceId: String,
     initialState: S,
     applyEvent: (S, E) => S,
-    messageConverter: MessageConverter[S, E, M]): EffectorConfig[S, E, M] = apply(
+    messageConverter: MessageConverter[S, E, M]): PersistenceEffectorConfig[S, E, M] = apply(
     persistenceId,
     initialState,
     applyEvent,

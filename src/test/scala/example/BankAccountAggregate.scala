@@ -40,14 +40,15 @@ object BankAccountAggregate {
   def apply(
     aggregateId: BankAccountId,
   ): Behavior[BankAccountCommand] = {
-    val config = EffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
-      persistenceId = actorName(aggregateId),
-      initialState = State.NotCreated(aggregateId),
-      applyEvent = (state, event) => state.applyEvent(event),
-      messageConverter = BankAccountCommand.messageConverter,
-    )
+    val config =
+      PersistenceEffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+        persistenceId = actorName(aggregateId),
+        initialState = State.NotCreated(aggregateId),
+        applyEvent = (state, event) => state.applyEvent(event),
+        messageConverter = BankAccountCommand.messageConverter,
+      )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
-      Effector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+      PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
         config,
       ) {
         case (initialState: State.NotCreated, effector) =>
@@ -60,7 +61,7 @@ object BankAccountAggregate {
 
   private def handleNotCreated(
     state: BankAccountAggregate.State.NotCreated,
-    effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+    effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
     : Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
       val (bankAccount, event) = BankAccount.create(cmd.aggregateId)
@@ -72,7 +73,7 @@ object BankAccountAggregate {
 
   private def handleCreated(
     state: BankAccountAggregate.State.Created,
-    effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+    effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
     : Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial {
       case BankAccountCommand.Stop(aggregateId, replyTo) =>

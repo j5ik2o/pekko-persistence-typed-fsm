@@ -102,7 +102,7 @@ class EffectorSpec
       val persistenceId = s"test-recovery-${java.util.UUID.randomUUID()}"
       val initialState = TestState()
 
-      val config = EffectorConfig[TestState, TestEvent, TestMessage](
+      val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
@@ -114,11 +114,12 @@ class EffectorSpec
       val probe = createTestProbe[TestMessage]()
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        Effector.create[TestState, TestEvent, TestMessage](config) { case (state, effector) =>
-          recoveredEvents += TestMessage.StateRecovered(state)
-          Behaviors.receiveMessage { _ =>
-            Behaviors.same
-          }
+        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+          case (state, effector) =>
+            recoveredEvents += TestMessage.StateRecovered(state)
+            Behaviors.receiveMessage { _ =>
+              Behaviors.same
+            }
         }(using context)
       })
 
@@ -135,7 +136,7 @@ class EffectorSpec
 
       val events = ArrayBuffer.empty[TestMessage]
 
-      val config = EffectorConfig[TestState, TestEvent, TestMessage](
+      val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
@@ -145,11 +146,12 @@ class EffectorSpec
       val probe = createTestProbe[TestMessage]()
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        Effector.create[TestState, TestEvent, TestMessage](config) { case (state, effector) =>
-          effector.persistEvent(event) { _ =>
-            events += TestMessage.EventPersisted(Seq(event))
-            Behaviors.stopped
-          }
+        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+          case (state, effector) =>
+            effector.persistEvent(event) { _ =>
+              events += TestMessage.EventPersisted(Seq(event))
+              Behaviors.stopped
+            }
         }(using context)
       })
 
@@ -167,7 +169,7 @@ class EffectorSpec
 
       val events = ArrayBuffer.empty[TestMessage]
 
-      val config = EffectorConfig[TestState, TestEvent, TestMessage](
+      val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
@@ -182,11 +184,12 @@ class EffectorSpec
       val probe = createTestProbe[TestMessage]()
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        Effector.create[TestState, TestEvent, TestMessage](config) { case (state, effector) =>
-          effector.persistEvents(initialEvents) { _ =>
-            events += TestMessage.EventPersisted(initialEvents)
-            Behaviors.stopped
-          }
+        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+          case (state, effector) =>
+            effector.persistEvents(initialEvents) { _ =>
+              events += TestMessage.EventPersisted(initialEvents)
+              Behaviors.stopped
+            }
         }(using context)
       })
 
@@ -208,7 +211,7 @@ class EffectorSpec
       val firstRunEvents = ArrayBuffer.empty[TestMessage]
 
       // 1回目の設定
-      val config1 = EffectorConfig[TestState, TestEvent, TestMessage](
+      val config1 = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
@@ -217,16 +220,17 @@ class EffectorSpec
 
       // 1回目のアクターを実行してイベントを永続化
       val behavior1 = spawn(Behaviors.setup[TestMessage] { context =>
-        Effector.create[TestState, TestEvent, TestMessage](config1) { case (state, effector) =>
-          // 最初に1つ目のイベントを永続化
-          effector.persistEvent(event1) { _ =>
-            // 次に2つ目のイベントを永続化
-            effector.persistEvent(event2) { _ =>
-              firstRunEvents += TestMessage.EventPersisted(Seq(event1, event2))
-              // イベント永続化完了後にアクターを停止
-              Behaviors.stopped
+        PersistenceEffector.create[TestState, TestEvent, TestMessage](config1) {
+          case (state, effector) =>
+            // 最初に1つ目のイベントを永続化
+            effector.persistEvent(event1) { _ =>
+              // 次に2つ目のイベントを永続化
+              effector.persistEvent(event2) { _ =>
+                firstRunEvents += TestMessage.EventPersisted(Seq(event1, event2))
+                // イベント永続化完了後にアクターを停止
+                Behaviors.stopped
+              }
             }
-          }
         }(using context)
       })
 
@@ -240,7 +244,7 @@ class EffectorSpec
       val secondRunRecoveredState = ArrayBuffer.empty[TestState]
 
       // 2回目の設定（同じpersistenceIDを使用）
-      val config2 = EffectorConfig[TestState, TestEvent, TestMessage](
+      val config2 = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
         persistenceId = persistenceId,
         initialState = initialState, // 初期状態は同じものを渡すが、復元されるはず
         applyEvent = (state, event) => state.applyEvent(event),
@@ -252,14 +256,15 @@ class EffectorSpec
 
       // 2回目のアクターを実行（同じID）
       val behavior2 = spawn(Behaviors.setup[TestMessage] { context =>
-        Effector.create[TestState, TestEvent, TestMessage](config2) { case (state, effector) =>
-          // 復元された状態を記録
-          secondRunRecoveredState += state
-          // プローブにメッセージを送信して状態を通知
-          probe2.ref ! TestMessage.StateRecovered(state)
-          Behaviors.receiveMessage { _ =>
-            Behaviors.same
-          }
+        PersistenceEffector.create[TestState, TestEvent, TestMessage](config2) {
+          case (state, effector) =>
+            // 復元された状態を記録
+            secondRunRecoveredState += state
+            // プローブにメッセージを送信して状態を通知
+            probe2.ref ! TestMessage.StateRecovered(state)
+            Behaviors.receiveMessage { _ =>
+              Behaviors.same
+            }
         }(using context)
       })
 

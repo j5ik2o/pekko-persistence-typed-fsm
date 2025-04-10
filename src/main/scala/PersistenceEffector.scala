@@ -1,27 +1,27 @@
 package com.github.j5ik2o.pekko.persistence.typed.fsm
 
-import EventStoreActor.*
+import PersistenceStoreActor.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 
-trait Effector[S, E, M] {
+trait PersistenceEffector[S, E, M] {
   def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
   def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
   def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M]
 }
 
-object Effector {
+object PersistenceEffector {
   def create[S, E, M <: Matchable](
     persistenceId: String,
     initialState: S,
     applyEvent: (S, E) => S,
     messageConverter: MessageConverter[S, E, M],
-  )(onReady: PartialFunction[(S, Effector[S, E, M]), Behavior[M]])(using
+  )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] =
     create(
-      EffectorConfig(
+      PersistenceEffectorConfig(
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = applyEvent,
@@ -29,8 +29,8 @@ object Effector {
       ))(onReady)
 
   def create[S, E, M](
-    config: EffectorConfig[S, E, M],
-  )(onReady: PartialFunction[(S, Effector[S, E, M]), Behavior[M]])(using
+    config: PersistenceEffectorConfig[S, E, M],
+  )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] = {
     import config.*
@@ -42,7 +42,7 @@ object Effector {
         applyEvent,
         context.messageAdapter[RecoveryDone[S]](rd => wrapRecoveredState(rd.state)))
 
-    val adapter = context.messageAdapter[EventPersistenceReply[S, E]] {
+    val adapter = context.messageAdapter[PersistenceReply[S, E]] {
       case SingleEventPersisted(event) => wrapPersistedEvents(Seq(event))
       case EventSequencePersisted(events) => wrapPersistedEvents(events)
       case SnapshotPersisted(snapshot) => wrapPersistedSnapshot(snapshot)
@@ -53,7 +53,7 @@ object Effector {
         Behaviors.receivePartial {
           case (ctx, msg) if unwrapRecoveredState(msg).isDefined =>
             val state = unwrapRecoveredState(msg).get
-            val effector = new Effector[S, E, M] {
+            val effector = new PersistenceEffector[S, E, M] {
               override def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M] = {
                 ctx.log.debug("Persisting event: {}", event)
                 persistenceRef ! PersistSingleEvent(event, adapter)
@@ -120,14 +120,14 @@ object Effector {
     recoveryAdapter: ActorRef[RecoveryDone[S]]) =
     context
       .actorOf(
-        EventStoreActor.props(
+        PersistenceStoreActor.props(
           persistenceId,
           initialState,
           applyEvent,
           recoveryAdapter,
         ),
         s"effector-$persistenceId")
-      .toTyped[EventPersistenceCommand[S, E]]
+      .toTyped[PersistenceCommand[S, E]]
 
   //  private def spawnPersistenceBehavior[M, E, S](
 //    persistenceId: String,
