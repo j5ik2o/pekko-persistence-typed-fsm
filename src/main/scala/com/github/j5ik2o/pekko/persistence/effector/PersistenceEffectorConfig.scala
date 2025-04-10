@@ -17,7 +17,6 @@ final case class PersistenceEffectorConfig[S, E, M](
 )
 
 object PersistenceEffectorConfig {
-  
 
   def applyWithMessageConverter[S, E, M <: Matchable](
     persistenceId: String,
