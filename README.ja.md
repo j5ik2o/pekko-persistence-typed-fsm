@@ -142,7 +142,16 @@ private def handleCreated(
   }
 ```
 
-より詳細な実装例については、[BankAccountAggregate](src/test/scala/example/BankAccountAggregate.scala) を参照してください。
+## サンプルコードファイル
+
+より詳細な実装例については、以下のファイルを参照してください：
+
+- [BankAccountAggregate](src/test/scala/example/BankAccountAggregate.scala) - Effectorを使用したメイン集約実装
+- [BankAccount](src/test/scala/example/BankAccount.scala) - 銀行口座のドメインモデル
+- [BankAccountCommand](src/test/scala/example/BankAccountCommand.scala) - 集約へのコマンド
+- [BankAccountEvent](src/test/scala/example/BankAccountEvent.scala) - 集約から生成されるイベント
+- [BankAccountId](src/test/scala/example/BankAccountId.scala) - 銀行口座の識別子
+- [Money](src/test/scala/example/Money.scala) - 金額を表す値オブジェクト
 
 ## インストール方法
 

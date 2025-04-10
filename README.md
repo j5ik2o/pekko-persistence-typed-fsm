@@ -142,7 +142,16 @@ private def handleCreated(
   }
 ```
 
-For more detailed implementation examples, see [BankAccountAggregate](src/test/scala/example/BankAccountAggregate.scala).
+## Example Code Files
+
+For more detailed implementation examples, see the following files:
+
+- [BankAccountAggregate](src/test/scala/example/BankAccountAggregate.scala) - Main aggregate implementation using Effector
+- [BankAccount](src/test/scala/example/BankAccount.scala) - Domain model for bank account
+- [BankAccountCommand](src/test/scala/example/BankAccountCommand.scala) - Commands for the aggregate
+- [BankAccountEvent](src/test/scala/example/BankAccountEvent.scala) - Events produced by the aggregate
+- [BankAccountId](src/test/scala/example/BankAccountId.scala) - Identifier for bank accounts
+- [Money](src/test/scala/example/Money.scala) - Value object representing monetary values
 
 ## Installation
 
