@@ -64,7 +64,7 @@ object BankAccountAggregate {
     effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
     : Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
-      val (bankAccount, event) = BankAccount.create(cmd.aggregateId)
+      val Result(bankAccount, event) = BankAccount.create(cmd.aggregateId)
       effector.persistEvent(event) { _ =>
         cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
         handleCreated(State.Created(state.aggregateId, bankAccount), effector)
@@ -90,7 +90,7 @@ object BankAccountAggregate {
               replyTo ! DepositCashReply.Failed(aggregateId, error)
               Behaviors.same
             },
-            { case (newBankAccount, event) =>
+            { case Result(newBankAccount, event) =>
               effector.persistEvent(event) { _ =>
                 replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
                 handleCreated(state.copy(bankAccount = newBankAccount), effector)
@@ -105,7 +105,7 @@ object BankAccountAggregate {
               replyTo ! WithdrawCashReply.Failed(aggregateId, error)
               Behaviors.same
             },
-            { case (newBankAccount, event) =>
+            { case Result(newBankAccount, event) =>
               effector.persistEvent(event) { _ =>
                 replyTo ! WithdrawCashReply.Succeeded(aggregateId, amount)
                 handleCreated(state.copy(bankAccount = newBankAccount), effector)
