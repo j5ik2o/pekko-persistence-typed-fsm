@@ -70,8 +70,8 @@ final class InMemoryEffector[S, E, M](
     // イベントをメモリに保存
     InMemoryEventStore.addEvent(persistenceId, event)
 
-    // 状態を更新
-    currentState = applyEvent(currentState, event)
+    // 注: ここでapplyEventを使って状態を更新しない
+    // 状態更新はすでにコマンドハンドラ内で行われている
 
     // コールバックを即時実行（永続化待ちがない）
     val behavior = onPersisted(event)
@@ -90,8 +90,8 @@ final class InMemoryEffector[S, E, M](
     // イベントをメモリに保存
     InMemoryEventStore.addEvents(persistenceId, events)
 
-    // 状態を更新
-    events.foreach(event => currentState = applyEvent(currentState, event))
+    // 注: ここでapplyEventを使って状態を更新しない
+    // 状態更新はすでにコマンドハンドラ内で行われている
 
     // コールバックを即時実行
     val behavior = onPersisted(events)
@@ -110,7 +110,7 @@ final class InMemoryEffector[S, E, M](
     // スナップショットをメモリに保存
     InMemoryEventStore.saveSnapshot(persistenceId, snapshot)
 
-    // 状態を更新
+    // 状態を更新（スナップショットの場合は直接更新する）
     currentState = snapshot
 
     // コールバックを即時実行

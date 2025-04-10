@@ -17,6 +17,7 @@ object PersistenceEffector {
     initialState: S,
     applyEvent: (S, E) => S,
     messageConverter: MessageConverter[S, E, M],
+    stashSize: Int = 32,
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] =
@@ -27,7 +28,7 @@ object PersistenceEffector {
         applyEvent = applyEvent,
         messageConverter = messageConverter,
         persistenceMode = PersistenceMode.Persisted,
-        stashSize = 32,
+        stashSize = stashSize,
       ))(onReady)
 
   def create[S, E, M](
@@ -43,6 +44,7 @@ object PersistenceEffector {
     initialState: S,
     applyEvent: (S, E) => S,
     messageConverter: MessageConverter[S, E, M],
+    stashSize: Int = 32,
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] = {
@@ -53,7 +55,7 @@ object PersistenceEffector {
       applyEvent = applyEvent,
       messageConverter = messageConverter,
       persistenceMode = PersistenceMode.InMemory,
-      stashSize = 32,
+      stashSize = stashSize,
     )
 
     createWithMode(config, PersistenceMode.InMemory)(onReady)

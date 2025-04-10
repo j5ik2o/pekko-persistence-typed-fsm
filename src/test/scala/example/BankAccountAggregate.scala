@@ -39,6 +39,7 @@ object BankAccountAggregate {
 
   def apply(
     aggregateId: BankAccountId,
+    persistenceMode: PersistenceMode = PersistenceMode.Persisted,
   ): Behavior[BankAccountCommand] = {
     val config =
       PersistenceEffectorConfig.applyWithMessageConverter[
@@ -49,7 +50,7 @@ object BankAccountAggregate {
         initialState = State.NotCreated(aggregateId),
         applyEvent = (state, event) => state.applyEvent(event),
         messageConverter = BankAccountCommand.messageConverter,
-        persistenceMode = PersistenceMode.Persisted,
+        persistenceMode = persistenceMode,
         stashSize = 32,
       )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
