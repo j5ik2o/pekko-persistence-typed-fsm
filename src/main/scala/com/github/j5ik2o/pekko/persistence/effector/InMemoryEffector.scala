@@ -7,14 +7,21 @@ import org.apache.pekko.actor.typed.Behavior
  * インメモリのイベントとスナップショットを格納するためのシングルトンオブジェクト
  */
 private[effector] object InMemoryEventStore {
+  import scala.jdk.CollectionConverters.*
+  
+  // スレッドセーフなコレクションを使用
   // persistenceId -> イベントリスト
-  private val events = scala.collection.mutable.Map[String, Vector[Any]]()
+  private val events: scala.collection.mutable.Map[String, Vector[Any]] = 
+    new java.util.concurrent.ConcurrentHashMap[String, Vector[Any]]().asScala
   // persistenceId -> 最新スナップショット
-  private val snapshots = scala.collection.mutable.Map[String, Any]()
+  private val snapshots: scala.collection.mutable.Map[String, Any] = 
+    new java.util.concurrent.ConcurrentHashMap[String, Any]().asScala
   // persistenceId -> スナップショット保存時の最新イベントインデックス
-  private val snapshotEventIndices = scala.collection.mutable.Map[String, Int]()
+  private val snapshotEventIndices: scala.collection.mutable.Map[String, Int] = 
+    new java.util.concurrent.ConcurrentHashMap[String, Int]().asScala
   // persistenceId -> 現在のシーケンス番号
-  private val sequenceNumbers = scala.collection.mutable.Map[String, Long]()
+  private val sequenceNumbers: scala.collection.mutable.Map[String, Long] = 
+    new java.util.concurrent.ConcurrentHashMap[String, Long]().asScala
 
   def addEvent[E](id: String, event: E): Unit = {
     events.updateWith(id) {
