@@ -1,22 +1,24 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-trait MessageConverter[S, E, M <: Matchable] {
+import scala.compiletime.asMatchable
+
+trait MessageConverter[S, E, M] {
 
   def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
   def wrapPersistedState(state: S): M & PersistedState[S, M]
   def wrapRecoveredState(state: S): M & RecoveredState[S, M]
 
-  def unwrapPersistedEvents(message: M): Option[Seq[E]] = message match {
+  def unwrapPersistedEvents(message: M): Option[Seq[E]] = message.asMatchable match {
     case msg: PersistedEvent[E, M] @unchecked => Some(msg.events)
     case _ => None
   }
 
-  def unwrapPersistedState(message: M): Option[S] = message match {
+  def unwrapPersistedState(message: M): Option[S] = message.asMatchable match {
     case msg: PersistedState[S, M] @unchecked => Some(msg.state)
     case _ => None
   }
 
-  def unwrapRecoveredState(message: M): Option[S] = message match {
+  def unwrapRecoveredState(message: M): Option[S] = message.asMatchable match {
     case msg: RecoveredState[S, M] @unchecked => Some(msg.state)
     case _ => None
   }

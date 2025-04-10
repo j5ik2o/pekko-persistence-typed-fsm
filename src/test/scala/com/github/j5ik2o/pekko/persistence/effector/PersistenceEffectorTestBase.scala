@@ -82,7 +82,7 @@ abstract class PersistenceEffectorTestBase
       val initialState = TestState()
 
       val config =
-        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
@@ -119,7 +119,7 @@ abstract class PersistenceEffectorTestBase
       val events = ArrayBuffer.empty[TestMessage]
 
       val config =
-        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
@@ -155,7 +155,7 @@ abstract class PersistenceEffectorTestBase
       val events = ArrayBuffer.empty[TestMessage]
 
       val config =
-        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
@@ -195,7 +195,7 @@ abstract class PersistenceEffectorTestBase
 
       // 1回目の設定
       val config1 =
-        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
@@ -231,7 +231,7 @@ abstract class PersistenceEffectorTestBase
 
       // 2回目の設定（同じpersistenceIDを使用）
       val config2 =
-        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState, // 初期状態は同じものを渡すが、復元されるはず
           applyEvent = (state, event) => state.applyEvent(event),

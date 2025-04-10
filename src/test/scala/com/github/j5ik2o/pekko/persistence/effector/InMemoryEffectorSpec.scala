@@ -16,7 +16,7 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
       val event = TestEvent.TestEventA("test-state-access")
 
       val config =
-        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
@@ -75,7 +75,7 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
       }
 
       val config =
-        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = countingApplyEvent, // カウンター付きの関数を使用

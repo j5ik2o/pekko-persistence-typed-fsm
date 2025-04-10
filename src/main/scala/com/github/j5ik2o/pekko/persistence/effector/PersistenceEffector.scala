@@ -115,7 +115,7 @@ object PersistenceEffector {
     context: ActorContext[M],
   ): Behavior[M] =
     create(
-      PersistenceEffectorConfig.applyWithMessageConverter(
+      PersistenceEffectorConfig(
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = applyEvent,
@@ -146,7 +146,7 @@ object PersistenceEffector {
     context: ActorContext[M],
   ): Behavior[M] = {
     // 設定を作成
-    val config = PersistenceEffectorConfig.applyWithMessageConverter(
+    val config = PersistenceEffectorConfig(
       persistenceId = persistenceId,
       initialState = initialState,
       applyEvent = applyEvent,
