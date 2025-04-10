@@ -11,7 +11,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
 
-object EffectorSpec {
+object PersistenceEffectorSpec {
   val config: Config = ConfigFactory
     .parseString("""
                                            |pekko {
@@ -53,8 +53,8 @@ object EffectorSpec {
     .withFallback(ConfigFactory.load("test-reference"))
 }
 
-class EffectorSpec
-  extends ScalaTestWithActorTestKit(EffectorSpec.config)
+class PersistenceEffectorSpec
+  extends ScalaTestWithActorTestKit(PersistenceEffectorSpec.config)
   with AnyWordSpecLike
   with Matchers
   with Eventually
