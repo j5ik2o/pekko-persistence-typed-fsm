@@ -6,8 +6,9 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 
 trait Effector[S, E, M] {
-  def persist(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
-  def persistAll(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
+  def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
+  def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
+  def persistSnapshot(snapshot: S)(onSaved: S => Behavior[M]): Behavior[M]
 }
 
 object Effector {
@@ -39,26 +40,27 @@ object Effector {
         persistenceId,
         initialState,
         applyEvent,
-        context.messageAdapter[RecoveryDone[S]](rd => wrapRecovered(rd.state)))
+        context.messageAdapter[RecoveryDone[S]](rd => wrapRecoveredState(rd.state)))
 
-    val adapter = context.messageAdapter[EventPersistenceReply[E]] {
-      case SingleEventPersisted(event) => wrapPersisted(Seq(event))
-      case EventSequencePersisted(events) => wrapPersisted(events)
+    val adapter = context.messageAdapter[EventPersistenceReply[S, E]] {
+      case SingleEventPersisted(event) => wrapPersistedEvents(Seq(event))
+      case EventSequencePersisted(events) => wrapPersistedEvents(events)
+      case SnapshotPersisted(snapshot) => wrapPersistedSnapshot(snapshot)
     }
 
     def awaitRecovery(): Behavior[M] =
       Behaviors.withStash(config.stashSize) { stashBuffer =>
         Behaviors.receivePartial {
-          case (ctx, msg) if unwrapRecovered(msg).isDefined =>
-            val state = unwrapRecovered(msg).get
+          case (ctx, msg) if unwrapRecoveredState(msg).isDefined =>
+            val state = unwrapRecoveredState(msg).get
             val effector = new Effector[S, E, M] {
-              override def persist(event: E)(onPersisted: E => Behavior[M]): Behavior[M] = {
+              override def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M] = {
                 ctx.log.debug("Persisting event: {}", event)
                 persistenceRef ! PersistSingleEvent(event, adapter)
                 Behaviors.receiveMessagePartial {
-                  case msg if unwrapPersisted(msg).isDefined =>
+                  case msg if unwrapPersistedEvents(msg).isDefined =>
                     ctx.log.debug("Persisted event: {}", msg)
-                    val events = unwrapPersisted(msg).get
+                    val events = unwrapPersistedEvents(msg).get
                     stashBuffer.unstashAll(onPersisted(events.head))
                   case other =>
                     ctx.log.debug("Stashing message: {}", other)
@@ -67,15 +69,30 @@ object Effector {
                 }
               }
 
-              override def persistAll(events: Seq[E])(
+              override def persistEvents(events: Seq[E])(
                 onPersisted: Seq[E] => Behavior[M]): Behavior[M] = {
                 ctx.log.debug("Persisting events: {}", events)
                 persistenceRef ! PersistEventSequence(events, adapter)
                 Behaviors.receiveMessagePartial {
-                  case msg if unwrapPersisted(msg).isDefined =>
+                  case msg if unwrapPersistedEvents(msg).isDefined =>
                     ctx.log.debug("Persisted events: {}", msg)
-                    val events = unwrapPersisted(msg).get
+                    val events = unwrapPersistedEvents(msg).get
                     stashBuffer.unstashAll(onPersisted(events))
+                  case other =>
+                    ctx.log.debug("Stashing message: {}", other)
+                    stashBuffer.stash(other)
+                    Behaviors.same
+                }
+              }
+
+              override def persistSnapshot(snapshot: S)(onSaved: S => Behavior[M]): Behavior[M] = {
+                ctx.log.debug("Persisted snapshot: {}", snapshot)
+                persistenceRef ! PersistSnapshot(snapshot, adapter)
+                Behaviors.receiveMessagePartial {
+                  case msg if unwrapPersistedSnapshot(msg).isDefined =>
+                    ctx.log.debug("Persisted snapshot: {}", msg)
+                    val state = unwrapPersistedSnapshot(msg).get
+                    stashBuffer.unstashAll(onSaved(state))
                   case other =>
                     ctx.log.debug("Stashing message: {}", other)
                     stashBuffer.stash(other)

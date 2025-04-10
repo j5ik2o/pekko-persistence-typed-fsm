@@ -4,10 +4,12 @@ final case class EffectorConfig[S, E, M](
   persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
-  wrapPersisted: Seq[E] => M,
-  wrapRecovered: S => M,
-  unwrapPersisted: M => Option[Seq[E]],
-  unwrapRecovered: M => Option[S],
+  wrapPersistedEvents: Seq[E] => M,
+  wrapPersistedSnapshot: S => M,
+  wrapRecoveredState: S => M,
+  unwrapPersistedEvents: M => Option[Seq[E]],
+  unwrapPersistedSnapshot: M => Option[S],
+  unwrapRecoveredState: M => Option[S],
   stashSize: Int = 32,
 )
 
@@ -16,17 +18,21 @@ object EffectorConfig {
     persistenceId: String,
     initialState: S,
     applyEvent: (S, E) => S,
-    wrapPersisted: Seq[E] => M,
-    wrapRecovered: S => M,
-    unwrapPersisted: M => Option[Seq[E]],
-    unwrapRecovered: M => Option[S]): EffectorConfig[S, E, M] = new EffectorConfig(
+    wrapPersistedEvents: Seq[E] => M,
+    wrapPersistedSnapshot: S => M,
+    wrapRecoveredState: S => M,
+    unwrapPersistedEvents: M => Option[Seq[E]],
+    unwrapPersistedSnapshot: M => Option[S],
+    unwrapRecoveredState: M => Option[S]): EffectorConfig[S, E, M] = new EffectorConfig(
     persistenceId,
     initialState,
     applyEvent,
-    wrapPersisted,
-    wrapRecovered,
-    unwrapPersisted,
-    unwrapRecovered,
+    wrapPersistedEvents,
+    wrapPersistedSnapshot,
+    wrapRecoveredState,
+    unwrapPersistedEvents,
+    unwrapPersistedSnapshot,
+    unwrapRecoveredState,
   )
 
   def apply[S, E, M <: Matchable](
@@ -37,9 +43,11 @@ object EffectorConfig {
     persistenceId,
     initialState,
     applyEvent,
-    messageConverter.wrapPersisted,
-    messageConverter.wrapRecovered,
-    messageConverter.unwrapPersisted,
-    messageConverter.unwrapRecovered,
+    messageConverter.wrapPersistedEvents,
+    messageConverter.wrapPersistedState,
+    messageConverter.wrapRecoveredState,
+    messageConverter.unwrapPersistedEvents,
+    messageConverter.unwrapPersistedState,
+    messageConverter.unwrapRecoveredState,
   )
 }

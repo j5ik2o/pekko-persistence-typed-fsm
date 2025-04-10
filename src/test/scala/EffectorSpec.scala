@@ -82,6 +82,10 @@ class EffectorSpec
       extends TestMessage
       with RecoveredState[TestState, TestMessage]
 
+    case SnapshotPersisted(state: TestState)
+      extends TestMessage
+      with PersistedState[TestState, TestMessage]
+
     case EventPersisted(events: Seq[TestEvent])
       extends TestMessage
       with PersistedEvent[TestEvent, TestMessage]
@@ -90,6 +94,7 @@ class EffectorSpec
   val messageConverter: MessageConverter[TestState, TestEvent, TestMessage] =
     MessageConverter[TestState, TestEvent, TestMessage](
       TestMessage.EventPersisted.apply,
+      TestMessage.SnapshotPersisted.apply,
       TestMessage.StateRecovered.apply)
 
   "Effector" should {
@@ -141,7 +146,7 @@ class EffectorSpec
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
         Effector.create[TestState, TestEvent, TestMessage](config) { case (state, effector) =>
-          effector.persist(event) { _ =>
+          effector.persistEvent(event) { _ =>
             events += TestMessage.EventPersisted(Seq(event))
             Behaviors.stopped
           }
@@ -166,17 +171,19 @@ class EffectorSpec
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
-        wrapPersisted = messageConverter.wrapPersisted,
-        wrapRecovered = messageConverter.wrapRecovered,
-        unwrapPersisted = messageConverter.unwrapPersisted,
-        unwrapRecovered = messageConverter.unwrapRecovered,
+        wrapPersistedEvents = messageConverter.wrapPersistedEvents,
+        wrapPersistedSnapshot = messageConverter.wrapPersistedState,
+        wrapRecoveredState = messageConverter.wrapRecoveredState,
+        unwrapPersistedEvents = messageConverter.unwrapPersistedEvents,
+        unwrapPersistedSnapshot = messageConverter.unwrapPersistedState,
+        unwrapRecoveredState = messageConverter.unwrapRecoveredState,
       )
 
       val probe = createTestProbe[TestMessage]()
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
         Effector.create[TestState, TestEvent, TestMessage](config) { case (state, effector) =>
-          effector.persistAll(initialEvents) { _ =>
+          effector.persistEvents(initialEvents) { _ =>
             events += TestMessage.EventPersisted(initialEvents)
             Behaviors.stopped
           }
@@ -212,9 +219,9 @@ class EffectorSpec
       val behavior1 = spawn(Behaviors.setup[TestMessage] { context =>
         Effector.create[TestState, TestEvent, TestMessage](config1) { case (state, effector) =>
           // 最初に1つ目のイベントを永続化
-          effector.persist(event1) { _ =>
+          effector.persistEvent(event1) { _ =>
             // 次に2つ目のイベントを永続化
-            effector.persist(event2) { _ =>
+            effector.persistEvent(event2) { _ =>
               firstRunEvents += TestMessage.EventPersisted(Seq(event1, event2))
               // イベント永続化完了後にアクターを停止
               Behaviors.stopped

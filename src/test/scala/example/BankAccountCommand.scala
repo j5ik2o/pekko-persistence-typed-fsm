@@ -22,6 +22,9 @@ enum BankAccountCommand {
   private case EventPersisted(events: Seq[BankAccountEvent])
     extends BankAccountCommand
     with PersistedEvent[BankAccountEvent, BankAccountCommand]
+  private case StatePersisted(state: BankAccountAggregate.State)
+    extends BankAccountCommand
+    with PersistedState[BankAccountAggregate.State, BankAccountCommand]
 
   def aggregateId: BankAccountId = this match {
     case GetBalance(aggregateId, _) => aggregateId
@@ -30,15 +33,16 @@ enum BankAccountCommand {
     case DepositCash(aggregateId, _, _) => aggregateId
     case WithdrawCash(aggregateId, _, _) => aggregateId
     case StateRecovered(state) => state.aggregateId
-    case EventPersisted(_) =>
-      throw new UnsupportedOperationException("EventPersisted does not have aggregateId")
+    case EventPersisted(_) | StatePersisted(_) =>
+      throw new UnsupportedOperationException(
+        "EventPersisted or StatePersisted does not have aggregateId")
   }
 }
 
 object BankAccountCommand extends MessageProtocol[BankAccountAggregate.State, BankAccountEvent] {
   override type Message = BankAccountCommand
   def messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, Message] =
-    MessageConverter(EventPersisted.apply, StateRecovered.apply)
+    MessageConverter(EventPersisted.apply, StatePersisted.apply, StateRecovered.apply)
 }
 
 enum StopReply {

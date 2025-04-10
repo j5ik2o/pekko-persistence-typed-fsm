@@ -4,9 +4,12 @@ import EventStoreActor.{
   EventSequencePersisted,
   PersistEventSequence,
   PersistSingleEvent,
+  PersistSnapshot,
   RecoveryDone,
   SingleEventPersisted,
+  SnapshotPersisted,
 }
+
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.{ActorLogging, Props}
 import org.apache.pekko.persistence.{PersistentActor, RecoveryCompleted}
@@ -15,17 +18,21 @@ import scala.compiletime.asMatchable
 
 object EventStoreActor {
   trait EventPersistenceCommand[S, E]
-  trait EventPersistenceReply[E]
+  trait EventPersistenceReply[S, E]
 
-  final case class PersistSingleEvent[S, E](event: E, replyTo: ActorRef[SingleEventPersisted[E]])
+  final case class PersistSingleEvent[S, E](event: E, replyTo: ActorRef[SingleEventPersisted[S, E]])
     extends EventPersistenceCommand[S, E]
-  final case class SingleEventPersisted[E](event: E) extends EventPersistenceReply[E]
+  final case class SingleEventPersisted[S, E](event: E) extends EventPersistenceReply[S, E]
 
   final case class PersistEventSequence[S, E](
     events: Seq[E],
-    replyTo: ActorRef[EventSequencePersisted[E]],
+    replyTo: ActorRef[EventSequencePersisted[S, E]],
   ) extends EventPersistenceCommand[S, E]
-  final case class EventSequencePersisted[E](events: Seq[E]) extends EventPersistenceReply[E]
+  final case class EventSequencePersisted[S, E](events: Seq[E]) extends EventPersistenceReply[S, E]
+
+  final case class PersistSnapshot[S, E](snapshot: S, replyTo: ActorRef[SnapshotPersisted[S, E]])
+    extends EventPersistenceCommand[S, E]
+  final case class SnapshotPersisted[S, E](snapshot: S) extends EventPersistenceReply[S, E]
 
   final case class RecoveryDone[S](state: S)
 
@@ -46,15 +53,17 @@ final class EventStoreActor[S, E, M](
   extends PersistentActor
   with ActorLogging {
 
-  private var state: S = initialState
+  private var state: Option[S] = Some(initialState)
 
   override def receiveRecover: Receive = {
     case RecoveryCompleted =>
-      recoveryActorRef ! RecoveryDone(state)
+      recoveryActorRef ! RecoveryDone(
+        state.getOrElse(throw new IllegalStateException("State is not set")))
+      state = None
     case event =>
       if (event != null) {
         val e = event.asInstanceOf[E]
-        state = applyEvent(state, e)
+        state = Some(applyEvent(state.getOrElse(throw new AssertionError()), e))
       }
   }
 
@@ -80,6 +89,13 @@ final class EventStoreActor[S, E, M](
             replyTo ! EventSequencePersisted(events)
           }
         }
+      case cmd: PersistSnapshot[?, ?] =>
+        log.debug("SaveSnapshot: {}", cmd)
+        val typedCmd = cmd.asInstanceOf[PersistSnapshot[S, E]]
+        val snapshot = typedCmd.snapshot
+        val replyTo = typedCmd.replyTo
+        saveSnapshot(snapshot)
+        replyTo ! SnapshotPersisted(snapshot)
     }
   }
 }
