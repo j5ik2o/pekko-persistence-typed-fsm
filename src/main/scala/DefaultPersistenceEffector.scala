@@ -11,7 +11,7 @@ import PersistenceStoreActor.{
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors, StashBuffer}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
-class PersistenceEffectorImpl[S, E, M](
+final class DefaultPersistenceEffector[S, E, M](
   ctx: ActorContext[M],
   stashBuffer: StashBuffer[M],
   config: PersistenceEffectorConfig[S, E, M],

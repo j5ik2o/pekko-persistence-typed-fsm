@@ -102,12 +102,15 @@ class PersistenceEffectorSpec
       val persistenceId = s"test-recovery-${java.util.UUID.randomUUID()}"
       val initialState = TestState()
 
-      val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
-        persistenceId = persistenceId,
-        initialState = initialState,
-        applyEvent = (state, event) => state.applyEvent(event),
-        messageConverter = messageConverter,
-      )
+      val config =
+        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+          persistenceId = persistenceId,
+          initialState = initialState,
+          applyEvent = (state, event) => state.applyEvent(event),
+          messageConverter = messageConverter,
+          persistenceMode = PersistenceMode.Persisted,
+          stashSize = 32,
+        )
 
       val recoveredEvents = ArrayBuffer.empty[TestMessage]
 
@@ -136,12 +139,15 @@ class PersistenceEffectorSpec
 
       val events = ArrayBuffer.empty[TestMessage]
 
-      val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
-        persistenceId = persistenceId,
-        initialState = initialState,
-        applyEvent = (state, event) => state.applyEvent(event),
-        messageConverter = messageConverter,
-      )
+      val config =
+        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+          persistenceId = persistenceId,
+          initialState = initialState,
+          applyEvent = (state, event) => state.applyEvent(event),
+          messageConverter = messageConverter,
+          persistenceMode = PersistenceMode.Persisted,
+          stashSize = 32,
+        )
 
       val probe = createTestProbe[TestMessage]()
 
@@ -179,6 +185,8 @@ class PersistenceEffectorSpec
         unwrapPersistedEvents = messageConverter.unwrapPersistedEvents,
         unwrapPersistedSnapshot = messageConverter.unwrapPersistedState,
         unwrapRecoveredState = messageConverter.unwrapRecoveredState,
+        persistenceMode = PersistenceMode.Persisted,
+        stashSize = 32,
       )
 
       val probe = createTestProbe[TestMessage]()
@@ -211,12 +219,15 @@ class PersistenceEffectorSpec
       val firstRunEvents = ArrayBuffer.empty[TestMessage]
 
       // 1回目の設定
-      val config1 = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
-        persistenceId = persistenceId,
-        initialState = initialState,
-        applyEvent = (state, event) => state.applyEvent(event),
-        messageConverter = messageConverter,
-      )
+      val config1 =
+        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+          persistenceId = persistenceId,
+          initialState = initialState,
+          applyEvent = (state, event) => state.applyEvent(event),
+          messageConverter = messageConverter,
+          persistenceMode = PersistenceMode.Persisted,
+          stashSize = 32,
+        )
 
       // 1回目のアクターを実行してイベントを永続化
       val behavior1 = spawn(Behaviors.setup[TestMessage] { context =>
@@ -244,12 +255,15 @@ class PersistenceEffectorSpec
       val secondRunRecoveredState = ArrayBuffer.empty[TestState]
 
       // 2回目の設定（同じpersistenceIDを使用）
-      val config2 = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
-        persistenceId = persistenceId,
-        initialState = initialState, // 初期状態は同じものを渡すが、復元されるはず
-        applyEvent = (state, event) => state.applyEvent(event),
-        messageConverter = messageConverter,
-      )
+      val config2 =
+        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+          persistenceId = persistenceId,
+          initialState = initialState, // 初期状態は同じものを渡すが、復元されるはず
+          applyEvent = (state, event) => state.applyEvent(event),
+          messageConverter = messageConverter,
+          persistenceMode = PersistenceMode.Persisted,
+          stashSize = 32,
+        )
 
       // 新しいプローブを作成
       val probe2 = createTestProbe[TestMessage]()

@@ -41,11 +41,16 @@ object BankAccountAggregate {
     aggregateId: BankAccountId,
   ): Behavior[BankAccountCommand] = {
     val config =
-      PersistenceEffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+      PersistenceEffectorConfig.applyWithMessageConverter[
+        BankAccountAggregate.State,
+        BankAccountEvent,
+        BankAccountCommand](
         persistenceId = actorName(aggregateId),
         initialState = State.NotCreated(aggregateId),
         applyEvent = (state, event) => state.applyEvent(event),
         messageConverter = BankAccountCommand.messageConverter,
+        persistenceMode = PersistenceMode.Persisted,
+        stashSize = 32,
       )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
       PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](

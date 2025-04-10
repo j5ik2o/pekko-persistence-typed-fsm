@@ -10,7 +10,8 @@ final case class PersistenceEffectorConfig[S, E, M](
   unwrapPersistedEvents: M => Option[Seq[E]],
   unwrapPersistedSnapshot: M => Option[S],
   unwrapRecoveredState: M => Option[S],
-  stashSize: Int = 32,
+  persistenceMode: PersistenceMode,
+  stashSize: Int,
 )
 
 object PersistenceEffectorConfig {
@@ -23,7 +24,9 @@ object PersistenceEffectorConfig {
     wrapRecoveredState: S => M,
     unwrapPersistedEvents: M => Option[Seq[E]],
     unwrapPersistedSnapshot: M => Option[S],
-    unwrapRecoveredState: M => Option[S]): PersistenceEffectorConfig[S, E, M] =
+    unwrapRecoveredState: M => Option[S],
+    persistenceMode: PersistenceMode,
+    stashSize: Int = 32): PersistenceEffectorConfig[S, E, M] =
     new PersistenceEffectorConfig(
       persistenceId,
       initialState,
@@ -34,13 +37,17 @@ object PersistenceEffectorConfig {
       unwrapPersistedEvents,
       unwrapPersistedSnapshot,
       unwrapRecoveredState,
+      persistenceMode,
+      stashSize,
     )
 
-  def apply[S, E, M <: Matchable](
+  def applyWithMessageConverter[S, E, M <: Matchable](
     persistenceId: String,
     initialState: S,
     applyEvent: (S, E) => S,
-    messageConverter: MessageConverter[S, E, M]): PersistenceEffectorConfig[S, E, M] = apply(
+    messageConverter: MessageConverter[S, E, M],
+    persistenceMode: PersistenceMode,
+    stashSize: Int = 32): PersistenceEffectorConfig[S, E, M] = apply(
     persistenceId,
     initialState,
     applyEvent,
@@ -50,5 +57,7 @@ object PersistenceEffectorConfig {
     messageConverter.unwrapPersistedEvents,
     messageConverter.unwrapPersistedState,
     messageConverter.unwrapRecoveredState,
+    persistenceMode,
+    stashSize,
   )
 }
