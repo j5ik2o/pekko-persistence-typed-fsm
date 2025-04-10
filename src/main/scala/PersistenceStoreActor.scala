@@ -12,8 +12,7 @@ import PersistenceStoreActor.{
 
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.{ActorLogging, Props}
-import org.apache.pekko.persistence.{PersistentActor, RecoveryCompleted}
-
+import org.apache.pekko.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
 import scala.compiletime.asMatchable
 
 object PersistenceStoreActor {
@@ -55,16 +54,23 @@ final class PersistenceStoreActor[S, E, M](
 
   private var state: Option[S] = Some(initialState)
 
-  override def receiveRecover: Receive = {
-    case RecoveryCompleted =>
-      recoveryActorRef ! RecoveryDone(
-        state.getOrElse(throw new IllegalStateException("State is not set")))
-      state = None
-    case event =>
-      if (event != null) {
-        val e = event.asInstanceOf[E]
-        state = Some(applyEvent(state.getOrElse(throw new AssertionError()), e))
-      }
+  override def receiveRecover: Receive = { msg =>
+    msg.asMatchable match {
+      case SnapshotOffer(_, snapshot) =>
+        log.debug("receiveRecover: SnapshotOffer: {}", snapshot)
+        state = Some(snapshot.asInstanceOf[S])
+      case RecoveryCompleted =>
+        log.debug("receiveRecover: RecoveryCompleted")
+        recoveryActorRef ! RecoveryDone(
+          state.getOrElse(throw new IllegalStateException("State is not set")))
+        state = None
+      case event =>
+        if (event != null) {
+          log.debug("receiveRecover: Event: {}", event)
+          val e = event.asInstanceOf[E]
+          state = Some(applyEvent(state.getOrElse(throw new AssertionError()), e))
+        }
+    }
   }
 
   override def receiveCommand: Receive = { cmd =>
