@@ -65,7 +65,7 @@ abstract class PersistenceEffectorTestBase
         events: Seq[TestEvent]): TestMessage & PersistedEvent[TestEvent, TestMessage] =
         TestMessage.EventPersisted(events)
 
-      override def wrapPersistedState(
+      override def wrapPersistedSnapshot(
         state: TestState): TestMessage & PersistedState[TestState, TestMessage] =
         TestMessage.SnapshotPersisted(state)
 
@@ -73,6 +73,9 @@ abstract class PersistenceEffectorTestBase
         state: TestState): TestMessage & RecoveredState[TestState, TestMessage] =
         TestMessage.StateRecovered(state)
 
+      override def wrapDeleteSnapshots(
+        maxSequenceNumber: Long): TestMessage & DeletedSnapshots[TestMessage] =
+        TestMessage.SnapshotsDeleted(maxSequenceNumber)
     }
 
   // "Effector with <モード>" should という形式でテストを記述

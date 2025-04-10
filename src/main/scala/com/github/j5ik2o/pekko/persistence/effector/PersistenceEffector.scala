@@ -183,6 +183,11 @@ object PersistenceEffector {
           case PersistSingleEventSucceeded(event) => wrapPersistedEvents(Seq(event))
           case PersistMultipleEventsSucceeded(events) => wrapPersistedEvents(events)
           case PersistSnapshotSucceeded(snapshot) => wrapPersistedSnapshot(snapshot)
+          case PersistSnapshotFailed(snapshot, cause) =>
+            throw new IllegalStateException("Failed to persist snapshot", cause)
+          case DeleteSnapshotsSucceeded(maxSequenceNumber) => wrapDeleteSnapshots(maxSequenceNumber)
+          case DeleteSnapshotsFailed(maxSequenceNumber, cause) =>
+            throw new IllegalStateException("Failed to delete snapshots", cause)
         }
 
         def awaitRecovery(): Behavior[M] =

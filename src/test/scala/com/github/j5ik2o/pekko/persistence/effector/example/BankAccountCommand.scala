@@ -1,6 +1,7 @@
 package com.github.j5ik2o.pekko.persistence.effector.example
 
 import com.github.j5ik2o.pekko.persistence.effector.{
+  DeletedSnapshots,
   MessageConverter,
   MessageProtocol,
   PersistedEvent,
@@ -31,6 +32,9 @@ enum BankAccountCommand {
   private case StatePersisted(state: BankAccountAggregate.State)
     extends BankAccountCommand
     with PersistedState[BankAccountAggregate.State, BankAccountCommand]
+  private case SnapshotShotsDeleted(maxSequenceNumber: Long)
+    extends BankAccountCommand
+    with DeletedSnapshots[BankAccountCommand]
 
   def aggregateId: BankAccountId = this match {
     case GetBalance(aggregateId, _) => aggregateId
@@ -48,7 +52,11 @@ enum BankAccountCommand {
 object BankAccountCommand extends MessageProtocol[BankAccountAggregate.State, BankAccountEvent] {
   override type Message = BankAccountCommand
   def messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, Message] =
-    MessageConverter(EventPersisted.apply, StatePersisted.apply, StateRecovered.apply)
+    MessageConverter(
+      EventPersisted.apply,
+      StatePersisted.apply,
+      StateRecovered.apply,
+      SnapshotShotsDeleted.apply)
 }
 
 enum StopReply {

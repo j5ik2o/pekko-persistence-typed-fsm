@@ -4,6 +4,7 @@ import com.github.j5ik2o.pekko.persistence.effector.{
   PersistenceEffector,
   PersistenceEffectorConfig,
   PersistenceMode,
+  RetentionCriteria,
   SnapshotCriteria,
 }
 import org.apache.pekko.actor.typed.Behavior
@@ -54,7 +55,8 @@ object BankAccountAggregate {
         messageConverter = BankAccountCommand.messageConverter,
         persistenceMode = persistenceMode,
         stashSize = 32,
-        snapshotCriteria = Some(SnapshotCriteria.every(2)),
+        // snapshotCriteria = Some(SnapshotCriteria.every(2)),
+        // retentionCriteria = Some(RetentionCriteria.snapshotEvery(2)),
       )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
       PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](

@@ -11,9 +11,10 @@ final case class PersistenceEffectorConfig[S, E, M](
   retentionCriteria: Option[RetentionCriteria] = None,
 ) {
   def wrapPersistedEvents: Seq[E] => M = messageConverter.wrapPersistedEvents
-  def wrapPersistedSnapshot: S => M = messageConverter.wrapPersistedState
+  def wrapPersistedSnapshot: S => M = messageConverter.wrapPersistedSnapshot
   def wrapRecoveredState: S => M = messageConverter.wrapRecoveredState
+  def wrapDeleteSnapshots: Long => M = messageConverter.wrapDeleteSnapshots
   def unwrapPersistedEvents: M => Option[Seq[E]] = messageConverter.unwrapPersistedEvents
-  def unwrapPersistedSnapshot: M => Option[S] = messageConverter.unwrapPersistedState
+  def unwrapPersistedSnapshot: M => Option[S] = messageConverter.unwrapPersistedSnapshot
   def unwrapRecoveredState: M => Option[S] = messageConverter.unwrapRecoveredState
 }

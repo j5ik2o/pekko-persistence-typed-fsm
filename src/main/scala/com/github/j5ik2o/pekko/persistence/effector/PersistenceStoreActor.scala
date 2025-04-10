@@ -89,6 +89,10 @@ final class PersistenceStoreActor[S, E, M](
         }
     }
   }
+
+  override protected def onPersistFailure(cause: Throwable, event: Any, seqNr: Long): Unit =
+    super.onPersistFailure(cause, event, seqNr)
+
   private def waitForDeleteSnapshots(
     maxSequenceNumber: Long,
     replyTo: ActorRef[DeleteSnapshotsReply[S, E]]): Receive = { msg =>
