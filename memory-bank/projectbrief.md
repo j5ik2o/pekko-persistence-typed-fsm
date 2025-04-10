@@ -18,53 +18,56 @@ eff-sm-splitterは、Apache Pekkoを使用したイベントソーシングパ�
 
 ## 主要コンポーネント
 
-### 1. Effector
+### 1. PersistenceEffector
 
 イベントの永続化機能を提供するコア部分です。EventSourcedBehaviorを集約アクターの子アクターとして実装することで、通常のアクタープログラミングスタイルを維持しつつイベントソーシングを実現します。
 
-- `persist`と`persistAll`メソッドを通じて、イベントの永続化をサポート
-- Apache Pekkoの`EventSourcedBehavior`を内部で使用
+- `persistEvent`と`persistEvents`メソッドを通じて、イベントの永続化をサポート
+- `persistSnapshot`メソッドでスナップショットの永続化をサポート
+- Untyped PersistentActorを内部で使用（ドメインロジックの二重実行を避けるための設計）
 - イベント永続化後のコールバック処理に対応
 - インメモリモードをサポートし、段階的な実装が可能
 
-### 2. EffectorConfig
+### 2. PersistenceEffectorConfig
 
-Effectorの設定を定義するケースクラスです。
+PersistenceEffectorの設定を定義するケースクラスです。
 
 - 永続化ID、初期状態、イベント適用ロジックなどの基本設定
-- メッセージ変換関数（ラッパー関数）の設定
-- `WrappedISO`との統合サポート
+- メッセージ変換関数の設定
+- `MessageConverter`との統合サポート
 
-### 3. WrappedISO
+### 3. MessageConverter
 
 状態(S)、イベント(E)、メッセージ(M)間の相互変換を定義するトレイトです。
 
-- `wrapPersisted`: 状態とイベントをメッセージに変換する関数
-- `wrapRecovered`: 状態をメッセージに変換する関数
-- `unwrapPersisted`/`unwrapRecovered`: メッセージから状態やイベントを抽出する関数
+- `wrapPersistedEvents`: イベントシーケンスをメッセージに変換する関数
+- `wrapPersistedState`: 状態をメッセージに変換する関数
+- `wrapRecoveredState`: 復元された状態をメッセージに変換する関数
+- `unwrapPersistedEvents`/`unwrapPersistedState`/`unwrapRecoveredState`: メッセージから状態やイベントを抽出する関数
 
-### 4. WrappedBase関連トレイト
+### 4. Result
 
-メッセージの基本構造を定義する一連のトレイトです。
+ドメイン操作の結果をカプセル化するケースクラスです。
 
-- `WrappedBase`: すべてのラップドメッセージの基底トレイト
-- `WrappedPersisted`: 永続化されたイベントに関連するメッセージのトレイト
-- `WrappedRecovered`: 復元された状態に関連するメッセージのトレイト
-- self-typeを使用して実装クラスに制約を課している
+```scala
+final case class Result[S, E](
+  bankAccount: S,
+  event: E,
+)
+```
 
-### 5. WrappedSupportProtocol
-
-メッセージタイプとラッパーの関係を定義する補助トレイトです。
+- ドメインオブジェクトのメソッドから新しい状態とイベントを明示的に返すためのクラス
+- タプルと比較して意味が明確で、コードの可読性と保守性が向上
 
 ## 使用例
 
 テストコード(`EffectorSpec.scala`)からわかる基本的な使用方法:
 
 1. 状態クラス(`TestState`)とイベント定義(`TestEvent`)を作成
-2. メッセージタイプ(`TestMessage`)を定義し、`WrappedPersisted`と`WrappedRecovered`を継承
-3. `WrappedISO`の実装を作成し、変換関数を定義
-4. `EffectorConfig`で設定を行い、`Effector.create`でアクターを初期化
-5. イベントの永続化は`effector.persist`または`effector.persistAll`メソッドで実行
+2. メッセージタイプ(`TestMessage`)を定義し、`PersistedEvent`と`RecoveredState`を継承
+3. `MessageConverter`の実装を作成し、変換関数を定義
+4. `PersistenceEffectorConfig`で設定を行い、`PersistenceEffector.create`でアクターを初期化
+5. イベントの永続化は`effector.persistEvent`または`effector.persistEvents`メソッドで実行
 
 銀行口座集約(`BankAccountAggregate.scala`)の例も参照することで、複雑な状態遷移を通常のアクタープログラミングのスタイルで実装する方法を確認できます。
 

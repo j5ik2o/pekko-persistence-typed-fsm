@@ -180,14 +180,14 @@ object BankAccountAggregate {
           .add(amount)
           .fold(
             error => throw new IllegalStateException(s"Failed to apply event: $error"),
-            result => State.Created(id, result._1),
+            result => State.Created(id, result.bankAccount),
           )
       case (State.Created(id, bankAccount), BankAccountEvent.CashWithdrew(_, amount, _)) =>
         bankAccount
           .subtract(amount)
           .fold(
             error => throw new IllegalStateException(s"Failed to apply event: $error"),
-            result => State.Created(id, result._1),
+            result => State.Created(id, result.bankAccount),
           )
       case _ =>
         throw new IllegalStateException(
@@ -199,14 +199,14 @@ object BankAccountAggregate {
   def apply(
              aggregateId: BankAccountId,
            ): Behavior[BankAccountCommand] = {
-    val config = EffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+    val config = PersistenceEffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
       persistenceId = actorName(aggregateId),
       initialState = State.NotCreated(aggregateId),
       applyEvent = (state, event) => state.applyEvent(event),
       messageConverter = BankAccountCommand.messageConverter,
     )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
-      Effector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+      PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
         config,
       ) {
         case (initialState: State.NotCreated, effector) =>
@@ -219,11 +219,11 @@ object BankAccountAggregate {
 
   private def handleNotCreated(
                                 state: BankAccountAggregate.State.NotCreated,
-                                effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+                                effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
   : Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
-      val (bankAccount, event) = BankAccount.create(cmd.aggregateId)
-      effector.persist(event) { _ =>
+      val Result(bankAccount, event) = BankAccount.create(cmd.aggregateId)
+      effector.persistEvent(event) { _ =>
         cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
         handleCreated(State.Created(state.aggregateId, bankAccount), effector)
       }
@@ -231,7 +231,7 @@ object BankAccountAggregate {
 
   private def handleCreated(
                              state: BankAccountAggregate.State.Created,
-                             effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+                             effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
   : Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial {
       case BankAccountCommand.Stop(aggregateId, replyTo) =>
@@ -248,8 +248,8 @@ object BankAccountAggregate {
               replyTo ! DepositCashReply.Failed(aggregateId, error)
               Behaviors.same
             },
-            { case (newBankAccount, event) =>
-              effector.persist(event) { _ =>
+            { case Result(newBankAccount, event) =>
+              effector.persistEvent(event) { _ =>
                 replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
                 handleCreated(state.copy(bankAccount = newBankAccount), effector)
               }
@@ -263,8 +263,8 @@ object BankAccountAggregate {
               replyTo ! WithdrawCashReply.Failed(aggregateId, error)
               Behaviors.same
             },
-            { case (newBankAccount, event) =>
-              effector.persist(event) { _ =>
+            { case Result(newBankAccount, event) =>
+              effector.persistEvent(event) { _ =>
                 replyTo ! WithdrawCashReply.Succeeded(aggregateId, amount)
                 handleCreated(state.copy(bankAccount = newBankAccount), effector)
               }

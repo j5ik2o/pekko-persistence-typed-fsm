@@ -20,11 +20,19 @@
 
 従来の Pekko Persistence Typed には以下の問題がありました：
 
-1. **従来のアクタープログラミングスタイルとの不一致**: 学習・実装の困難さ
-2. **複雑な状態遷移の保守性低下**: match/case の複雑さによるコードの保守性低下
-3. **ドメインロジックの二重実行**: コマンドハンドラとイベントハンドラの両方でドメインロジックが実行される
+1. **従来のアクタープログラミングスタイルとの不一致**: 
+   - EventSourcedBehavior のパターンを使用することを強制され、通常の Behavior ベースのプログラミングと異なる
+   - 学習曲線が急で実装が難しくなる
 
-このライブラリは「永続化アクターを集約アクターの子アクターとして実装する」というアプローチにより、これらの問題を解決します。
+2. **複雑な状態遷移の保守性低下**: 
+   - コマンドハンドラが多数の match/case ステートメントで複雑になる
+   - 状態に基づいてハンドラを分割できないため、コードの可読性が低下する
+
+3. **ドメインロジックの二重実行**: 
+   - ドメインロジックがコマンドハンドラとイベントハンドラの両方で実行される
+   - コマンドハンドラはドメインロジックによって更新された状態を使用できないため、ドメインオブジェクトとの統合がぎこちない
+
+このライブラリは「永続化アクターを集約アクターの子アクターとして実装する」というアプローチにより、これらの問題を解決します。具体的には、ドメインロジックの二重実行を避けるため、内部的にUntyped PersistentActorを使用しています（EventSourcedBehaviorではない）。
 
 ## 主要コンポーネント
 
@@ -66,6 +74,23 @@ trait MessageConverter[S, E, M <: Matchable] {
 }
 ```
 
+### Result
+
+ドメイン操作の結果をカプセル化するケースクラスで、新しい状態とイベントを含みます。
+
+```scala
+final case class Result[S, E](
+  bankAccount: S,
+  event: E,
+)
+```
+
+Resultクラスは以下の主要な利点を提供します：
+- **型安全性**: 新しい状態と対応するイベントの関係を明示的に捕捉
+- **可読性**: タプルよりも意味が明確で、各値の目的を明示
+- **保守性**: パターンマッチングがより明示的になり、変更が容易に
+- **ドメインモデリング**: ドメインロジックからの戻り値を標準化
+
 ## 使用例
 
 ### 銀行口座の例
@@ -85,14 +110,14 @@ enum State {
         .add(amount)
         .fold(
           error => throw new IllegalStateException(s"Failed to apply event: $error"),
-          result => State.Created(id, result._1),
+          result => State.Created(id, result.bankAccount),
         )
     case (State.Created(id, bankAccount), BankAccountEvent.CashWithdrew(_, amount, _)) =>
       bankAccount
         .subtract(amount)
         .fold(
           error => throw new IllegalStateException(s"Failed to apply event: $error"),
-          result => State.Created(id, result._1),
+          result => State.Created(id, result.bankAccount),
         )
     case _ =>
       throw new IllegalStateException(s"Invalid state transition: $this -> $event")
@@ -118,6 +143,18 @@ Behaviors.setup[BankAccountCommand] { implicit ctx =>
 }
 
 // 4. 状態に応じたハンドラを実装
+private def handleNotCreated(
+  state: BankAccountAggregate.State.NotCreated,
+  effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+  : Behavior[BankAccountCommand] =
+  Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
+    val Result(bankAccount, event) = BankAccount.create(cmd.aggregateId)
+    effector.persistEvent(event) { _ =>
+      cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
+      handleCreated(State.Created(state.aggregateId, bankAccount), effector)
+    }
+  }
+
 private def handleCreated(
   state: BankAccountAggregate.State.Created,
   effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
@@ -132,7 +169,7 @@ private def handleCreated(
             replyTo ! DepositCashReply.Failed(aggregateId, error)
             Behaviors.same
           },
-          { case (newBankAccount, event) =>
+          { case Result(newBankAccount, event) =>
             // イベントを永続化
             effector.persistEvent(event) { _ =>
               replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
@@ -154,6 +191,15 @@ private def handleCreated(
 - [BankAccountEvent](src/test/scala/example/BankAccountEvent.scala) - 集約から生成されるイベント
 - [BankAccountId](src/test/scala/example/BankAccountId.scala) - 銀行口座の識別子
 - [Money](src/test/scala/example/Money.scala) - 金額を表す値オブジェクト
+
+## このライブラリを使用するシーン
+
+このライブラリは、特に以下のようなケースに適しています：
+
+- 最初から永続化を考慮せず、段階的に実装したい場合
+- 従来のPekko Persistence Typedでは保守が難しい複雑な状態遷移を扱う場合
+- ドメインロジックをアクターから分離したいDDD指向の設計を実装する場合
+- イベントソーシングアプリケーションに、より自然なアクタープログラミングスタイルが必要な場合
 
 ## インストール方法
 

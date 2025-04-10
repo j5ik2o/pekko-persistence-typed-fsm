@@ -20,11 +20,19 @@ A library for efficient implementation of event sourcing and state transitions w
 
 Traditional Pekko Persistence Typed has the following issues:
 
-1. **Inconsistency with Traditional Actor Programming Style**: Difficulty in learning and implementation
-2. **Reduced Maintainability with Complex State Transitions**: Code maintainability decreases due to complex match/case statements
-3. **Double Execution of Domain Logic**: Domain logic is executed in both command handlers and event handlers
+1. **Inconsistency with Traditional Actor Programming Style**: 
+   - Forces you to use EventSourcedBehavior patterns that differ from regular Behavior-based programming
+   - Makes learning curve steeper and implementation more difficult
 
-This library solves these problems by implementing "Persistent Actor as a child actor of the aggregate actor."
+2. **Reduced Maintainability with Complex State Transitions**: 
+   - Command handlers become complex with multiple match/case statements
+   - Cannot split handlers based on state, leading to decreased code readability
+
+3. **Double Execution of Domain Logic**: 
+   - Domain logic is executed in both command handlers and event handlers
+   - Command handlers cannot use state updated by domain logic, making integration with domain objects awkward
+
+This library solves these problems by implementing "Persistent Actor as a child actor of the aggregate actor." The implementation specifically uses Untyped PersistentActor internally (rather than EventSourcedBehavior) to avoid the double execution of domain logic.
 
 ## Main Components
 
@@ -66,6 +74,23 @@ trait MessageConverter[S, E, M <: Matchable] {
 }
 ```
 
+### Result
+
+A case class that encapsulates the result of domain operations, containing the new state and event.
+
+```scala
+final case class Result[S, E](
+  bankAccount: S,
+  event: E,
+)
+```
+
+The Result class provides several key benefits:
+- **Type Safety**: Explicitly captures the relationship between new state and corresponding event
+- **Readability**: More meaningful than tuples, clearly showing the purpose of each value
+- **Maintainability**: Pattern matching becomes more explicit and easier to change
+- **Domain Modeling**: Standardizes the return values from domain logic
+
 ## Usage Examples
 
 ### BankAccount Example
@@ -85,14 +110,14 @@ enum State {
         .add(amount)
         .fold(
           error => throw new IllegalStateException(s"Failed to apply event: $error"),
-          result => State.Created(id, result._1),
+          result => State.Created(id, result.bankAccount),
         )
     case (State.Created(id, bankAccount), BankAccountEvent.CashWithdrew(_, amount, _)) =>
       bankAccount
         .subtract(amount)
         .fold(
           error => throw new IllegalStateException(s"Failed to apply event: $error"),
-          result => State.Created(id, result._1),
+          result => State.Created(id, result.bankAccount),
         )
     case _ =>
       throw new IllegalStateException(s"Invalid state transition: $this -> $event")
@@ -118,6 +143,18 @@ Behaviors.setup[BankAccountCommand] { implicit ctx =>
 }
 
 // 4. Implement handlers according to state
+private def handleNotCreated(
+  state: BankAccountAggregate.State.NotCreated,
+  effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+  : Behavior[BankAccountCommand] =
+  Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
+    val Result(bankAccount, event) = BankAccount.create(cmd.aggregateId)
+    effector.persistEvent(event) { _ =>
+      cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
+      handleCreated(State.Created(state.aggregateId, bankAccount), effector)
+    }
+  }
+
 private def handleCreated(
   state: BankAccountAggregate.State.Created,
   effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
@@ -132,7 +169,7 @@ private def handleCreated(
             replyTo ! DepositCashReply.Failed(aggregateId, error)
             Behaviors.same
           },
-          { case (newBankAccount, event) =>
+          { case Result(newBankAccount, event) =>
             // Persist the event
             effector.persistEvent(event) { _ =>
               replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
@@ -154,6 +191,15 @@ For more detailed implementation examples, see the following files:
 - [BankAccountEvent](src/test/scala/example/BankAccountEvent.scala) - Events produced by the aggregate
 - [BankAccountId](src/test/scala/example/BankAccountId.scala) - Identifier for bank accounts
 - [Money](src/test/scala/example/Money.scala) - Value object representing monetary values
+
+## When to Use This Library
+
+This library is particularly well-suited for:
+
+- When you want to implement incrementally, starting without persistence and later adding it
+- When dealing with complex state transitions that would be difficult to maintain with traditional Pekko Persistence Typed
+- When implementing DDD-oriented designs where you want to separate domain logic from actors
+- When you need a more natural actor programming style for event sourcing applications
 
 ## Installation
 
