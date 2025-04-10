@@ -28,23 +28,24 @@ This library solves these problems by implementing "Persistent Actor as a child 
 
 ## Main Components
 
-### Effector
+### PersistenceEffector
 
 A core trait that provides event persistence functionality.
 
 ```scala
-trait Effector[S, E, M] {
-  def persist(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
-  def persistAll(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
+trait PersistenceEffector[S, E, M] {
+  def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
+  def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
+  def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M]
 }
 ```
 
-### EffectorConfig
+### PersistenceEffectorConfig
 
-A case class that defines the configuration for Effector.
+A case class that defines the configuration for PersistenceEffector.
 
 ```scala
-final case class EffectorConfig[S, E, M](
+final case class PersistenceEffectorConfig[S, E, M](
   persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
@@ -58,8 +59,9 @@ A trait that defines the conversions between state (S), event (E), and message (
 
 ```scala
 trait MessageConverter[S, E, M <: Matchable] {
-  def wrapPersisted(events: Seq[E]): M & PersistedEvent[E, M]
-  def wrapRecovered(state: S): M & RecoveredState[S, M]
+  def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
+  def wrapPersistedState(state: S): M & PersistedState[S, M]
+  def wrapRecoveredState(state: S): M & RecoveredState[S, M]
   // ...
 }
 ```
@@ -97,17 +99,17 @@ enum State {
   }
 }
 
-// 2. Configure EffectorConfig
-val config = EffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+// 2. Configure PersistenceEffectorConfig
+val config = PersistenceEffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
   persistenceId = actorName(aggregateId),
   initialState = State.NotCreated(aggregateId),
   applyEvent = (state, event) => state.applyEvent(event),
   messageConverter = BankAccountCommand.messageConverter,
 )
 
-// 3. Create an actor using Effector
+// 3. Create an actor using PersistenceEffector
 Behaviors.setup[BankAccountCommand] { implicit ctx =>
-  Effector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](config) {
+  PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](config) {
     case (initialState: State.NotCreated, effector) =>
       handleNotCreated(initialState, effector)
     case (initialState: State.Created, effector) =>
@@ -118,7 +120,7 @@ Behaviors.setup[BankAccountCommand] { implicit ctx =>
 // 4. Implement handlers according to state
 private def handleCreated(
   state: BankAccountAggregate.State.Created,
-  effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+  effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
   : Behavior[BankAccountCommand] =
   Behaviors.receiveMessagePartial {
     case BankAccountCommand.DepositCash(aggregateId, amount, replyTo) =>
@@ -132,7 +134,7 @@ private def handleCreated(
           },
           { case (newBankAccount, event) =>
             // Persist the event
-            effector.persist(event) { _ =>
+            effector.persistEvent(event) { _ =>
               replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
               // Update with new state
               handleCreated(state.copy(bankAccount = newBankAccount), effector)
@@ -146,7 +148,7 @@ private def handleCreated(
 
 For more detailed implementation examples, see the following files:
 
-- [BankAccountAggregate](src/test/scala/example/BankAccountAggregate.scala) - Main aggregate implementation using Effector
+- [BankAccountAggregate](src/test/scala/example/BankAccountAggregate.scala) - Main aggregate implementation using PersistenceEffector
 - [BankAccount](src/test/scala/example/BankAccount.scala) - Domain model for bank account
 - [BankAccountCommand](src/test/scala/example/BankAccountCommand.scala) - Commands for the aggregate
 - [BankAccountEvent](src/test/scala/example/BankAccountEvent.scala) - Events produced by the aggregate

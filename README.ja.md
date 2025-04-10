@@ -28,23 +28,24 @@
 
 ## 主要コンポーネント
 
-### Effector
+### PersistenceEffector
 
 イベントの永続化機能を提供するコアトレイトです。
 
 ```scala
-trait Effector[S, E, M] {
-  def persist(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
-  def persistAll(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
+trait PersistenceEffector[S, E, M] {
+  def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
+  def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
+  def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M]
 }
 ```
 
-### EffectorConfig
+### PersistenceEffectorConfig
 
-Effector の設定を定義するケースクラスです。
+PersistenceEffector の設定を定義するケースクラスです。
 
 ```scala
-final case class EffectorConfig[S, E, M](
+final case class PersistenceEffectorConfig[S, E, M](
   persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
@@ -58,8 +59,9 @@ final case class EffectorConfig[S, E, M](
 
 ```scala
 trait MessageConverter[S, E, M <: Matchable] {
-  def wrapPersisted(events: Seq[E]): M & PersistedEvent[E, M]
-  def wrapRecovered(state: S): M & RecoveredState[S, M]
+  def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
+  def wrapPersistedState(state: S): M & PersistedState[S, M]
+  def wrapRecoveredState(state: S): M & RecoveredState[S, M]
   // ...
 }
 ```
@@ -97,17 +99,17 @@ enum State {
   }
 }
 
-// 2. EffectorConfig を設定
-val config = EffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+// 2. PersistenceEffectorConfig を設定
+val config = PersistenceEffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
   persistenceId = actorName(aggregateId),
   initialState = State.NotCreated(aggregateId),
   applyEvent = (state, event) => state.applyEvent(event),
   messageConverter = BankAccountCommand.messageConverter,
 )
 
-// 3. Effector を使用したアクターを作成
+// 3. PersistenceEffector を使用したアクターを作成
 Behaviors.setup[BankAccountCommand] { implicit ctx =>
-  Effector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](config) {
+  PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](config) {
     case (initialState: State.NotCreated, effector) =>
       handleNotCreated(initialState, effector)
     case (initialState: State.Created, effector) =>
@@ -118,7 +120,7 @@ Behaviors.setup[BankAccountCommand] { implicit ctx =>
 // 4. 状態に応じたハンドラを実装
 private def handleCreated(
   state: BankAccountAggregate.State.Created,
-  effector: Effector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
+  effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
   : Behavior[BankAccountCommand] =
   Behaviors.receiveMessagePartial {
     case BankAccountCommand.DepositCash(aggregateId, amount, replyTo) =>
@@ -132,7 +134,7 @@ private def handleCreated(
           },
           { case (newBankAccount, event) =>
             // イベントを永続化
-            effector.persist(event) { _ =>
+            effector.persistEvent(event) { _ =>
               replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
               // 新しい状態で更新
               handleCreated(state.copy(bankAccount = newBankAccount), effector)
@@ -146,7 +148,7 @@ private def handleCreated(
 
 より詳細な実装例については、以下のファイルを参照してください：
 
-- [BankAccountAggregate](src/test/scala/example/BankAccountAggregate.scala) - Effectorを使用したメイン集約実装
+- [BankAccountAggregate](src/test/scala/example/BankAccountAggregate.scala) - PersistenceEffectorを使用したメイン集約実装
 - [BankAccount](src/test/scala/example/BankAccount.scala) - 銀行口座のドメインモデル
 - [BankAccountCommand](src/test/scala/example/BankAccountCommand.scala) - 集約へのコマンド
 - [BankAccountEvent](src/test/scala/example/BankAccountEvent.scala) - 集約から生成されるイベント
