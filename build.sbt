@@ -4,7 +4,7 @@ ThisBuild / organization := "io.github.j5ik2o"
 ThisBuild / organizationName := "io.github.j5ik2o"
 ThisBuild / version := "0.1.0-SNAPSHOT"
 ThisBuild / scalaVersion := "3.6.4"
-ThisBuild / homepage := Some(url("https://github.com/j5ik2o/pkko-persistence-typed-fsm"))
+ThisBuild / homepage := Some(url("https://github.com/j5ik2o/pekko-persistence-effector"))
 ThisBuild / licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.html"))
 ThisBuild / developers := List(
   Developer(
@@ -16,14 +16,14 @@ ThisBuild / developers := List(
 )
 ThisBuild / scmInfo := Some(
   ScmInfo(
-    url("https://github.com/j5ik2o/pekko-persistence-typed-fsm"),
-    "scm:git@github.com:j5ik2o/pekko-persistence-typed-fsm.git",
+    url("https://github.com/j5ik2o/pekko-persistence-effector"),
+    "scm:git@github.com:j5ik2o/pekko-persistence-effector.git",
   ),
 )
 
 lazy val root = (project in file("."))
   .settings(
-    name := "pekko-persistence-typed-fsm",
+    name := "pekko-persistence-effector",
     scalacOptions ++= Seq(
       "-encoding",
       "utf8", // ソースファイルの文字コード指定
@@ -41,7 +41,7 @@ lazy val root = (project in file("."))
       "-no-indent", // インデント構文を拒否し、中括弧に変換
       "-experimental",
     ),
-    idePackagePrefix := Some("com.github.j5ik2o.pekko.persistence.typed.fsm"),
+    idePackagePrefix := Some("com.github.j5ik2o.pekko.persistence.effector"),
     libraryDependencies ++= Seq(
       logback.classic % Test,
       slf4j.api,

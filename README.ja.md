@@ -1,4 +1,4 @@
-# pekko-persistence-typed-fsm
+# pekko-persistence-effector 
 
 イベントソーシングと状態遷移を Apache Pekko で効率的に実装するためのライブラリです。
 
@@ -6,7 +6,7 @@
 
 ## 概要
 
-`pekko-persistence-typed-fsm` は Apache Pekko を使用したイベントソーシングパターンの実装を改善するライブラリです。従来の Pekko Persistence Typed の制約を解消し、より直感的なアクタープログラミングスタイルでイベントソーシングを実現します。
+`pekko-persistence-effector` は Apache Pekko を使用したイベントソーシングパターンの実装を改善するライブラリです。従来の Pekko Persistence Typed の制約を解消し、より直感的なアクタープログラミングスタイルでイベントソーシングを実現します。
 
 ### 主な特徴
 
@@ -206,7 +206,7 @@ private def handleCreated(
 build.sbt に以下を追加してください：
 
 ```scala
-libraryDependencies += "com.github.j5ik2o" %% "pekko-persistence-typed-fsm" % "0.1.0-SNAPSHOT"
+libraryDependencies += "com.github.j5ik2o" %% "pekko-persistence-effector" % "0.1.0-SNAPSHOT"
 ```
 
 ## ライセンス

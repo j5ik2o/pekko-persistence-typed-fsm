@@ -1,4 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.typed.fsm
+package com.github.j5ik2o.pekko.persistence.effector
 
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit

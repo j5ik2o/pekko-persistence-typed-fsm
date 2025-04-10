@@ -1,4 +1,4 @@
-# pekko-persistence-typed-fsm
+# pekko-persistence-effector 
 
 A library for efficient implementation of event sourcing and state transitions with Apache Pekko.
 
@@ -6,7 +6,7 @@ A library for efficient implementation of event sourcing and state transitions w
 
 ## Overview
 
-`pekko-persistence-typed-fsm` is a library that improves the implementation of event sourcing patterns using Apache Pekko. It eliminates the constraints of traditional Pekko Persistence Typed and enables event sourcing with a more intuitive actor programming style.
+`pekko-persistence-effector` is a library that improves the implementation of event sourcing patterns using Apache Pekko. It eliminates the constraints of traditional Pekko Persistence Typed and enables event sourcing with a more intuitive actor programming style.
 
 ### Key Features
 
@@ -206,7 +206,7 @@ This library is particularly well-suited for:
 Add the following to your build.sbt:
 
 ```scala
-libraryDependencies += "com.github.j5ik2o" %% "pekko-persistence-typed-fsm" % "0.1.0-SNAPSHOT"
+libraryDependencies += "com.github.j5ik2o" %% "pekko-persistence-effector" % "0.1.0-SNAPSHOT"
 ```
 
 ## License

@@ -1,4 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.typed.fsm
+package com.github.j5ik2o.pekko.persistence.effector
 
 final case class PersistenceEffectorConfig[S, E, M](
   persistenceId: String,

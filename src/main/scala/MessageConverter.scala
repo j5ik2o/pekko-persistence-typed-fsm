@@ -1,4 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.typed.fsm
+package com.github.j5ik2o.pekko.persistence.effector
 
 trait MessageConverter[S, E, M <: Matchable] {
 

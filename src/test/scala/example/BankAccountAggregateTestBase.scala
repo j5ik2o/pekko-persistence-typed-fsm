@@ -1,4 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.typed.fsm
+package com.github.j5ik2o.pekko.persistence.effector
 package example
 
 import com.typesafe.config.{Config, ConfigFactory}
@@ -52,8 +52,7 @@ object BankAccountAggregateTestBase {
 }
 
 /**
- * BankAccountAggregateのテスト基底クラス
- * 具体的なモード（Persisted/InMemory）はサブクラスで指定する
+ * BankAccountAggregateのテスト基底クラス 具体的なモード（Persisted/InMemory）はサブクラスで指定する
  */
 abstract class BankAccountAggregateTestBase
   extends ScalaTestWithActorTestKit(BankAccountAggregateTestBase.config)
@@ -64,12 +63,12 @@ abstract class BankAccountAggregateTestBase
 
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 10.seconds, interval = 100.millis)
-    
+
   // サブクラスで実装するメソッド - テスト対象のPersistenceMode
   def persistenceMode: PersistenceMode
-  
+
   // BankAccountAggregateを生成するヘルパーメソッド
-  def createBankAccountAggregate(accountId: BankAccountId) = 
+  def createBankAccountAggregate(accountId: BankAccountId) =
     BankAccountAggregate(accountId, persistenceMode)
 
   s"BankAccountAggregate with ${persistenceMode} mode" should {
@@ -216,6 +215,6 @@ abstract class BankAccountAggregateTestBase
       failedResponse.error shouldBe BankAccountError.LimitOverError
     }
   }
-  
+
   // 追加のモード特有のテストケースはサブクラスで追加
 }

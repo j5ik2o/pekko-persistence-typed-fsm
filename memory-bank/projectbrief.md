@@ -1,4 +1,4 @@
-# eff-sm-splitter プロジェクト概要
+# pekko-persistence-effector プロジェクト概要
 
 ## 基本情報
 
@@ -8,7 +8,7 @@
 
 ## プロジェクト目的
 
-eff-sm-splitterは、Apache Pekkoを使用したイベントソーシングパターンの実装を補助するライブラリです。アクターモデルとイベントソーシングを組み合わせ、状態マシン（State Machine）の状態とイベントを分離して管理するための機能を提供します。
+pekko-persistence-effector は、Apache Pekkoを使用したイベントソーシングパターンの実装を補助するライブラリです。アクターモデルとイベントソーシングを組み合わせ、状態マシン（State Machine）の状態とイベントを分離して管理するための機能を提供します。
 
 本ライブラリは特に、従来のPekko Persistence Typedの実装における以下の問題点を解決することを目的としています：
 

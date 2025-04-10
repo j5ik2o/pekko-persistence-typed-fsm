@@ -1,4 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.typed.fsm
+package com.github.j5ik2o.pekko.persistence.effector
 
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
@@ -54,8 +54,7 @@ object PersistenceEffectorTestBase {
 }
 
 /**
- * PersistenceEffectorのテスト基底クラス
- * 具体的なモード（Persisted/InMemory）はサブクラスで指定する
+ * PersistenceEffectorのテスト基底クラス 具体的なモード（Persisted/InMemory）はサブクラスで指定する
  */
 abstract class PersistenceEffectorTestBase
   extends ScalaTestWithActorTestKit(PersistenceEffectorTestBase.config)
@@ -67,10 +66,10 @@ abstract class PersistenceEffectorTestBase
 
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 5.seconds, interval = 100.millis)
-  
+
   // サブクラスで実装するメソッド - テスト対象のPersistenceMode
   def persistenceMode: PersistenceMode
-  
+
   // テスト用のイベント、状態、メッセージの定義
   enum TestEvent {
     case TestEventA(value: String)
@@ -308,7 +307,7 @@ abstract class PersistenceEffectorTestBase
         case _ => fail("Expected StateRecovered message")
       }
     }
-    
+
     // InMemoryモード特有のテストがある場合はサブクラスで追加
   }
 

@@ -1,4 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.typed.fsm
+package com.github.j5ik2o.pekko.persistence.effector
 
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, StashBuffer}
 import org.apache.pekko.actor.typed.Behavior
@@ -6,7 +6,7 @@ import org.apache.pekko.actor.typed.Behavior
 /**
  * インメモリのイベントとスナップショットを格納するためのシングルトンオブジェクト
  */
-private[fsm] object InMemoryEventStore {
+private[effector] object InMemoryEventStore {
   // persistenceId -> イベントリスト
   private val events = scala.collection.mutable.Map[String, Vector[Any]]()
   // persistenceId -> 最新スナップショット
