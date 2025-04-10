@@ -12,6 +12,8 @@ final case class PersistenceEffectorConfig[S, E, M](
   unwrapRecoveredState: M => Option[S],
   persistenceMode: PersistenceMode,
   stashSize: Int,
+  snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
+  retentionCriteria: Option[RetentionCriteria] = None
 )
 
 object PersistenceEffectorConfig {
@@ -26,7 +28,10 @@ object PersistenceEffectorConfig {
     unwrapPersistedSnapshot: M => Option[S],
     unwrapRecoveredState: M => Option[S],
     persistenceMode: PersistenceMode,
-    stashSize: Int = 32): PersistenceEffectorConfig[S, E, M] =
+    stashSize: Int = 32,
+    snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
+    retentionCriteria: Option[RetentionCriteria] = None
+  ): PersistenceEffectorConfig[S, E, M] =
     new PersistenceEffectorConfig(
       persistenceId,
       initialState,
@@ -39,6 +44,8 @@ object PersistenceEffectorConfig {
       unwrapRecoveredState,
       persistenceMode,
       stashSize,
+      snapshotCriteria,
+      retentionCriteria
     )
 
   def applyWithMessageConverter[S, E, M <: Matchable](
@@ -47,7 +54,10 @@ object PersistenceEffectorConfig {
     applyEvent: (S, E) => S,
     messageConverter: MessageConverter[S, E, M],
     persistenceMode: PersistenceMode,
-    stashSize: Int = 32): PersistenceEffectorConfig[S, E, M] = apply(
+    stashSize: Int = 32,
+    snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
+    retentionCriteria: Option[RetentionCriteria] = None
+  ): PersistenceEffectorConfig[S, E, M] = apply(
     persistenceId,
     initialState,
     applyEvent,
@@ -59,5 +69,7 @@ object PersistenceEffectorConfig {
     messageConverter.unwrapRecoveredState,
     persistenceMode,
     stashSize,
+    snapshotCriteria,
+    retentionCriteria
   )
 }

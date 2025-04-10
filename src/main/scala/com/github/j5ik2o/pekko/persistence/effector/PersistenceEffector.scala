@@ -8,7 +8,70 @@ import org.apache.pekko.actor.typed.scaladsl.adapter.*
 trait PersistenceEffector[S, E, M] {
   def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
   def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
-  def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M]
+  
+  /**
+   * スナップショットを永続化する（後方互換性のため）
+   *
+   * @param snapshot 永続化するスナップショット
+   * @param onPersisted スナップショットが永続化された後に呼び出されるコールバック
+   * @return 新しいBehavior
+   */
+  def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M] = 
+    persistSnapshot(snapshot, force = false)(onPersisted)
+  
+  /**
+   * スナップショットを永続化する
+   *
+   * @param snapshot 永続化するスナップショット
+   * @param force trueの場合、スナップショット戦略を無視して強制的に保存する
+   * @param onPersisted スナップショットが永続化された後に呼び出されるコールバック
+   * @return 新しいBehavior
+   */
+  def persistSnapshot(snapshot: S, force: Boolean)(onPersisted: S => Behavior[M]): Behavior[M]
+  
+  /**
+   * イベントを永続化し、現在の状態を指定してスナップショット戦略を評価する（後方互換性のため）
+   *
+   * @param event イベント
+   * @param state 現在の状態
+   * @param onPersisted イベントが永続化された後に呼び出されるコールバック
+   * @return 新しいBehavior
+   */
+  def persistEventWithState(event: E, state: S)(onPersisted: E => Behavior[M]): Behavior[M] = 
+    persistEventWithState(event, state, force = false)(onPersisted)
+  
+  /**
+   * イベントを永続化し、現在の状態を指定してスナップショット戦略を評価する
+   *
+   * @param event イベント
+   * @param state 現在の状態
+   * @param force trueの場合、スナップショット戦略を無視して強制的にスナップショットを保存する
+   * @param onPersisted イベントが永続化された後に呼び出されるコールバック
+   * @return 新しいBehavior
+   */
+  def persistEventWithState(event: E, state: S, force: Boolean)(onPersisted: E => Behavior[M]): Behavior[M]
+  
+  /**
+   * 複数のイベントを永続化し、現在の状態を指定してスナップショット戦略を評価する（後方互換性のため）
+   *
+   * @param events イベントのシーケンス
+   * @param state 現在の状態
+   * @param onPersisted イベントが永続化された後に呼び出されるコールバック
+   * @return 新しいBehavior
+   */
+  def persistEventsWithState(events: Seq[E], state: S)(onPersisted: Seq[E] => Behavior[M]): Behavior[M] = 
+    persistEventsWithState(events, state, force = false)(onPersisted)
+  
+  /**
+   * 複数のイベントを永続化し、現在の状態を指定してスナップショット戦略を評価する
+   *
+   * @param events イベントのシーケンス
+   * @param state 現在の状態
+   * @param force trueの場合、スナップショット戦略を無視して強制的にスナップショットを保存する
+   * @param onPersisted イベントが永続化された後に呼び出されるコールバック
+   * @return 新しいBehavior
+   */
+  def persistEventsWithState(events: Seq[E], state: S, force: Boolean)(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
 }
 
 object PersistenceEffector {
@@ -18,6 +81,8 @@ object PersistenceEffector {
     applyEvent: (S, E) => S,
     messageConverter: MessageConverter[S, E, M],
     stashSize: Int = 32,
+    snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
+    retentionCriteria: Option[RetentionCriteria] = None
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] =
@@ -29,6 +94,8 @@ object PersistenceEffector {
         messageConverter = messageConverter,
         persistenceMode = PersistenceMode.Persisted,
         stashSize = stashSize,
+        snapshotCriteria = snapshotCriteria,
+        retentionCriteria = retentionCriteria
       ))(onReady)
 
   def create[S, E, M](
@@ -45,6 +112,8 @@ object PersistenceEffector {
     applyEvent: (S, E) => S,
     messageConverter: MessageConverter[S, E, M],
     stashSize: Int = 32,
+    snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
+    retentionCriteria: Option[RetentionCriteria] = None
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] = {
@@ -56,6 +125,8 @@ object PersistenceEffector {
       messageConverter = messageConverter,
       persistenceMode = PersistenceMode.InMemory,
       stashSize = stashSize,
+      snapshotCriteria = snapshotCriteria,
+      retentionCriteria = retentionCriteria
     )
 
     createWithMode(config, PersistenceMode.InMemory)(onReady)

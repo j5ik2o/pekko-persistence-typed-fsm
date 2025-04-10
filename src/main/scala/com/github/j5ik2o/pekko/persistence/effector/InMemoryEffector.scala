@@ -13,18 +13,30 @@ private[effector] object InMemoryEventStore {
   private val snapshots = scala.collection.mutable.Map[String, Any]()
   // persistenceId -> スナップショット保存時の最新イベントインデックス
   private val snapshotEventIndices = scala.collection.mutable.Map[String, Int]()
+  // persistenceId -> 現在のシーケンス番号
+  private val sequenceNumbers = scala.collection.mutable.Map[String, Long]()
 
-  def addEvent[E](id: String, event: E): Unit =
+  def addEvent[E](id: String, event: E): Unit = {
     events.updateWith(id) {
       case Some(existing) => Some(existing :+ event)
       case None => Some(Vector(event))
     }
+    val currentSeq = sequenceNumbers.getOrElse(id, 0L)
+    sequenceNumbers.update(id, currentSeq + 1)
+  }
 
-  def addEvents[E](id: String, newEvents: Seq[E]): Unit =
+  def addEvents[E](id: String, newEvents: Seq[E]): Unit = {
     events.updateWith(id) {
       case Some(existing) => Some(existing ++ newEvents)
       case None => Some(newEvents.toVector)
     }
+    val currentSeq = sequenceNumbers.getOrElse(id, 0L)
+    sequenceNumbers.update(id, currentSeq + newEvents.size)
+  }
+  
+  def getCurrentSequenceNumber(id: String): Long = {
+    sequenceNumbers.getOrElse(id, 0L)
+  }
 
   def saveSnapshot[S](id: String, snapshot: S): Unit = {
     snapshots.update(id, snapshot)
@@ -59,6 +71,7 @@ private[effector] object InMemoryEventStore {
     events.clear()
     snapshots.clear()
     snapshotEventIndices.clear()
+    sequenceNumbers.clear()
   }
 }
 
@@ -83,6 +96,11 @@ final class InMemoryEffector[S, E, M](
       ctx.log.debug(s"Starting from initial state for $persistenceId")
       // 初期状態からイベントを適用
       InMemoryEventStore.replayEvents(persistenceId, initialState, applyEvent)
+  }
+
+  // 現在のシーケンス番号を取得
+  private def getCurrentSequenceNumber: Long = {
+    InMemoryEventStore.getCurrentSequenceNumber(persistenceId)
   }
 
   // PersistentActorのpersistメソッドをエミュレート
@@ -128,18 +146,106 @@ final class InMemoryEffector[S, E, M](
   }
 
   // PersistentActorのsaveSnapshotメソッドをエミュレート
-  override def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M] = {
+  override def persistSnapshot(snapshot: S, force: Boolean)(onPersisted: S => Behavior[M]): Behavior[M] = {
     ctx.log.debug("In-memory persisting snapshot: {}", snapshot)
+    
+    // forceパラメータまたはスナップショット戦略に基づいて保存するかどうかを判断
+    val shouldSave = force || config.snapshotCriteria.exists { criteria =>
+      // スナップショットに対する評価（イベントがないため、ダミーのイベントを使用）
+      val dummyEvent = snapshot.asInstanceOf[E]  // ダミーのイベント（型消去されるため、実行時には問題ない）
+      val sequenceNumber = getCurrentSequenceNumber
+      val result = criteria.shouldTakeSnapshot(dummyEvent, snapshot, sequenceNumber)
+      ctx.log.debug("Snapshot criteria evaluation result: {}", result)
+      result
+    }
+    
+    if (shouldSave) {
+      // 保持ポリシーの適用（設定されている場合）
+      config.retentionCriteria.foreach { retention =>
+        // TODO: 実際のretentionポリシーの適用（古いスナップショットの削除など）
+        ctx.log.debug("Applying retention policy: {}", retention)
+      }
 
-    // スナップショットをメモリに保存
-    InMemoryEventStore.saveSnapshot(persistenceId, snapshot)
+      // スナップショットをメモリに保存
+      InMemoryEventStore.saveSnapshot(persistenceId, snapshot)
 
-    // 状態を更新（スナップショットの場合は直接更新する）
-    // スナップショットは完全な状態を表すので、これは正しい動作
-    currentState = snapshot
+      // 状態を更新（スナップショットの場合は直接更新する）
+      // スナップショットは完全な状態を表すので、これは正しい動作
+      currentState = snapshot
+
+      // コールバックを即時実行
+      val behavior = onPersisted(snapshot)
+
+      // stashBufferが空ではない場合はunstashAll
+      if (!stashBuffer.isEmpty) {
+        stashBuffer.unstashAll(behavior)
+      } else {
+        behavior
+      }
+    } else {
+      ctx.log.debug("Skipping snapshot persistence based on criteria evaluation")
+      onPersisted(snapshot)
+    }
+  }
+  
+  override def persistEventWithState(event: E, state: S, force: Boolean)(onPersisted: E => Behavior[M]): Behavior[M] = {
+    ctx.log.debug("In-memory persisting event with state: {}", event)
+
+    // イベントをメモリに保存
+    InMemoryEventStore.addEvent(persistenceId, event)
+    
+    val sequenceNumber = getCurrentSequenceNumber
+    
+    // スナップショット戦略の評価またはforce=trueの場合にスナップショットを保存
+    val shouldSave = force || config.snapshotCriteria.exists { criteria =>
+      val result = criteria.shouldTakeSnapshot(event, state, sequenceNumber)
+      ctx.log.debug("Snapshot criteria evaluation result: {}", result)
+      result
+    }
+    
+    if (shouldSave) {
+      ctx.log.debug("Taking snapshot at sequence number {}", sequenceNumber)
+      InMemoryEventStore.saveSnapshot(persistenceId, state)
+      // 状態も更新
+      currentState = state
+    }
 
     // コールバックを即時実行
-    val behavior = onPersisted(snapshot)
+    val behavior = onPersisted(event)
+
+    // stashBufferが空ではない場合はunstashAll
+    if (!stashBuffer.isEmpty) {
+      stashBuffer.unstashAll(behavior)
+    } else {
+      behavior
+    }
+  }
+  
+  override def persistEventsWithState(events: Seq[E], state: S, force: Boolean)(onPersisted: Seq[E] => Behavior[M]): Behavior[M] = {
+    ctx.log.debug("In-memory persisting events with state: {}", events)
+
+    // イベントをメモリに保存
+    InMemoryEventStore.addEvents(persistenceId, events)
+    
+    val finalSequenceNumber = getCurrentSequenceNumber
+    
+    // スナップショット戦略の評価またはforce=trueの場合にスナップショットを保存
+    val shouldSave = force || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
+      val lastEvent = events.last
+      val result = criteria.shouldTakeSnapshot(lastEvent, state, finalSequenceNumber)
+      ctx.log.debug("Snapshot criteria evaluation result: {}", result)
+      result
+    })
+    
+    if (shouldSave) {
+      ctx.log.debug("Taking snapshot at sequence number {}", finalSequenceNumber)
+      InMemoryEventStore.saveSnapshot(persistenceId, state)
+      // 状態も更新
+      currentState = state
+    }
+
+    // コールバックを即時実行
+    val behavior = onPersisted(events)
 
     // stashBufferが空ではない場合はunstashAll
     if (!stashBuffer.isEmpty) {
