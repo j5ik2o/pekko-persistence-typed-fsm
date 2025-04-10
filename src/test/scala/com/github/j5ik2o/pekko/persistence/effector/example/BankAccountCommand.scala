@@ -1,6 +1,6 @@
-package com.github.j5ik2o.pekko.persistence.effector
-package example
+package com.github.j5ik2o.pekko.persistence.effector.example
 
+import com.github.j5ik2o.pekko.persistence.effector.{MessageConverter, MessageProtocol, PersistedEvent, PersistedState, RecoveredState}
 import org.apache.pekko.actor.typed.ActorRef
 
 enum BankAccountCommand {

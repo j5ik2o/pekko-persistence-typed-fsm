@@ -1,5 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.effector
-package example
+package com.github.j5ik2o.pekko.persistence.effector.example
 
 import java.time.Instant
 

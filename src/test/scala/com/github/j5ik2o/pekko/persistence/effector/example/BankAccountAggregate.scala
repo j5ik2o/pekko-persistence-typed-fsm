@@ -1,6 +1,10 @@
-package com.github.j5ik2o.pekko.persistence.effector
-package example
+package com.github.j5ik2o.pekko.persistence.effector.example
 
+import com.github.j5ik2o.pekko.persistence.effector.{
+  PersistenceEffector,
+  PersistenceEffectorConfig,
+  PersistenceMode,
+}
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 
@@ -73,7 +77,10 @@ object BankAccountAggregate {
       val Result(bankAccount, event) = BankAccount.create(cmd.aggregateId)
       effector.persistEvent(event) { _ =>
         cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
-        handleCreated(State.Created(state.aggregateId, bankAccount), effector)
+        val newState: State.Created = State.Created(state.aggregateId, bankAccount)
+        effector.persistSnapshot(newState) { _ =>
+          handleCreated(newState, effector)
+        }
       }
     }
 

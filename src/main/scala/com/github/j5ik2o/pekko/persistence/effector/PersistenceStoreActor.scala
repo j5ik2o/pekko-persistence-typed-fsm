@@ -9,10 +9,11 @@ import PersistenceStoreActor.{
   SingleEventPersisted,
   SnapshotPersisted,
 }
-
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.{ActorLogging, Props}
 import org.apache.pekko.persistence.{PersistentActor, RecoveryCompleted, SnapshotOffer}
+import org.slf4j.LoggerFactory
+
 import scala.compiletime.asMatchable
 
 object PersistenceStoreActor {
@@ -52,23 +53,23 @@ final class PersistenceStoreActor[S, E, M](
   extends PersistentActor
   with ActorLogging {
 
-  private var state: Option[S] = Some(initialState)
+  private var recoveryState: Option[S] = Some(initialState)
 
   override def receiveRecover: Receive = { msg =>
     msg.asMatchable match {
       case SnapshotOffer(_, snapshot) =>
         log.debug("receiveRecover: SnapshotOffer: {}", snapshot)
-        state = Some(snapshot.asInstanceOf[S])
+        recoveryState = Some(snapshot.asInstanceOf[S])
       case RecoveryCompleted =>
         log.debug("receiveRecover: RecoveryCompleted")
         recoveryActorRef ! RecoveryDone(
-          state.getOrElse(throw new IllegalStateException("State is not set")))
-        state = None
+          recoveryState.getOrElse(throw new IllegalStateException("State is not set")))
+        recoveryState = None
       case event =>
         if (event != null) {
           log.debug("receiveRecover: Event: {}", event)
           val e = event.asInstanceOf[E]
-          state = Some(applyEvent(state.getOrElse(throw new AssertionError()), e))
+          recoveryState = Some(applyEvent(recoveryState.getOrElse(throw new AssertionError()), e))
         }
     }
   }

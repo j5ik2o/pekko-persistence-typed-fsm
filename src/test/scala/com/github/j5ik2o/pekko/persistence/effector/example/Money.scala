@@ -1,8 +1,6 @@
-package com.github.j5ik2o.pekko.persistence.effector
-package example
+package com.github.j5ik2o.pekko.persistence.effector.example
 
 import java.util.{Currency, Locale}
-
 import scala.math.BigDecimal
 
 /**

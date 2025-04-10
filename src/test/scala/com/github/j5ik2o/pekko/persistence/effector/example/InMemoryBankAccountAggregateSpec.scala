@@ -1,5 +1,6 @@
-package com.github.j5ik2o.pekko.persistence.effector
-package example
+package com.github.j5ik2o.pekko.persistence.effector.example
+
+import com.github.j5ik2o.pekko.persistence.effector.{InMemoryEventStore, PersistenceMode}
 
 /**
  * InMemoryモードを使用したBankAccountAggregateのテスト

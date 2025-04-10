@@ -1,13 +1,6 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-import PersistenceStoreActor.{
-  PersistEventSequence,
-  PersistSingleEvent,
-  PersistSnapshot,
-  PersistenceCommand,
-  PersistenceReply,
-}
-
+import com.github.j5ik2o.pekko.persistence.effector.PersistenceStoreActor.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors, StashBuffer}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 

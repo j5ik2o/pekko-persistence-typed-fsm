@@ -1,60 +1,23 @@
-package com.github.j5ik2o.pekko.persistence.effector
-package example
+package com.github.j5ik2o.pekko.persistence.effector.example
 
+import com.github.j5ik2o.pekko.persistence.effector.{PersistenceMode, TestConfig}
+import com.github.j5ik2o.pekko.persistence.effector.example.*
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import org.apache.pekko.actor.typed.Behavior
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
-import scala.concurrent.duration.*
 import java.util.UUID
-import org.apache.pekko.actor.typed.Behavior
-
-object BankAccountAggregateTestBase {
-  val config: Config = ConfigFactory.parseString("""
-      |pekko {
-      |  actor {
-      |    provider = local
-      |    warn-about-java-serializer-usage = off
-      |    allow-java-serialization = on
-      |    serialize-messages = off
-      |    serializers {
-      |      java = "org.apache.pekko.serialization.JavaSerializer"
-      |    }
-      |    serialization-bindings {
-      |      "java.lang.Object" = java
-      |    }
-      |  }
-      |  persistence {
-      |    journal {
-      |      plugin = "pekko.persistence.journal.leveldb"
-      |      leveldb.dir = "target/journal"
-      |      leveldb.native = false
-      |    }
-      |    snapshot-store {
-      |      plugin = "pekko.persistence.snapshot-store.local"
-      |      local {
-      |        dir = "target/snapshot"
-      |      }
-      |    }
-      |  }
-      |  test {
-      |    single-expect-default = 5s
-      |    filter-leeway = 5s
-      |    timefactor = 1.0
-      |  }
-      |  coordinated-shutdown.run-by-actor-system-terminate = off
-      |}
-      |""".stripMargin)
-}
+import scala.concurrent.duration.*
 
 /**
  * BankAccountAggregateのテスト基底クラス 具体的なモード（Persisted/InMemory）はサブクラスで指定する
  */
 abstract class BankAccountAggregateTestBase
-  extends ScalaTestWithActorTestKit(BankAccountAggregateTestBase.config)
+  extends ScalaTestWithActorTestKit(TestConfig.config)
   with AnyWordSpecLike
   with Matchers
   with Eventually

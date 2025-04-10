@@ -41,7 +41,6 @@ lazy val root = (project in file("."))
       "-no-indent", // インデント構文を拒否し、中括弧に変換
       "-experimental",
     ),
-    idePackagePrefix := Some("com.github.j5ik2o.pekko.persistence.effector"),
     libraryDependencies ++= Seq(
       slf4j.api,
       apachePekko.slf4j,
@@ -57,12 +56,12 @@ lazy val root = (project in file("."))
     ),
     // IntelliJでのテスト実行時にLevelDBの依存関係が確実に含まれるようにする
     Compile / unmanagedClasspath += baseDirectory.value / "target" / "scala-3.6.4" / "test-classes",
-    Test / testOptions += Tests.Setup(() => {
+    Test / testOptions += Tests.Setup { () =>
       val journalDir = new java.io.File("target/journal")
       val snapshotDir = new java.io.File("target/snapshot")
       if (!journalDir.exists()) journalDir.mkdirs()
       if (!snapshotDir.exists()) snapshotDir.mkdirs()
-    }),
+    },
     semanticdbEnabled := true,
     semanticdbVersion := scalafixSemanticdb.revision,
     Test / fork := true,
