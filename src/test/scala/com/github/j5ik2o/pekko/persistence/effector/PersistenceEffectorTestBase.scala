@@ -1,6 +1,5 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.scalatest.{BeforeAndAfterAll, OptionValues}
@@ -37,6 +36,10 @@ enum TestMessage {
   case EventPersisted(events: Seq[TestEvent])
     extends TestMessage
     with PersistedEvent[TestEvent, TestMessage]
+
+  case SnapshotsDeleted(maxSequenceNumber: Long)
+    extends TestMessage
+    with DeletedSnapshots[TestMessage]
 }
 
 /**
@@ -57,10 +60,20 @@ abstract class PersistenceEffectorTestBase
   def persistenceMode: PersistenceMode
 
   val messageConverter: MessageConverter[TestState, TestEvent, TestMessage] =
-    MessageConverter[TestState, TestEvent, TestMessage](
-      TestMessage.EventPersisted.apply,
-      TestMessage.SnapshotPersisted.apply,
-      TestMessage.StateRecovered.apply)
+    new MessageConverter[TestState, TestEvent, TestMessage] {
+      override def wrapPersistedEvents(
+        events: Seq[TestEvent]): TestMessage & PersistedEvent[TestEvent, TestMessage] =
+        TestMessage.EventPersisted(events)
+
+      override def wrapPersistedState(
+        state: TestState): TestMessage & PersistedState[TestState, TestMessage] =
+        TestMessage.SnapshotPersisted(state)
+
+      override def wrapRecoveredState(
+        state: TestState): TestMessage & RecoveredState[TestState, TestMessage] =
+        TestMessage.StateRecovered(state)
+
+    }
 
   // "Effector with <モード>" should という形式でテストを記述
   s"Effector with $persistenceMode mode" should {
@@ -74,7 +87,7 @@ abstract class PersistenceEffectorTestBase
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
-          persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
+          persistenceMode = persistenceMode,
           stashSize = 32,
         )
 
@@ -141,19 +154,15 @@ abstract class PersistenceEffectorTestBase
 
       val events = ArrayBuffer.empty[TestMessage]
 
-      val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
-        persistenceId = persistenceId,
-        initialState = initialState,
-        applyEvent = (state, event) => state.applyEvent(event),
-        wrapPersistedEvents = messageConverter.wrapPersistedEvents,
-        wrapPersistedSnapshot = messageConverter.wrapPersistedState,
-        wrapRecoveredState = messageConverter.wrapRecoveredState,
-        unwrapPersistedEvents = messageConverter.unwrapPersistedEvents,
-        unwrapPersistedSnapshot = messageConverter.unwrapPersistedState,
-        unwrapRecoveredState = messageConverter.unwrapRecoveredState,
-        persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
-        stashSize = 32,
-      )
+      val config =
+        PersistenceEffectorConfig.applyWithMessageConverter[TestState, TestEvent, TestMessage](
+          persistenceId = persistenceId,
+          initialState = initialState,
+          applyEvent = (state, event) => state.applyEvent(event),
+          messageConverter = messageConverter,
+          persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
+          stashSize = 32,
+        )
 
       val probe = createTestProbe[TestMessage]()
 

@@ -8,19 +8,19 @@ import org.apache.pekko.actor.typed.Behavior
  */
 private[effector] object InMemoryEventStore {
   import scala.jdk.CollectionConverters.*
-  
+
   // スレッドセーフなコレクションを使用
   // persistenceId -> イベントリスト
-  private val events: scala.collection.mutable.Map[String, Vector[Any]] = 
+  private val events: scala.collection.mutable.Map[String, Vector[Any]] =
     new java.util.concurrent.ConcurrentHashMap[String, Vector[Any]]().asScala
   // persistenceId -> 最新スナップショット
-  private val snapshots: scala.collection.mutable.Map[String, Any] = 
+  private val snapshots: scala.collection.mutable.Map[String, Any] =
     new java.util.concurrent.ConcurrentHashMap[String, Any]().asScala
   // persistenceId -> スナップショット保存時の最新イベントインデックス
-  private val snapshotEventIndices: scala.collection.mutable.Map[String, Int] = 
+  private val snapshotEventIndices: scala.collection.mutable.Map[String, Int] =
     new java.util.concurrent.ConcurrentHashMap[String, Int]().asScala
   // persistenceId -> 現在のシーケンス番号
-  private val sequenceNumbers: scala.collection.mutable.Map[String, Long] = 
+  private val sequenceNumbers: scala.collection.mutable.Map[String, Long] =
     new java.util.concurrent.ConcurrentHashMap[String, Long]().asScala
 
   def addEvent[E](id: String, event: E): Unit = {
@@ -40,10 +40,9 @@ private[effector] object InMemoryEventStore {
     val currentSeq = sequenceNumbers.getOrElse(id, 0L)
     sequenceNumbers.update(id, currentSeq + newEvents.size)
   }
-  
-  def getCurrentSequenceNumber(id: String): Long = {
+
+  def getCurrentSequenceNumber(id: String): Long =
     sequenceNumbers.getOrElse(id, 0L)
-  }
 
   def saveSnapshot[S](id: String, snapshot: S): Unit = {
     snapshots.update(id, snapshot)
@@ -106,9 +105,8 @@ final class InMemoryEffector[S, E, M](
   }
 
   // 現在のシーケンス番号を取得
-  private def getCurrentSequenceNumber: Long = {
+  private def getCurrentSequenceNumber: Long =
     InMemoryEventStore.getCurrentSequenceNumber(persistenceId)
-  }
 
   // PersistentActorのpersistメソッドをエミュレート
   override def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M] = {
@@ -153,19 +151,20 @@ final class InMemoryEffector[S, E, M](
   }
 
   // PersistentActorのsaveSnapshotメソッドをエミュレート
-  override def persistSnapshot(snapshot: S, force: Boolean)(onPersisted: S => Behavior[M]): Behavior[M] = {
+  override def persistSnapshot(snapshot: S, force: Boolean)(
+    onPersisted: S => Behavior[M]): Behavior[M] = {
     ctx.log.debug("In-memory persisting snapshot: {}", snapshot)
-    
+
     // forceパラメータまたはスナップショット戦略に基づいて保存するかどうかを判断
     val shouldSave = force || config.snapshotCriteria.exists { criteria =>
       // スナップショットに対する評価（イベントがないため、ダミーのイベントを使用）
-      val dummyEvent = snapshot.asInstanceOf[E]  // ダミーのイベント（型消去されるため、実行時には問題ない）
+      val dummyEvent = snapshot.asInstanceOf[E] // ダミーのイベント（型消去されるため、実行時には問題ない）
       val sequenceNumber = getCurrentSequenceNumber
       val result = criteria.shouldTakeSnapshot(dummyEvent, snapshot, sequenceNumber)
       ctx.log.debug("Snapshot criteria evaluation result: {}", result)
       result
     }
-    
+
     if (shouldSave) {
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
@@ -194,22 +193,23 @@ final class InMemoryEffector[S, E, M](
       onPersisted(snapshot)
     }
   }
-  
-  override def persistEventWithState(event: E, state: S, force: Boolean)(onPersisted: E => Behavior[M]): Behavior[M] = {
+
+  override def persistEventWithState(event: E, state: S, force: Boolean)(
+    onPersisted: E => Behavior[M]): Behavior[M] = {
     ctx.log.debug("In-memory persisting event with state: {}", event)
 
     // イベントをメモリに保存
     InMemoryEventStore.addEvent(persistenceId, event)
-    
+
     val sequenceNumber = getCurrentSequenceNumber
-    
+
     // スナップショット戦略の評価またはforce=trueの場合にスナップショットを保存
     val shouldSave = force || config.snapshotCriteria.exists { criteria =>
       val result = criteria.shouldTakeSnapshot(event, state, sequenceNumber)
       ctx.log.debug("Snapshot criteria evaluation result: {}", result)
       result
     }
-    
+
     if (shouldSave) {
       ctx.log.debug("Taking snapshot at sequence number {}", sequenceNumber)
       InMemoryEventStore.saveSnapshot(persistenceId, state)
@@ -227,15 +227,16 @@ final class InMemoryEffector[S, E, M](
       behavior
     }
   }
-  
-  override def persistEventsWithState(events: Seq[E], state: S, force: Boolean)(onPersisted: Seq[E] => Behavior[M]): Behavior[M] = {
+
+  override def persistEventsWithState(events: Seq[E], state: S, force: Boolean)(
+    onPersisted: Seq[E] => Behavior[M]): Behavior[M] = {
     ctx.log.debug("In-memory persisting events with state: {}", events)
 
     // イベントをメモリに保存
     InMemoryEventStore.addEvents(persistenceId, events)
-    
+
     val finalSequenceNumber = getCurrentSequenceNumber
-    
+
     // スナップショット戦略の評価またはforce=trueの場合にスナップショットを保存
     val shouldSave = force || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
       val lastEvent = events.last
@@ -243,7 +244,7 @@ final class InMemoryEffector[S, E, M](
       ctx.log.debug("Snapshot criteria evaluation result: {}", result)
       result
     })
-    
+
     if (shouldSave) {
       ctx.log.debug("Taking snapshot at sequence number {}", finalSequenceNumber)
       InMemoryEventStore.saveSnapshot(persistenceId, state)

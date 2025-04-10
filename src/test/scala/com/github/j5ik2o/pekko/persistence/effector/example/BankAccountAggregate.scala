@@ -4,6 +4,7 @@ import com.github.j5ik2o.pekko.persistence.effector.{
   PersistenceEffector,
   PersistenceEffectorConfig,
   PersistenceMode,
+  SnapshotCriteria,
 }
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
@@ -56,6 +57,7 @@ object BankAccountAggregate {
         messageConverter = BankAccountCommand.messageConverter,
         persistenceMode = persistenceMode,
         stashSize = 32,
+        snapshotCriteria = Some(SnapshotCriteria.every(2)),
       )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
       PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
@@ -78,9 +80,7 @@ object BankAccountAggregate {
       effector.persistEvent(event) { _ =>
         cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
         val newState: State.Created = State.Created(state.aggregateId, bankAccount)
-        effector.persistSnapshot(newState) { _ =>
-          handleCreated(newState, effector)
-        }
+        handleCreated(newState, effector)
       }
     }
 
@@ -88,42 +88,44 @@ object BankAccountAggregate {
     state: BankAccountAggregate.State.Created,
     effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
     : Behavior[BankAccountCommand] =
-    Behaviors.receiveMessagePartial {
-      case BankAccountCommand.Stop(aggregateId, replyTo) =>
-        replyTo ! StopReply.Succeeded(aggregateId)
-        Behaviors.stopped
-      case BankAccountCommand.GetBalance(aggregateId, replyTo) =>
-        replyTo ! GetBalanceReply.Succeeded(aggregateId, state.bankAccount.balance)
-        Behaviors.same
-      case BankAccountCommand.DepositCash(aggregateId, amount, replyTo) =>
-        state.bankAccount
-          .add(amount)
-          .fold(
-            error => {
-              replyTo ! DepositCashReply.Failed(aggregateId, error)
-              Behaviors.same
-            },
-            { case Result(newBankAccount, event) =>
-              effector.persistEvent(event) { _ =>
-                replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
-                handleCreated(state.copy(bankAccount = newBankAccount), effector)
-              }
-            },
-          )
-      case BankAccountCommand.WithdrawCash(aggregateId, amount, replyTo) =>
-        state.bankAccount
-          .subtract(amount)
-          .fold(
-            error => {
-              replyTo ! WithdrawCashReply.Failed(aggregateId, error)
-              Behaviors.same
-            },
-            { case Result(newBankAccount, event) =>
-              effector.persistEvent(event) { _ =>
-                replyTo ! WithdrawCashReply.Succeeded(aggregateId, amount)
-                handleCreated(state.copy(bankAccount = newBankAccount), effector)
-              }
-            },
-          )
+    effector.persistSnapshot(state) { _ =>
+      Behaviors.receiveMessagePartial {
+        case BankAccountCommand.Stop(aggregateId, replyTo) =>
+          replyTo ! StopReply.Succeeded(aggregateId)
+          Behaviors.stopped
+        case BankAccountCommand.GetBalance(aggregateId, replyTo) =>
+          replyTo ! GetBalanceReply.Succeeded(aggregateId, state.bankAccount.balance)
+          Behaviors.same
+        case BankAccountCommand.DepositCash(aggregateId, amount, replyTo) =>
+          state.bankAccount
+            .add(amount)
+            .fold(
+              error => {
+                replyTo ! DepositCashReply.Failed(aggregateId, error)
+                Behaviors.same
+              },
+              { case Result(newBankAccount, event) =>
+                effector.persistEvent(event) { _ =>
+                  replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
+                  handleCreated(state.copy(bankAccount = newBankAccount), effector)
+                }
+              },
+            )
+        case BankAccountCommand.WithdrawCash(aggregateId, amount, replyTo) =>
+          state.bankAccount
+            .subtract(amount)
+            .fold(
+              error => {
+                replyTo ! WithdrawCashReply.Failed(aggregateId, error)
+                Behaviors.same
+              },
+              { case Result(newBankAccount, event) =>
+                effector.persistEvent(event) { _ =>
+                  replyTo ! WithdrawCashReply.Succeeded(aggregateId, amount)
+                  handleCreated(state.copy(bankAccount = newBankAccount), effector)
+                }
+              },
+            )
+      }
     }
 }

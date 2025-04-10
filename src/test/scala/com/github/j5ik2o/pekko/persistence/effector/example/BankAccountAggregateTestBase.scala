@@ -1,8 +1,6 @@
 package com.github.j5ik2o.pekko.persistence.effector.example
 
 import com.github.j5ik2o.pekko.persistence.effector.{PersistenceMode, TestConfig}
-import com.github.j5ik2o.pekko.persistence.effector.example.*
-import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.Behavior
 import org.scalatest.BeforeAndAfterAll

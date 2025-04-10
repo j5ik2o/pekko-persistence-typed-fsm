@@ -13,3 +13,10 @@ trait PersistedState[S, M] extends MessageWrapper[M] { self: M =>
 trait RecoveredState[S, M] extends MessageWrapper[M] { self: M =>
   def state: S
 }
+
+/**
+ * スナップショット削除の応答をラップするトレイト
+ */
+trait DeletedSnapshots[M] extends MessageWrapper[M] { self: M =>
+  def maxSequenceNumber: Long
+}
