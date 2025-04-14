@@ -1,8 +1,11 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
+import com.github.j5ik2o.pekko.persistence.effector.PersistenceStoreActor.PersistenceCommand
+
 import scala.compiletime.asMatchable
 
 trait MessageConverter[S, E, M] {
+  // def wrapMessage(p: PersistenceCommand[S, E]): M & MessageWrapper[M]
 
   def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
   def wrapPersistedSnapshot(state: S): M & PersistedState[S, M]

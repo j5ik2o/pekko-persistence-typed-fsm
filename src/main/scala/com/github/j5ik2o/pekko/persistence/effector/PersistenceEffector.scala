@@ -180,11 +180,14 @@ object PersistenceEffector {
             context.messageAdapter[RecoveryDone[S]](rd => wrapRecoveredState(rd.state)))
 
         val adapter = context.messageAdapter[PersistenceReply[S, E]] {
+          // イベント保存
           case PersistSingleEventSucceeded(event) => wrapPersistedEvents(Seq(event))
           case PersistMultipleEventsSucceeded(events) => wrapPersistedEvents(events)
+          // スナップショット保存
           case PersistSnapshotSucceeded(snapshot) => wrapPersistedSnapshot(snapshot)
           case PersistSnapshotFailed(snapshot, cause) =>
             throw new IllegalStateException("Failed to persist snapshot", cause)
+          // スナップショット削除
           case DeleteSnapshotsSucceeded(maxSequenceNumber) => wrapDeleteSnapshots(maxSequenceNumber)
           case DeleteSnapshotsFailed(maxSequenceNumber, cause) =>
             throw new IllegalStateException("Failed to delete snapshots", cause)

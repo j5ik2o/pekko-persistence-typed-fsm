@@ -23,18 +23,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
     // 永続化されたイベント
     events: ArrayBuffer[TestMessage.EventPersisted] = ArrayBuffer.empty,
     // 永続化されたスナップショット
-    snapshots: ArrayBuffer[TestMessage.SnapshotPersisted] = ArrayBuffer.empty
+    snapshots: ArrayBuffer[TestMessage.SnapshotPersisted] = ArrayBuffer.empty,
   ) {
     // メッセージを処理してテストコンテキストに追加するメソッド
-    def processMessage(msg: TestMessage): Unit = {
+    def processMessage(msg: TestMessage): Unit =
       msg match {
-        case e: TestMessage.EventPersisted => 
+        case e: TestMessage.EventPersisted =>
           events += e
-        case s: TestMessage.SnapshotPersisted => 
+        case s: TestMessage.SnapshotPersisted =>
           snapshots += s
         case _ => // ignore
       }
-    }
   }
 
   "Effector with Persisted mode" should {
@@ -73,17 +72,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
             // イベントを順に永続化する関数
             def persistNextEvent(
               remainingEvents: Seq[TestEvent],
-              currentState: TestState
-            ): Behavior[TestMessage] = {
+              currentState: TestState,
+            ): Behavior[TestMessage] =
               if (remainingEvents.isEmpty) {
                 // イベント処理後の状態をログに出力
                 context.log.debug("All events processed. Final state: {}", currentState)
-                
+
                 // テスト用スナップショットを明示的に追加（アクターの状態確認用）
                 testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
-                
+
                 // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
-                Behaviors.receiveMessage { _ => Behaviors.same }
+                Behaviors.receiveMessage(_ => Behaviors.same)
               } else {
                 val event = remainingEvents.head
                 val nextEvents = remainingEvents.tail
@@ -98,7 +97,6 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
                   persistNextEvent(nextEvents, newState)
                 }
               }
-            }
 
             // 最初のイベントから永続化を開始
             persistNextEvent(events, state)
@@ -109,7 +107,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
       eventually {
         // 5つのイベントが永続化されることを確認
         testContext.events.size.shouldBe(5)
-        
+
         // 明示的に追加したスナップショットの検証
         // 注：実際のスナップショット数と異なる可能性があります
         // スナップショットの状態と内容を検証
@@ -156,17 +154,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
             // イベントを順に永続化する関数
             def persistNextEvent(
               remainingEvents: Seq[TestEvent],
-              currentState: TestState
-            ): Behavior[TestMessage] = {
-                if (remainingEvents.isEmpty) {
-                  // イベント処理後の状態をログに出力
-                  context.log.debug("All events processed. Final state: {}", currentState)
-                  
-                  // テスト用スナップショットを明示的に追加（アクターの状態確認用）
-                  testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
-                  
-                  // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
-                  Behaviors.receiveMessage { _ => Behaviors.same }
+              currentState: TestState,
+            ): Behavior[TestMessage] =
+              if (remainingEvents.isEmpty) {
+                // イベント処理後の状態をログに出力
+                context.log.debug("All events processed. Final state: {}", currentState)
+
+                // テスト用スナップショットを明示的に追加（アクターの状態確認用）
+                testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
+
+                // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
+                Behaviors.receiveMessage(_ => Behaviors.same)
               } else {
                 val event = remainingEvents.head
                 val nextEvents = remainingEvents.tail
@@ -175,7 +173,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
                 effector.persistEventWithState(event, currentState) { e =>
                   testContext.events += TestMessage.EventPersisted(Seq(e))
                   val newState = currentState.applyEvent(e)
-                  
+
                   // TestEventBイベントの場合はスナップショット発生の可能性あり
                   if (event.isInstanceOf[TestEvent.TestEventB]) {
                     context.log.debug("TestEventB detected, snapshot may be created")
@@ -183,11 +181,10 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
                     // テスト用に明示的にスナップショットを追加（本来はPersistenceEffectorが自動で作成）
                     testContext.snapshots += TestMessage.SnapshotPersisted(newState)
                   }
-                  
+
                   persistNextEvent(nextEvents, newState)
                 }
               }
-            }
 
             // 最初のイベントから永続化を開始
             persistNextEvent(events, state)
@@ -254,17 +251,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
             // イベントを順に永続化する関数
             def persistNextEvent(
               remainingEvents: Seq[TestEvent],
-              currentState: TestState
-            ): Behavior[TestMessage] = {
+              currentState: TestState,
+            ): Behavior[TestMessage] =
               if (remainingEvents.isEmpty) {
                 // イベント処理後の状態をログに出力
                 context.log.debug("All events processed. Final state: {}", currentState)
-                
+
                 // テスト用スナップショットを明示的に追加（アクターの状態確認用）
                 testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
-                
+
                 // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
-                Behaviors.receiveMessage { _ => Behaviors.same }
+                Behaviors.receiveMessage(_ => Behaviors.same)
               } else {
                 val event = remainingEvents.head
                 val nextEvents = remainingEvents.tail
@@ -273,18 +270,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
                 effector.persistEventWithState(event, currentState) { e =>
                   testContext.events += TestMessage.EventPersisted(Seq(e))
                   val newState = currentState.applyEvent(e)
-                  
+
                   // スナップショットの条件に合うかチェック
                   val seqNum = testContext.events.size
                   if (seqNum % 3 == 0 || event.isInstanceOf[TestEvent.TestEventB]) {
                     // テスト用に明示的にスナップショットを追加
                     testContext.snapshots += TestMessage.SnapshotPersisted(newState)
                   }
-                  
+
                   persistNextEvent(nextEvents, newState)
                 }
               }
-            }
 
             // 最初のイベントから永続化を開始
             persistNextEvent(events, state)
@@ -298,11 +294,11 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
 
         // 明示的に追加したスナップショットの確認
         testContext.snapshots.nonEmpty shouldBe true
-        
+
         // 最後のスナップショットが最新の状態を反映していることを確認
         val lastSnapshot = testContext.snapshots.last
         lastSnapshot.state.values.nonEmpty shouldBe true
-        
+
         // 状態にイベントの値が含まれていることを確認（少なくとも一部）
         lastSnapshot.state.values.exists(_.contains("eventA")) shouldBe true
       }
@@ -353,17 +349,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
             // イベントを順に永続化する関数
             def persistNextEvent(
               remainingEvents: Seq[TestEvent],
-              currentState: TestState
-            ): Behavior[TestMessage] = {
-                if (remainingEvents.isEmpty) {
-                  // イベント処理後の状態をログに出力
-                  context.log.debug("All events processed. Final state: {}", currentState)
-                  
-                  // テスト用スナップショットを明示的に追加（アクターの状態確認用）
-                  testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
-                  
-                  // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
-                  Behaviors.receiveMessage { _ => Behaviors.same }
+              currentState: TestState,
+            ): Behavior[TestMessage] =
+              if (remainingEvents.isEmpty) {
+                // イベント処理後の状態をログに出力
+                context.log.debug("All events processed. Final state: {}", currentState)
+
+                // テスト用スナップショットを明示的に追加（アクターの状態確認用）
+                testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
+
+                // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
+                Behaviors.receiveMessage(_ => Behaviors.same)
               } else {
                 val event = remainingEvents.head
                 val nextEvents = remainingEvents.tail
@@ -372,18 +368,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
                 effector.persistEventWithState(event, currentState) { e =>
                   testContext.events += TestMessage.EventPersisted(Seq(e))
                   val newState = currentState.applyEvent(e)
-                  
+
                   // スナップショットの条件に合うかチェック
                   val seqNum = testContext.events.size
                   if (seqNum % 2 == 0 && event.isInstanceOf[TestEvent.TestEventB]) {
                     // テスト用に明示的にスナップショットを追加
                     testContext.snapshots += TestMessage.SnapshotPersisted(newState)
                   }
-                  
+
                   persistNextEvent(nextEvents, newState)
                 }
               }
-            }
 
             // 最初のイベントから永続化を開始
             persistNextEvent(events, state)
@@ -398,19 +393,18 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
         // スナップショットの確認（最後に明示的に追加されるものも含む）
         // スナップショットが存在することを確認
         testContext.snapshots.nonEmpty shouldBe true
-        
+
         // 重要なスナップショット内容を検証
         // 必要なスナップショットデータがあることを確認
-        val snapshotsWithEventB = testContext.snapshots.filter { s => 
-          s.state.values.exists { v => v.contains("1") || v.contains("2") }
+        val snapshotsWithEventB = testContext.snapshots.filter { s =>
+          s.state.values.exists(v => v.contains("1") || v.contains("2"))
         }
         snapshotsWithEventB.nonEmpty shouldBe true
-        
+
         // 少なくとも1つのスナップショットが状態を正しく保持していることを確認
-        val snapshotWithAllData = testContext.snapshots.find(s => 
-          s.state.values.exists(_.contains("eventA1")) && 
-          s.state.values.exists(_.contains("2"))
-        )
+        val snapshotWithAllData = testContext.snapshots.find(s =>
+          s.state.values.exists(_.contains("eventA1")) &&
+            s.state.values.exists(_.contains("2")))
         snapshotWithAllData.isDefined shouldBe true
       }
     }
@@ -449,17 +443,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
             // イベントを順に永続化する関数
             def persistNextEvent(
               remainingEvents: Seq[TestEvent],
-              currentState: TestState
-            ): Behavior[TestMessage] = {
-                if (remainingEvents.isEmpty) {
-                  // イベント処理後の状態をログに出力
-                  context.log.debug("All events processed. Final state: {}", currentState)
-                  
-                  // テスト用スナップショットを明示的に追加（アクターの状態確認用）
-                  testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
-                  
-                  // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
-                  Behaviors.receiveMessage { _ => Behaviors.same }
+              currentState: TestState,
+            ): Behavior[TestMessage] =
+              if (remainingEvents.isEmpty) {
+                // イベント処理後の状態をログに出力
+                context.log.debug("All events processed. Final state: {}", currentState)
+
+                // テスト用スナップショットを明示的に追加（アクターの状態確認用）
+                testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
+
+                // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
+                Behaviors.receiveMessage(_ => Behaviors.same)
               } else {
                 val event = remainingEvents.head
                 val nextEvents = remainingEvents.tail
@@ -468,18 +462,17 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
                 effector.persistEventWithState(event, currentState) { e =>
                   testContext.events += TestMessage.EventPersisted(Seq(e))
                   val newState = currentState.applyEvent(e)
-                  
+
                   // スナップショットの条件に合うかチェック
                   val seqNum = testContext.events.size
                   if (seqNum % 2 == 0) {
                     // テスト用に明示的にスナップショットを追加
                     testContext.snapshots += TestMessage.SnapshotPersisted(newState)
                   }
-                  
+
                   persistNextEvent(nextEvents, newState)
                 }
               }
-            }
 
             // 最初のイベントから永続化を開始
             persistNextEvent(events, state)
@@ -507,7 +500,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
           case (state, effector) =>
             // 回復された状態を記録
             recoveredState += state
-            Behaviors.receiveMessage { _ => Behaviors.same }
+            Behaviors.receiveMessage(_ => Behaviors.same)
         }(using context)
       })
 
@@ -515,7 +508,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
       eventually {
         // 回復された状態があることを確認
         recoveredState.nonEmpty shouldBe true
-        
+
         // 回復された状態がイベントの履歴を反映していることを確認
         val state = recoveredState.head
         state.values.nonEmpty shouldBe true

@@ -71,24 +71,34 @@ final class DefaultPersistenceEffector[S, E, M](
     }
 
   /**
-   * スナップショット削除メッセージを待機する動作を作成
+   * 指定されたメッセージタイプを待機する汎用的なメソッド
    *
-   * @param onDeleted
-   *   削除完了後の動作を定義する関数
+   * @param messageMatcher
+   *   メッセージを検出する関数
+   * @param extractResult
+   *   メッセージから結果を抽出する関数
+   * @param logMessage
+   *   成功時のログメッセージ
+   * @param onSuccess
+   *   成功時のコールバック
+   * @tparam T
+   *   抽出される結果の型
    * @return
-   *   スナップショット削除メッセージを待機する動作
+   *   メッセージ待機の振る舞い
    */
-  private def waitForDeleteSnapshot(onDeleted: => Behavior[M]): Behavior[M] =
+  private def waitForMessage[T](
+    messageMatcher: M => Option[T],
+    logMessage: String,
+    onSuccess: T => Behavior[M],
+  ): Behavior[M] =
     Behaviors.receiveMessagePartial { msg =>
       msg.asMatchable match {
-        case m: DeleteSnapshotsSucceeded[?, ?] =>
-          ctx.log.debug("Delete snapshots succeeded: {}", m.maxSequenceNumber)
-          stashBuffer.unstashAll(onDeleted)
-        case m: DeleteSnapshotsFailed[?, ?] =>
-          ctx.log.error("Delete snapshots failed: {}", m)
-          stashBuffer.unstashAll(onDeleted)
+        case msg if messageMatcher(msg).isDefined =>
+          val result = messageMatcher(msg).get
+          ctx.log.debug(s"$logMessage: {}", msg)
+          stashBuffer.unstashAll(onSuccess(result))
         case other =>
-          ctx.log.debug("Stashing message while waiting for delete snapshot result: {}", other)
+          ctx.log.debug("Stashing message: {}", other)
           stashBuffer.stash(other)
           Behaviors.same
       }
@@ -117,43 +127,92 @@ final class DefaultPersistenceEffector[S, E, M](
         maxSequenceNumberToDelete,
       )
       persistenceRef ! DeleteSnapshots(maxSequenceNumberToDelete, adapter)
-      waitForDeleteSnapshot(onDeleted)
+      waitForMessage(
+        unwrapDeleteSnapshots,
+        "Delete snapshots succeeded",
+        _ => onDeleted,
+      )
     } else {
       ctx.log.debug("No snapshots to delete based on retention policy")
       onDeleted
     }
   }
 
+  /**
+   * スナップショットを取得するかどうかを評価する
+   *
+   * @param event
+   *   イベント
+   * @param state
+   *   状態
+   * @param sequenceNumber
+   *   シーケンス番号
+   * @param force
+   *   強制フラグ
+   * @return
+   *   スナップショットを取得すべきかどうか
+   */
+  private def shouldTakeSnapshot(
+    event: E,
+    state: S,
+    sequenceNumber: Long,
+    force: Boolean): Boolean =
+    force || config.snapshotCriteria.exists { criteria =>
+      val result = criteria.shouldTakeSnapshot(event, state, sequenceNumber)
+      ctx.log.debug("Snapshot criteria evaluation result: {}", result)
+      result
+    }
+
+  /**
+   * スナップショット保存を処理する
+   *
+   * @param state
+   *   保存する状態
+   * @param onCompleted
+   *   スナップショット処理完了後のコールバック
+   * @tparam T
+   *   コールバックの戻り値の型
+   * @return
+   *   待機ビヘイビア
+   */
+  private def handleSnapshotSave[T](state: S, onCompleted: => Behavior[M]): Behavior[M] = {
+    ctx.log.debug("Taking snapshot for state: {}", state)
+    persistenceRef ! PersistSnapshot(state, adapter)
+
+    waitForMessage(
+      unwrapPersistedSnapshot,
+      "Persisted snapshot",
+      _ =>
+        // RetentionCriteriaが設定されている場合は古いスナップショットを削除
+        config.retentionCriteria match {
+          case Some(retention) => deleteOldSnapshots(retention, onCompleted)
+          case None => onCompleted
+        },
+    )
+  }
+
   override def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M] = {
     ctx.log.debug("Persisting event: {}", event)
     persistenceRef ! PersistSingleEvent(event, adapter)
     incrementSequenceNumber()
-    Behaviors.receiveMessagePartial {
-      case msg if unwrapPersistedEvents(msg).isDefined =>
-        ctx.log.debug("Persisted event: {}", msg)
-        val events = unwrapPersistedEvents(msg).get
-        stashBuffer.unstashAll(onPersisted(events.head))
-      case other =>
-        ctx.log.debug("Stashing message: {}", other)
-        stashBuffer.stash(other)
-        Behaviors.same
-    }
+
+    waitForMessage(
+      unwrapPersistedEvents,
+      "Persisted event",
+      events => onPersisted(events.head),
+    )
   }
 
   override def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M] = {
     ctx.log.debug("Persisting events: {}", events)
     persistenceRef ! PersistMultipleEvents(events, adapter)
     incrementSequenceNumber(events.size)
-    Behaviors.receiveMessagePartial {
-      case msg if unwrapPersistedEvents(msg).isDefined =>
-        ctx.log.debug("Persisted events: {}", msg)
-        val persistedEvents = unwrapPersistedEvents(msg).get
-        stashBuffer.unstashAll(onPersisted(persistedEvents))
-      case other =>
-        ctx.log.debug("Stashing message: {}", other)
-        stashBuffer.stash(other)
-        Behaviors.same
-    }
+
+    waitForMessage(
+      unwrapPersistedEvents,
+      "Persisted events",
+      persistedEvents => onPersisted(persistedEvents),
+    )
   }
 
   override def persistSnapshot(snapshot: S, force: Boolean)(
@@ -172,27 +231,7 @@ final class DefaultPersistenceEffector[S, E, M](
     }
 
     if (shouldSave) {
-      persistenceRef ! PersistSnapshot(snapshot, adapter)
-
-      Behaviors.receiveMessagePartial {
-        case msg if unwrapPersistedSnapshot(msg).isDefined =>
-          ctx.log.debug("Persisted snapshot: {}", msg)
-          val state = unwrapPersistedSnapshot(msg).get
-
-          // スナップショット保存成功後にretentionCriteriaに基づいて古いスナップショットを削除
-          config.retentionCriteria match {
-            case Some(retention) =>
-              // スナップショット削除を実行し、完了後に元のコールバックを実行
-              deleteOldSnapshots(retention, stashBuffer.unstashAll(onPersisted(state)))
-            case None =>
-              // retentionCriteriaが指定されていない場合はそのまま処理を続行
-              stashBuffer.unstashAll(onPersisted(state))
-          }
-        case other =>
-          ctx.log.debug("Stashing message: {}", other)
-          stashBuffer.stash(other)
-          Behaviors.same
-      }
+      handleSnapshotSave(snapshot, stashBuffer.unstashAll(onPersisted(snapshot)))
     } else {
       ctx.log.debug("Skipping snapshot persistence based on criteria evaluation")
       onPersisted(snapshot)
@@ -203,64 +242,34 @@ final class DefaultPersistenceEffector[S, E, M](
     onPersisted: E => Behavior[M]): Behavior[M] = {
     ctx.log.debug("Persisting event with state: {}", event)
     persistenceRef ! PersistSingleEvent(event, adapter)
-
     val sequenceNumber = incrementSequenceNumber()
 
-    Behaviors.receiveMessagePartial {
-      case msg if unwrapPersistedEvents(msg).isDefined =>
-        ctx.log.debug("Persisted event: {}", msg)
-        val events = unwrapPersistedEvents(msg).get
-
-        // スナップショット戦略の評価またはforce=trueの場合に自動スナップショット取得
-        val shouldSave = force || config.snapshotCriteria.exists { criteria =>
-          val result = criteria.shouldTakeSnapshot(event, state, sequenceNumber)
-          ctx.log.debug("Snapshot criteria evaluation result: {}", result)
-          result
-        }
+    waitForMessage(
+      unwrapPersistedEvents,
+      "Persisted event",
+      events => {
+        val shouldSave = shouldTakeSnapshot(event, state, sequenceNumber, force)
 
         if (shouldSave) {
           ctx.log.debug("Taking snapshot at sequence number {}", sequenceNumber)
-          persistenceRef ! PersistSnapshot(state, adapter)
-
-          // スナップショット保存応答を待ってから処理を続行
-          Behaviors.receiveMessagePartial {
-            case msg if unwrapPersistedSnapshot(msg).isDefined =>
-              ctx.log.debug("Persisted snapshot during event persistence: {}", msg)
-
-              // RetentionCriteriaが設定されている場合は古いスナップショットを削除
-              config.retentionCriteria match {
-                case Some(retention) =>
-                  deleteOldSnapshots(retention, stashBuffer.unstashAll(onPersisted(events.head)))
-                case None =>
-                  stashBuffer.unstashAll(onPersisted(events.head))
-              }
-            case other =>
-              ctx.log.debug("Stashing message while waiting for snapshot result: {}", other)
-              stashBuffer.stash(other)
-              Behaviors.same
-          }
+          handleSnapshotSave(state, stashBuffer.unstashAll(onPersisted(events.head)))
         } else {
           stashBuffer.unstashAll(onPersisted(events.head))
         }
-      case other =>
-        ctx.log.debug("Stashing message: {}", other)
-        stashBuffer.stash(other)
-        Behaviors.same
-    }
+      },
+    )
   }
 
   override def persistEventsWithState(events: Seq[E], state: S, force: Boolean)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M] = {
     ctx.log.debug("Persisting events with state: {}", events)
     persistenceRef ! PersistMultipleEvents(events, adapter)
-
     val finalSequenceNumber = incrementSequenceNumber(events.size)
 
-    Behaviors.receiveMessagePartial {
-      case msg if unwrapPersistedEvents(msg).isDefined =>
-        ctx.log.debug("Persisted events: {}", msg)
-        val persistedEvents = unwrapPersistedEvents(msg).get
-
+    waitForMessage(
+      unwrapPersistedEvents,
+      "Persisted events",
+      persistedEvents => {
         // スナップショット戦略の評価またはforce=trueの場合に自動スナップショット取得
         // 最後のイベントとシーケンス番号だけで評価
         val shouldSave = force || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
@@ -272,34 +281,11 @@ final class DefaultPersistenceEffector[S, E, M](
 
         if (shouldSave) {
           ctx.log.debug("Taking snapshot at sequence number {}", finalSequenceNumber)
-          persistenceRef ! PersistSnapshot(state, adapter)
-
-          // スナップショット保存応答を待ってから処理を続行
-          Behaviors.receiveMessagePartial {
-            case msg if unwrapPersistedSnapshot(msg).isDefined =>
-              ctx.log.debug("Persisted snapshot during events persistence: {}", msg)
-
-              // RetentionCriteriaが設定されている場合は古いスナップショットを削除
-              config.retentionCriteria match {
-                case Some(retention) =>
-                  deleteOldSnapshots(
-                    retention,
-                    stashBuffer.unstashAll(onPersisted(persistedEvents)))
-                case None =>
-                  stashBuffer.unstashAll(onPersisted(persistedEvents))
-              }
-            case other =>
-              ctx.log.debug("Stashing message while waiting for snapshot result: {}", other)
-              stashBuffer.stash(other)
-              Behaviors.same
-          }
+          handleSnapshotSave(state, stashBuffer.unstashAll(onPersisted(persistedEvents)))
         } else {
           stashBuffer.unstashAll(onPersisted(persistedEvents))
         }
-      case other =>
-        ctx.log.debug("Stashing message: {}", other)
-        stashBuffer.stash(other)
-        Behaviors.same
-    }
+      },
+    )
   }
 }

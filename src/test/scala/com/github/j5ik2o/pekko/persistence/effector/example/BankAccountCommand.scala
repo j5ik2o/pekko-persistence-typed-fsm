@@ -43,9 +43,9 @@ enum BankAccountCommand {
     case DepositCash(aggregateId, _, _) => aggregateId
     case WithdrawCash(aggregateId, _, _) => aggregateId
     case StateRecovered(state) => state.aggregateId
-    case EventPersisted(_) | StatePersisted(_) =>
+    case _ =>
       throw new UnsupportedOperationException(
-        "EventPersisted or StatePersisted does not have aggregateId")
+        "EventPersisted or StatePersisted or SnapshotShotsDeleted does not have aggregateId")
   }
 }
 
