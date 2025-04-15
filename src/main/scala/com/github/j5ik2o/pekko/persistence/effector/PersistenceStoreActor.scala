@@ -3,6 +3,8 @@ package com.github.j5ik2o.pekko.persistence.effector
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.{ActorLogging, Props, Stash}
 import org.apache.pekko.persistence.{
+  DeleteSnapshotsFailure,
+  DeleteSnapshotsSuccess,
   PersistentActor,
   RecoveryCompleted,
   SaveSnapshotFailure,
@@ -97,13 +99,12 @@ final class PersistenceStoreActor[S, E, M](
     maxSequenceNumber: Long,
     replyTo: ActorRef[DeleteSnapshotsReply[S, E]]): Receive = { msg =>
     msg.asMatchable match {
-      case msg @ DeleteSnapshotsSucceeded(_) =>
-        log.debug("DeleteSnapshotsSucceeded: maxSequenceNumber = {}", maxSequenceNumber)
-        // DeleteSnapshotsSucceededメッセージで必ずマッピングされたmaxSequenceNumberが返されるように
+      case DeleteSnapshotsSuccess(_) =>
+        log.debug("DeleteSnapshotsSuccess: maxSequenceNumber = {}", maxSequenceNumber)
         replyTo ! DeleteSnapshotsSucceeded(maxSequenceNumber)
         context.unbecome()
         unstashAll()
-      case msg @ DeleteSnapshotsFailed(_, cause) =>
+      case DeleteSnapshotsFailure(_, cause) =>
         log.error(cause, "DeleteSnapshotsFailed: maxSequenceNumber = {}", maxSequenceNumber)
         replyTo ! DeleteSnapshotsFailed(maxSequenceNumber, cause)
         context.unbecome()
