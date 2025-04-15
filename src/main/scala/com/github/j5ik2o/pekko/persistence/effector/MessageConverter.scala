@@ -1,6 +1,5 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-import com.github.j5ik2o.pekko.persistence.effector.PersistenceStoreActor.PersistenceCommand
 
 import scala.compiletime.asMatchable
 
