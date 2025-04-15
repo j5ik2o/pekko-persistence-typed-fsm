@@ -2,7 +2,7 @@ package com.github.j5ik2o.pekko.persistence.effector
 
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
-import org.scalatest.{BeforeAndAfterAll, OptionValues}
+import org.scalatest.{stats, BeforeAndAfterAll, OptionValues}
 import org.scalatest.concurrent.Eventually
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
@@ -90,8 +90,8 @@ abstract class PersistenceEffectorTestBase
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
-          stashSize = 32,
         )
 
       val recoveredEvents = ArrayBuffer.empty[TestMessage]
@@ -127,8 +127,8 @@ abstract class PersistenceEffectorTestBase
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
-          stashSize = 32,
         )
 
       val probe = createTestProbe[TestMessage]()
@@ -163,8 +163,8 @@ abstract class PersistenceEffectorTestBase
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
-          stashSize = 32,
         )
 
       val probe = createTestProbe[TestMessage]()
@@ -203,8 +203,8 @@ abstract class PersistenceEffectorTestBase
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
-          stashSize = 32,
         )
 
       // 1回目のアクターを実行してイベントを永続化
@@ -239,8 +239,8 @@ abstract class PersistenceEffectorTestBase
           initialState = initialState, // 初期状態は同じものを渡すが、復元されるはず
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
-          stashSize = 32,
         )
 
       // 新しいプローブを作成
