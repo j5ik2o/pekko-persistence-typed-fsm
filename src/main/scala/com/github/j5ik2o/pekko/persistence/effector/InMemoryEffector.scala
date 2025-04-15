@@ -209,10 +209,19 @@ final class InMemoryEffector[S, E, M](
     }
 
     if (shouldSave) {
+      // スナップショットをメモリに保存
+      InMemoryEventStore.saveSnapshot(persistenceId, snapshot)
+
+      // 状態を更新（スナップショットの場合は直接更新する）
+      // スナップショットは完全な状態を表すので、これは正しい動作
+      currentState = snapshot
+
+      // スナップショット保存成功メッセージをユーザーアクターに送信
+      ctx.self ! messageConverter.wrapPersistedSnapshot(snapshot)
+      
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
-        // DefaultPersistenceEffectorと同様に、古いスナップショットを削除するロジックを実装
         // 現在のシーケンス番号に基づいて削除すべきシーケンス番号を計算
         val currentSeqNr = getCurrentSequenceNumber
         val maxSeqNrToDelete = calculateMaxSequenceNumberToDelete(currentSeqNr, retention)
@@ -222,15 +231,11 @@ final class InMemoryEffector[S, E, M](
           ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
           // 実際のInMemoryEventStoreには古いスナップショットを削除するメソッドがないため、
           // ここではシミュレーションとしてログ出力のみ行う
+          
+          // 削除成功メッセージをユーザーアクターに送信
+          ctx.self ! messageConverter.wrapDeleteSnapshots(maxSeqNrToDelete)
         }
       }
-
-      // スナップショットをメモリに保存
-      InMemoryEventStore.saveSnapshot(persistenceId, snapshot)
-
-      // 状態を更新（スナップショットの場合は直接更新する）
-      // スナップショットは完全な状態を表すので、これは正しい動作
-      currentState = snapshot
 
       // コールバックを即時実行
       val behavior = onPersisted(snapshot)
@@ -266,6 +271,15 @@ final class InMemoryEffector[S, E, M](
     if (shouldSave) {
       ctx.log.debug("Taking snapshot at sequence number {}", sequenceNumber)
       
+      // スナップショットをメモリに保存
+      InMemoryEventStore.saveSnapshot(persistenceId, state)
+      
+      // 状態を更新
+      currentState = state
+      
+      // スナップショット保存成功メッセージをユーザーアクターに送信
+      ctx.self ! messageConverter.wrapPersistedSnapshot(state)
+      
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
@@ -276,12 +290,10 @@ final class InMemoryEffector[S, E, M](
         // 実際の削除処理（ここではログに記録するだけ）
         if (maxSeqNrToDelete > 0) {
           ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
+          // 削除成功メッセージをユーザーアクターに送信
+          ctx.self ! messageConverter.wrapDeleteSnapshots(maxSeqNrToDelete)
         }
       }
-      
-      InMemoryEventStore.saveSnapshot(persistenceId, state)
-      // 状態も更新
-      currentState = state
     }
 
     // コールバックを即時実行
@@ -315,6 +327,15 @@ final class InMemoryEffector[S, E, M](
     if (shouldSave) {
       ctx.log.debug("Taking snapshot at sequence number {}", finalSequenceNumber)
       
+      // スナップショットをメモリに保存
+      InMemoryEventStore.saveSnapshot(persistenceId, state)
+      
+      // 状態を更新
+      currentState = state
+      
+      // スナップショット保存成功メッセージをユーザーアクターに送信
+      ctx.self ! messageConverter.wrapPersistedSnapshot(state)
+      
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
@@ -325,12 +346,10 @@ final class InMemoryEffector[S, E, M](
         // 実際の削除処理（ここではログに記録するだけ）
         if (maxSeqNrToDelete > 0) {
           ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
+          // 削除成功メッセージをユーザーアクターに送信
+          ctx.self ! messageConverter.wrapDeleteSnapshots(maxSeqNrToDelete)
         }
       }
-      
-      InMemoryEventStore.saveSnapshot(persistenceId, state)
-      // 状態も更新
-      currentState = state
     }
 
     // コールバックを即時実行

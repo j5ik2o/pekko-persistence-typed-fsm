@@ -8,8 +8,8 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
   override def persistenceMode: PersistenceMode = PersistenceMode.InMemory
 
-  // 追加テストではスナップショット処理をスキップ
-  override def runSnapshotTests: Boolean = false
+  // スナップショットテストを有効化
+  override def runSnapshotTests: Boolean = true
   
   // InMemoryモード特有のテスト
   s"Effector with ${persistenceMode} mode" should {
