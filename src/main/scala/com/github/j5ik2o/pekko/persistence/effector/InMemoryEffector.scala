@@ -107,6 +107,49 @@ final class InMemoryEffector[S, E, M](
   // 現在のシーケンス番号を取得
   private def getCurrentSequenceNumber: Long =
     InMemoryEventStore.getCurrentSequenceNumber(persistenceId)
+    
+  /**
+   * RetentionCriteriaに基づいて、削除すべきスナップショットの最大シーケンス番号を計算する
+   *
+   * @param currentSequenceNumber
+   *   現在のシーケンス番号
+   * @param retention
+   *   保持ポリシー
+   * @return
+   *   削除すべきスナップショットの最大シーケンス番号（0の場合は削除するスナップショットがない）
+   */
+  private def calculateMaxSequenceNumberToDelete(
+    currentSequenceNumber: Long,
+    retention: RetentionCriteria
+  ): Long =
+    // snapshotEveryとkeepNSnapshotsの両方が設定されている場合のみ計算
+    (retention.snapshotEvery, retention.keepNSnapshots) match {
+      case (Some(snapshotEvery), Some(keepNSnapshots)) =>
+        // 最新のスナップショットのシーケンス番号を計算
+        val latestSnapshotSeqNr = currentSequenceNumber - (currentSequenceNumber % snapshotEvery)
+
+        if (latestSnapshotSeqNr < snapshotEvery) {
+          // 最初のスナップショットすら作成されていない場合
+          0L
+        } else {
+          // 保持するスナップショットの最も古いシーケンス番号
+          val oldestKeptSnapshot =
+            latestSnapshotSeqNr - (snapshotEvery.toLong * (keepNSnapshots - 1))
+
+          if (oldestKeptSnapshot <= 0) {
+            // 保持するスナップショットがすべて存在しない場合
+            0L
+          } else {
+            // 削除対象となる最大シーケンス番号（oldestKeptSnapshotの直前のスナップショット）
+            val maxSequenceNumberToDelete = oldestKeptSnapshot - snapshotEvery
+
+            if (maxSequenceNumberToDelete <= 0) 0L else maxSequenceNumberToDelete
+          }
+        }
+      case _ =>
+        // どちらかの設定が欠けている場合は削除しない
+        0L
+    }
 
   // PersistentActorのpersistメソッドをエミュレート
   override def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M] = {
@@ -168,8 +211,18 @@ final class InMemoryEffector[S, E, M](
     if (shouldSave) {
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
-        // TODO: 実際のretentionポリシーの適用（古いスナップショットの削除など）
         ctx.log.debug("Applying retention policy: {}", retention)
+        // DefaultPersistenceEffectorと同様に、古いスナップショットを削除するロジックを実装
+        // 現在のシーケンス番号に基づいて削除すべきシーケンス番号を計算
+        val currentSeqNr = getCurrentSequenceNumber
+        val maxSeqNrToDelete = calculateMaxSequenceNumberToDelete(currentSeqNr, retention)
+        
+        // 実際の削除処理（ここではログに記録するだけ）
+        if (maxSeqNrToDelete > 0) {
+          ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
+          // 実際のInMemoryEventStoreには古いスナップショットを削除するメソッドがないため、
+          // ここではシミュレーションとしてログ出力のみ行う
+        }
       }
 
       // スナップショットをメモリに保存
@@ -212,6 +265,20 @@ final class InMemoryEffector[S, E, M](
 
     if (shouldSave) {
       ctx.log.debug("Taking snapshot at sequence number {}", sequenceNumber)
+      
+      // 保持ポリシーの適用（設定されている場合）
+      config.retentionCriteria.foreach { retention =>
+        ctx.log.debug("Applying retention policy: {}", retention)
+        // 現在のシーケンス番号に基づいて削除すべきシーケンス番号を計算
+        val currentSeqNr = getCurrentSequenceNumber
+        val maxSeqNrToDelete = calculateMaxSequenceNumberToDelete(currentSeqNr, retention)
+        
+        // 実際の削除処理（ここではログに記録するだけ）
+        if (maxSeqNrToDelete > 0) {
+          ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
+        }
+      }
+      
       InMemoryEventStore.saveSnapshot(persistenceId, state)
       // 状態も更新
       currentState = state
@@ -247,6 +314,20 @@ final class InMemoryEffector[S, E, M](
 
     if (shouldSave) {
       ctx.log.debug("Taking snapshot at sequence number {}", finalSequenceNumber)
+      
+      // 保持ポリシーの適用（設定されている場合）
+      config.retentionCriteria.foreach { retention =>
+        ctx.log.debug("Applying retention policy: {}", retention)
+        // 現在のシーケンス番号に基づいて削除すべきシーケンス番号を計算
+        val currentSeqNr = getCurrentSequenceNumber
+        val maxSeqNrToDelete = calculateMaxSequenceNumberToDelete(currentSeqNr, retention)
+        
+        // 実際の削除処理（ここではログに記録するだけ）
+        if (maxSeqNrToDelete > 0) {
+          ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
+        }
+      }
+      
       InMemoryEventStore.saveSnapshot(persistenceId, state)
       // 状態も更新
       currentState = state
