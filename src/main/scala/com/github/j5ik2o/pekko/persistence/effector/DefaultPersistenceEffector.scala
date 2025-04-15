@@ -40,35 +40,54 @@ final class DefaultPersistenceEffector[S, E, M](
   private def calculateMaxSequenceNumberToDelete(
     currentSequenceNumber: Long,
     retention: RetentionCriteria,
-  ): Long =
+  ): Long = {
     // snapshotEveryとkeepNSnapshotsの両方が設定されている場合のみ計算
     (retention.snapshotEvery, retention.keepNSnapshots) match {
       case (Some(snapshotEvery), Some(keepNSnapshots)) =>
+        // 計算値をログに出力
+        ctx.log.debug(
+          "Calculating maxSequenceNumberToDelete: currentSequenceNumber={}, snapshotEvery={}, keepNSnapshots={}",
+          currentSequenceNumber, snapshotEvery, keepNSnapshots
+        )
+        
         // 最新のスナップショットのシーケンス番号を計算
         val latestSnapshotSeqNr = currentSequenceNumber - (currentSequenceNumber % snapshotEvery)
+        ctx.log.debug("Calculated latestSnapshotSeqNr: {}", latestSnapshotSeqNr)
 
         if (latestSnapshotSeqNr < snapshotEvery) {
           // 最初のスナップショットすら作成されていない場合
+          ctx.log.debug("latestSnapshotSeqNr < snapshotEvery, returning 0")
           0L
         } else {
           // 保持するスナップショットの最も古いシーケンス番号
           val oldestKeptSnapshot =
             latestSnapshotSeqNr - (snapshotEvery.toLong * (keepNSnapshots - 1))
+          ctx.log.debug("Calculated oldestKeptSnapshot: {}", oldestKeptSnapshot)
 
           if (oldestKeptSnapshot <= 0) {
             // 保持するスナップショットがすべて存在しない場合
+            ctx.log.debug("oldestKeptSnapshot <= 0, returning 0")
             0L
           } else {
             // 削除対象となる最大シーケンス番号（oldestKeptSnapshotの直前のスナップショット）
             val maxSequenceNumberToDelete = oldestKeptSnapshot - snapshotEvery
+            ctx.log.debug("Calculated maxSequenceNumberToDelete: {}", maxSequenceNumberToDelete)
 
-            if (maxSequenceNumberToDelete <= 0) 0L else maxSequenceNumberToDelete
+            if (maxSequenceNumberToDelete <= 0) {
+              ctx.log.debug("maxSequenceNumberToDelete <= 0, returning 0")
+              0L
+            } else {
+              ctx.log.debug("Returning maxSequenceNumberToDelete: {}", maxSequenceNumberToDelete)
+              maxSequenceNumberToDelete
+            }
           }
         }
       case _ =>
         // どちらかの設定が欠けている場合は削除しない
+        ctx.log.debug("snapshotEvery or keepNSnapshots is None, returning 0")
         0L
     }
+  }
 
   /**
    * 指定されたメッセージタイプを待機する汎用的なメソッド
@@ -130,7 +149,11 @@ final class DefaultPersistenceEffector[S, E, M](
       waitForMessage(
         unwrapDeleteSnapshots,
         "Delete snapshots succeeded",
-        _ => onDeleted,
+        _ => {
+          // 削除メッセージをユーザーアクターに送信
+          ctx.self ! messageConverter.wrapDeleteSnapshots(maxSequenceNumberToDelete)
+          onDeleted
+        },
       )
     } else {
       ctx.log.debug("No snapshots to delete based on retention policy")
@@ -182,12 +205,16 @@ final class DefaultPersistenceEffector[S, E, M](
     waitForMessage(
       unwrapPersistedSnapshot,
       "Persisted snapshot",
-      _ =>
+      snapshot => {
+        // スナップショット保存成功メッセージをユーザーアクターに送信
+        ctx.self ! messageConverter.wrapPersistedSnapshot(state)
+        
         // RetentionCriteriaが設定されている場合は古いスナップショットを削除
         config.retentionCriteria match {
           case Some(retention) => deleteOldSnapshots(retention, onCompleted)
           case None => onCompleted
-        },
+        }
+      }
     )
   }
 

@@ -8,8 +8,8 @@ import java.io.File
 class PersistedEffectorSpec extends PersistenceEffectorTestBase {
   override def persistenceMode: PersistenceMode = PersistenceMode.Persisted
 
-  // スナップショットテストは実行しない
-  override def runSnapshotTests: Boolean = false
+  // スナップショットテストを実行する
+  override def runSnapshotTests: Boolean = true
   
   // テスト前にLevelDBの保存ディレクトリを確実に作成
   override def beforeAll(): Unit = {
