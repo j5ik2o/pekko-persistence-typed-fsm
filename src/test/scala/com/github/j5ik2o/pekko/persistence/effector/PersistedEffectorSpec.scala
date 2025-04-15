@@ -8,6 +8,9 @@ import java.io.File
 class PersistedEffectorSpec extends PersistenceEffectorTestBase {
   override def persistenceMode: PersistenceMode = PersistenceMode.Persisted
 
+  // スナップショットテストは実行しない
+  override def runSnapshotTests: Boolean = false
+  
   // テスト前にLevelDBの保存ディレクトリを確実に作成
   override def beforeAll(): Unit = {
     val journalDir = new File("target/journal")
