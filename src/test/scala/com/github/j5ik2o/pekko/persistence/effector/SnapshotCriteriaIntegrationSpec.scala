@@ -52,7 +52,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
           persistenceMode = persistenceMode,
-          stashSize = 32,
+          stashSize = Int.MaxValue,
           snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
         )
 
@@ -133,7 +133,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
           persistenceMode = persistenceMode,
-          stashSize = 32,
+          stashSize = Int.MaxValue,
           snapshotCriteria =
             Some(SnapshotCriteria.onEventType[TestState, TestEvent](classOf[TestEvent.TestEventB])),
         )
@@ -220,8 +220,8 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
-          stashSize = 32,
           snapshotCriteria = Some(
             SnapshotCriteria.Combined[TestState, TestEvent](
               Seq(
@@ -319,8 +319,8 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
-          stashSize = 32,
           snapshotCriteria = Some(
             SnapshotCriteria.Combined[TestState, TestEvent](
               Seq(
@@ -423,8 +423,8 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
-          stashSize = 32,
           snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
         )
 

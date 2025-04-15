@@ -21,8 +21,8 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
-          stashSize = 32,
         )
 
       // InMemoryEffectorを取得するためのテスト用参照
@@ -80,8 +80,8 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
           initialState = initialState,
           applyEvent = countingApplyEvent, // カウンター付きの関数を使用
           messageConverter = messageConverter,
+          stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
-          stashSize = 32,
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>

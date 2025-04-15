@@ -108,7 +108,7 @@ object PersistenceEffector {
     initialState: S,
     applyEvent: (S, E) => S,
     messageConverter: MessageConverter[S, E, M],
-    stashSize: Int = 32,
+    stashSize: Int = Int.MaxValue,
     snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
     retentionCriteria: Option[RetentionCriteria] = None,
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
@@ -139,7 +139,7 @@ object PersistenceEffector {
     initialState: S,
     applyEvent: (S, E) => S,
     messageConverter: MessageConverter[S, E, M],
-    stashSize: Int = 32,
+    stashSize: Int = Int.MaxValue,
     snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
     retentionCriteria: Option[RetentionCriteria] = None,
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
