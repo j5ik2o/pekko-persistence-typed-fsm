@@ -1,4 +1,4 @@
-# eff-sm-splitter コード構造解析
+# pekko-persistence-effector コード構造解析
 
 ## コア構成要素
 
