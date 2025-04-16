@@ -91,7 +91,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
 
                 // イベントを永続化
                 context.log.debug("Persisting event: {}, currentState: {}", event, currentState)
-                effector.persistEventWithState(event, currentState) { e =>
+                effector.persistEventWithSnapshot(event, currentState) { e =>
                   testContext.events += TestMessage.EventPersisted(Seq(e))
                   val newState = currentState.applyEvent(e)
                   context.log.debug("Event persisted, checking for snapshots...")
@@ -168,7 +168,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
                 val nextEvents = remainingEvents.tail
 
                 // イベントを永続化
-                effector.persistEventWithState(event, currentState) { e =>
+                effector.persistEventWithSnapshot(event, currentState) { e =>
                   testContext.events += TestMessage.EventPersisted(Seq(e))
                   val newState = currentState.applyEvent(e)
 

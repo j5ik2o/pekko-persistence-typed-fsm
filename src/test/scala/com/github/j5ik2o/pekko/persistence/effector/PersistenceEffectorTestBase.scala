@@ -59,7 +59,7 @@ abstract class PersistenceEffectorTestBase
 
   // サブクラスで実装するメソッド - テスト対象のPersistenceMode
   def persistenceMode: PersistenceMode
-  
+
   // スナップショットテストを実行するかどうか（デフォルトは実行する）
   def runSnapshotTests: Boolean = true
 
@@ -307,7 +307,7 @@ abstract class PersistenceEffectorTestBase
         PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // persistEventWithStateを使用
-            effector.persistEventWithState(event, newState, force = false) { _ =>
+            effector.persistEventWithSnapshot(event, newState, forceSnapshot = false) { _ =>
               events += TestMessage.EventPersisted(Seq(event))
               Behaviors.receiveMessage {
                 case snapshot: TestMessage.SnapshotPersisted =>
@@ -323,7 +323,7 @@ abstract class PersistenceEffectorTestBase
         events.size shouldBe 1
         val TestMessage.EventPersisted(evts) = events.head: @unchecked
         evts should contain(event)
-        
+
         // スナップショットの確認
         snapshots.size shouldBe 1
         val TestMessage.SnapshotPersisted(state) = snapshots.head: @unchecked
@@ -336,7 +336,7 @@ abstract class PersistenceEffectorTestBase
       val persistenceId = s"test-persist-events-with-state-${java.util.UUID.randomUUID()}"
       val initialState = TestState()
       val events = Seq(
-        TestEvent.TestEventA("event1-with-state"), 
+        TestEvent.TestEventA("event1-with-state"),
         TestEvent.TestEventB(100)
       )
       val newState = events.foldLeft(initialState)((state, event) => state.applyEvent(event))
@@ -360,7 +360,7 @@ abstract class PersistenceEffectorTestBase
         PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // persistEventsWithStateを使用
-            effector.persistEventsWithState(events, newState, force = false) { _ =>
+            effector.persistEventsWithSnapshot(events, newState, forceSnapshot = false) { _ =>
               persistedEvents += TestMessage.EventPersisted(events)
               Behaviors.receiveMessage {
                 case snapshot: TestMessage.SnapshotPersisted =>
@@ -376,7 +376,7 @@ abstract class PersistenceEffectorTestBase
         persistedEvents.size shouldBe 1
         val TestMessage.EventPersisted(evts) = persistedEvents.head: @unchecked
         evts should contain.theSameElementsAs(events)
-        
+
         // スナップショットの確認
         snapshots.size shouldBe 1
         val TestMessage.SnapshotPersisted(state) = snapshots.head: @unchecked
@@ -413,7 +413,7 @@ abstract class PersistenceEffectorTestBase
             // 先にイベントを永続化
             effector.persistEvent(event) { _ =>
               events += TestMessage.EventPersisted(Seq(event))
-              
+
               // force=trueでスナップショットを強制的に永続化
               effector.persistSnapshot(newState, force = true) { _ =>
                 Behaviors.receiveMessage {
@@ -429,7 +429,7 @@ abstract class PersistenceEffectorTestBase
 
       eventually {
         events.size shouldBe 1
-        
+
         // スナップショットの確認
         snapshots.size shouldBe 1
         val TestMessage.SnapshotPersisted(state) = snapshots.head: @unchecked
@@ -441,12 +441,12 @@ abstract class PersistenceEffectorTestBase
       assume(runSnapshotTests, "Snapshot test is disabled")
       val persistenceId = s"test-retention-policy-${java.util.UUID.randomUUID()}"
       val initialState = TestState()
-      
+
       // イベントとスナップショットの記録
       val events = ArrayBuffer.empty[TestMessage]
       val snapshots = ArrayBuffer.empty[TestMessage]
       val deletedSnapshotMessages = ArrayBuffer.empty[TestMessage]
-      
+
       // スナップショットを2つおきに作成し、最新の2つだけ保持する設定
       val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
         persistenceId = persistenceId,
@@ -458,7 +458,7 @@ abstract class PersistenceEffectorTestBase
         snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
         retentionCriteria = Some(RetentionCriteria.snapshotEvery(2, 2))
       )
-      
+
       // 6つのイベントを永続化して、3つのスナップショットを作成する
       // (seq 2, 4, 6でスナップショットが作成され、最終的に2を削除して4, 6だけ残る)
       val event1 = TestEvent.TestEventA("event1")
@@ -467,43 +467,43 @@ abstract class PersistenceEffectorTestBase
       val event4 = TestEvent.TestEventA("event4")
       val event5 = TestEvent.TestEventA("event5")
       val event6 = TestEvent.TestEventA("event6")
-      
+
       // テスト用アクター
       val actor = spawn(Behaviors.setup[TestMessage] { context =>
         PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
           case (initialEffectorState, effector) =>
             var currentState = initialEffectorState
-            
+
             // イベント1
             effector.persistEvent(event1) { _ =>
               currentState = currentState.applyEvent(event1)
               events += TestMessage.EventPersisted(Seq(event1))
-              
+
               // イベント2 & 明示的なスナップショット1
-              effector.persistEventWithState(event2, currentState.applyEvent(event2), force = true) { _ =>
+              effector.persistEventWithSnapshot(event2, currentState.applyEvent(event2), forceSnapshot = true) { _ =>
                 currentState = currentState.applyEvent(event2)
                 events += TestMessage.EventPersisted(Seq(event2))
-                
+
                 // イベント3
                 effector.persistEvent(event3) { _ =>
                   currentState = currentState.applyEvent(event3)
                   events += TestMessage.EventPersisted(Seq(event3))
-                  
+
                   // イベント4 & 明示的なスナップショット2
-                  effector.persistEventWithState(event4, currentState.applyEvent(event4), force = true) { _ =>
+                  effector.persistEventWithSnapshot(event4, currentState.applyEvent(event4), forceSnapshot = true) { _ =>
                     currentState = currentState.applyEvent(event4)
                     events += TestMessage.EventPersisted(Seq(event4))
-                    
+
                     // イベント5
                     effector.persistEvent(event5) { _ =>
                       currentState = currentState.applyEvent(event5)
                       events += TestMessage.EventPersisted(Seq(event5))
-                      
+
                       // イベント6 & 明示的なスナップショット3
-                      effector.persistEventWithState(event6, currentState.applyEvent(event6), force = true) { _ =>
+                      effector.persistEventWithSnapshot(event6, currentState.applyEvent(event6), forceSnapshot = true) { _ =>
                         currentState = currentState.applyEvent(event6)
                         events += TestMessage.EventPersisted(Seq(event6))
-                        
+
                         // メッセージ受信処理
                         Behaviors.receiveMessage {
                           case snapshot: TestMessage.SnapshotPersisted =>
@@ -522,28 +522,28 @@ abstract class PersistenceEffectorTestBase
             }
         }(using context)
       })
-      
+
       // 十分な時間待って、すべてのスナップショットイベントが処理されることを確認する
       Thread.sleep(2000)
-      
+
       // 検証
       eventually {
         // イベントとスナップショットの検証
         events.size shouldBe 6
         snapshots.size should be >= 3
-        
+
         // 削除メッセージの検証 - 少なくとも1つは削除メッセージが存在する
         deletedSnapshotMessages.nonEmpty shouldBe true
-        
+
         // シーケンス番号2のスナップショットが削除対象になっていることを確認
         val seqNr = deletedSnapshotMessages.collectFirst {
           case TestMessage.SnapshotsDeleted(maxSeqNr) => maxSeqNr
         }.getOrElse(0L)
-        
+
         seqNr should be > 0L
       }
     }
-    
+
     // InMemoryモード特有のテストがある場合はサブクラスで追加
   }
 

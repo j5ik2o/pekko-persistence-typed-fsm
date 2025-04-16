@@ -107,7 +107,7 @@ final class InMemoryEffector[S, E, M](
   // 現在のシーケンス番号を取得
   private def getCurrentSequenceNumber: Long =
     InMemoryEventStore.getCurrentSequenceNumber(persistenceId)
-    
+
   /**
    * RetentionCriteriaに基づいて、削除すべきスナップショットの最大シーケンス番号を計算する
    *
@@ -120,7 +120,7 @@ final class InMemoryEffector[S, E, M](
    */
   private def calculateMaxSequenceNumberToDelete(
     currentSequenceNumber: Long,
-    retention: RetentionCriteria
+    retention: RetentionCriteria,
   ): Long =
     // snapshotEveryとkeepNSnapshotsの両方が設定されている場合のみ計算
     (retention.snapshotEvery, retention.keepNSnapshots) match {
@@ -199,7 +199,7 @@ final class InMemoryEffector[S, E, M](
     ctx.log.debug("In-memory persisting snapshot: {}", snapshot)
 
     // forceパラメータまたはスナップショット戦略に基づいて保存するかどうかを判断
-    val shouldSave = force || config.snapshotCriteria.exists { criteria =>
+    val shouldSaveSnapshot = force || config.snapshotCriteria.exists { criteria =>
       // スナップショットに対する評価（イベントがないため、ダミーのイベントを使用）
       val dummyEvent = snapshot.asInstanceOf[E] // ダミーのイベント（型消去されるため、実行時には問題ない）
       val sequenceNumber = getCurrentSequenceNumber
@@ -208,7 +208,7 @@ final class InMemoryEffector[S, E, M](
       result
     }
 
-    if (shouldSave) {
+    if (shouldSaveSnapshot) {
       // スナップショットをメモリに保存
       InMemoryEventStore.saveSnapshot(persistenceId, snapshot)
 
@@ -218,20 +218,20 @@ final class InMemoryEffector[S, E, M](
 
       // スナップショット保存成功メッセージをユーザーアクターに送信
       ctx.self ! messageConverter.wrapPersistedSnapshot(snapshot)
-      
+
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
         // 現在のシーケンス番号に基づいて削除すべきシーケンス番号を計算
         val currentSeqNr = getCurrentSequenceNumber
         val maxSeqNrToDelete = calculateMaxSequenceNumberToDelete(currentSeqNr, retention)
-        
+
         // 実際の削除処理（ここではログに記録するだけ）
         if (maxSeqNrToDelete > 0) {
           ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
           // 実際のInMemoryEventStoreには古いスナップショットを削除するメソッドがないため、
           // ここではシミュレーションとしてログ出力のみ行う
-          
+
           // 削除成功メッセージをユーザーアクターに送信
           ctx.self ! messageConverter.wrapDeleteSnapshots(maxSeqNrToDelete)
         }
@@ -252,7 +252,7 @@ final class InMemoryEffector[S, E, M](
     }
   }
 
-  override def persistEventWithState(event: E, state: S, force: Boolean)(
+  override def persistEventWithSnapshot(event: E, snapshot: S, forceSnapshot: Boolean)(
     onPersisted: E => Behavior[M]): Behavior[M] = {
     ctx.log.debug("In-memory persisting event with state: {}", event)
 
@@ -262,31 +262,31 @@ final class InMemoryEffector[S, E, M](
     val sequenceNumber = getCurrentSequenceNumber
 
     // スナップショット戦略の評価またはforce=trueの場合にスナップショットを保存
-    val shouldSave = force || config.snapshotCriteria.exists { criteria =>
-      val result = criteria.shouldTakeSnapshot(event, state, sequenceNumber)
+    val shouldSaveSnapshot = forceSnapshot || config.snapshotCriteria.exists { criteria =>
+      val result = criteria.shouldTakeSnapshot(event, snapshot, sequenceNumber)
       ctx.log.debug("Snapshot criteria evaluation result: {}", result)
       result
     }
 
-    if (shouldSave) {
+    if (shouldSaveSnapshot) {
       ctx.log.debug("Taking snapshot at sequence number {}", sequenceNumber)
-      
+
       // スナップショットをメモリに保存
-      InMemoryEventStore.saveSnapshot(persistenceId, state)
-      
+      InMemoryEventStore.saveSnapshot(persistenceId, snapshot)
+
       // 状態を更新
-      currentState = state
-      
+      currentState = snapshot
+
       // スナップショット保存成功メッセージをユーザーアクターに送信
-      ctx.self ! messageConverter.wrapPersistedSnapshot(state)
-      
+      ctx.self ! messageConverter.wrapPersistedSnapshot(snapshot)
+
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
         // 現在のシーケンス番号に基づいて削除すべきシーケンス番号を計算
         val currentSeqNr = getCurrentSequenceNumber
         val maxSeqNrToDelete = calculateMaxSequenceNumberToDelete(currentSeqNr, retention)
-        
+
         // 実際の削除処理（ここではログに記録するだけ）
         if (maxSeqNrToDelete > 0) {
           ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
@@ -307,7 +307,7 @@ final class InMemoryEffector[S, E, M](
     }
   }
 
-  override def persistEventsWithState(events: Seq[E], state: S, force: Boolean)(
+  override def persistEventsWithSnapshot(events: Seq[E], snapshot: S, forceSnapshot: Boolean)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M] = {
     ctx.log.debug("In-memory persisting events with state: {}", events)
 
@@ -317,32 +317,32 @@ final class InMemoryEffector[S, E, M](
     val finalSequenceNumber = getCurrentSequenceNumber
 
     // スナップショット戦略の評価またはforce=trueの場合にスナップショットを保存
-    val shouldSave = force || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
+    val shouldSave = forceSnapshot || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
       val lastEvent = events.last
-      val result = criteria.shouldTakeSnapshot(lastEvent, state, finalSequenceNumber)
+      val result = criteria.shouldTakeSnapshot(lastEvent, snapshot, finalSequenceNumber)
       ctx.log.debug("Snapshot criteria evaluation result: {}", result)
       result
     })
 
     if (shouldSave) {
       ctx.log.debug("Taking snapshot at sequence number {}", finalSequenceNumber)
-      
+
       // スナップショットをメモリに保存
-      InMemoryEventStore.saveSnapshot(persistenceId, state)
-      
+      InMemoryEventStore.saveSnapshot(persistenceId, snapshot)
+
       // 状態を更新
-      currentState = state
-      
+      currentState = snapshot
+
       // スナップショット保存成功メッセージをユーザーアクターに送信
-      ctx.self ! messageConverter.wrapPersistedSnapshot(state)
-      
+      ctx.self ! messageConverter.wrapPersistedSnapshot(snapshot)
+
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
         // 現在のシーケンス番号に基づいて削除すべきシーケンス番号を計算
         val currentSeqNr = getCurrentSequenceNumber
         val maxSeqNrToDelete = calculateMaxSequenceNumberToDelete(currentSeqNr, retention)
-        
+
         // 実際の削除処理（ここではログに記録するだけ）
         if (maxSeqNrToDelete > 0) {
           ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)

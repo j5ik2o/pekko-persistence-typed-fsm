@@ -41,31 +41,31 @@ trait PersistenceEffector[S, E, M] {
    *
    * @param event
    *   イベント
-   * @param state
+   * @param snapshot
    *   現在の状態
    * @param onPersisted
    *   イベントが永続化された後に呼び出されるコールバック
    * @return
    *   新しいBehavior
    */
-  def persistEventWithState(event: E, state: S)(onPersisted: E => Behavior[M]): Behavior[M] =
-    persistEventWithState(event, state, force = false)(onPersisted)
+  def persistEventWithSnapshot(event: E, snapshot: S)(onPersisted: E => Behavior[M]): Behavior[M] =
+    persistEventWithSnapshot(event, snapshot, forceSnapshot = false)(onPersisted)
 
   /**
    * イベントを永続化し、現在の状態を指定してスナップショット戦略を評価する
    *
    * @param event
    *   イベント
-   * @param state
+   * @param snapshot
    *   現在の状態
-   * @param force
+   * @param forceSnapshot
    *   trueの場合、スナップショット戦略を無視して強制的にスナップショットを保存する
    * @param onPersisted
    *   イベントが永続化された後に呼び出されるコールバック
    * @return
    *   新しいBehavior
    */
-  def persistEventWithState(event: E, state: S, force: Boolean)(
+  def persistEventWithSnapshot(event: E, snapshot: S, forceSnapshot: Boolean)(
     onPersisted: E => Behavior[M]): Behavior[M]
 
   /**
@@ -73,32 +73,32 @@ trait PersistenceEffector[S, E, M] {
    *
    * @param events
    *   イベントのシーケンス
-   * @param state
+   * @param snapshot
    *   現在の状態
    * @param onPersisted
    *   イベントが永続化された後に呼び出されるコールバック
    * @return
    *   新しいBehavior
    */
-  def persistEventsWithState(events: Seq[E], state: S)(
+  def persistEventsWithSnapshot(events: Seq[E], snapshot: S)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M] =
-    persistEventsWithState(events, state, force = false)(onPersisted)
+    persistEventsWithSnapshot(events, snapshot, forceSnapshot = false)(onPersisted)
 
   /**
    * 複数のイベントを永続化し、現在の状態を指定してスナップショット戦略を評価する
    *
    * @param events
    *   イベントのシーケンス
-   * @param state
+   * @param snapshot
    *   現在の状態
-   * @param force
+   * @param forceSnapshot
    *   trueの場合、スナップショット戦略を無視して強制的にスナップショットを保存する
    * @param onPersisted
    *   イベントが永続化された後に呼び出されるコールバック
    * @return
    *   新しいBehavior
    */
-  def persistEventsWithState(events: Seq[E], state: S, force: Boolean)(
+  def persistEventsWithSnapshot(events: Seq[E], snapshot: S, forceSnapshot: Boolean)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M]
 }
 

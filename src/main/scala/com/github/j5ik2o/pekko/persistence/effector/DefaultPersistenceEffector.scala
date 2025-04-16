@@ -40,16 +40,18 @@ final class DefaultPersistenceEffector[S, E, M](
   private def calculateMaxSequenceNumberToDelete(
     currentSequenceNumber: Long,
     retention: RetentionCriteria,
-  ): Long = {
+  ): Long =
     // snapshotEveryとkeepNSnapshotsの両方が設定されている場合のみ計算
     (retention.snapshotEvery, retention.keepNSnapshots) match {
       case (Some(snapshotEvery), Some(keepNSnapshots)) =>
         // 計算値をログに出力
         ctx.log.debug(
           "Calculating maxSequenceNumberToDelete: currentSequenceNumber={}, snapshotEvery={}, keepNSnapshots={}",
-          currentSequenceNumber, snapshotEvery, keepNSnapshots
+          currentSequenceNumber,
+          snapshotEvery,
+          keepNSnapshots,
         )
-        
+
         // 最新のスナップショットのシーケンス番号を計算
         val latestSnapshotSeqNr = currentSequenceNumber - (currentSequenceNumber % snapshotEvery)
         ctx.log.debug("Calculated latestSnapshotSeqNr: {}", latestSnapshotSeqNr)
@@ -87,7 +89,6 @@ final class DefaultPersistenceEffector[S, E, M](
         ctx.log.debug("snapshotEvery or keepNSnapshots is None, returning 0")
         0L
     }
-  }
 
   /**
    * 指定されたメッセージタイプを待機する汎用的なメソッド
@@ -208,13 +209,13 @@ final class DefaultPersistenceEffector[S, E, M](
       snapshot => {
         // スナップショット保存成功メッセージをユーザーアクターに送信
         ctx.self ! messageConverter.wrapPersistedSnapshot(state)
-        
+
         // RetentionCriteriaが設定されている場合は古いスナップショットを削除
         config.retentionCriteria match {
           case Some(retention) => deleteOldSnapshots(retention, onCompleted)
           case None => onCompleted
         }
-      }
+      },
     )
   }
 
@@ -247,7 +248,7 @@ final class DefaultPersistenceEffector[S, E, M](
     ctx.log.debug("Persisting snapshot: {}", snapshot)
 
     // forceパラメータまたはスナップショット戦略に基づいて保存するかどうかを判断
-    val shouldSave = force || config.snapshotCriteria.exists { criteria =>
+    val shouldSaveSnapshot = force || config.snapshotCriteria.exists { criteria =>
       // スナップショットに対する評価（すでに状態がスナップショットとして渡されているため、それを直接使用）
       // イベントがない場合でも評価するため、仮想イベントとしてスナップショット自体を使用
       val dummyEvent = snapshot.asInstanceOf[E] // ダミーのイベント（型消去されるため、実行時には問題ない）
@@ -257,7 +258,7 @@ final class DefaultPersistenceEffector[S, E, M](
       result
     }
 
-    if (shouldSave) {
+    if (shouldSaveSnapshot) {
       handleSnapshotSave(snapshot, stashBuffer.unstashAll(onPersisted(snapshot)))
     } else {
       ctx.log.debug("Skipping snapshot persistence based on criteria evaluation")
@@ -265,7 +266,7 @@ final class DefaultPersistenceEffector[S, E, M](
     }
   }
 
-  override def persistEventWithState(event: E, state: S, force: Boolean)(
+  override def persistEventWithSnapshot(event: E, snapshot: S, forceSnapshot: Boolean)(
     onPersisted: E => Behavior[M]): Behavior[M] = {
     ctx.log.debug("Persisting event with state: {}", event)
     persistenceRef ! PersistSingleEvent(event, adapter)
@@ -275,11 +276,11 @@ final class DefaultPersistenceEffector[S, E, M](
       unwrapPersistedEvents,
       "Persisted event",
       events => {
-        val shouldSave = shouldTakeSnapshot(event, state, sequenceNumber, force)
+        val shouldSaveSnapshot = shouldTakeSnapshot(event, snapshot, sequenceNumber, forceSnapshot)
 
-        if (shouldSave) {
+        if (shouldSaveSnapshot) {
           ctx.log.debug("Taking snapshot at sequence number {}", sequenceNumber)
-          handleSnapshotSave(state, stashBuffer.unstashAll(onPersisted(events.head)))
+          handleSnapshotSave(snapshot, stashBuffer.unstashAll(onPersisted(events.head)))
         } else {
           stashBuffer.unstashAll(onPersisted(events.head))
         }
@@ -287,7 +288,7 @@ final class DefaultPersistenceEffector[S, E, M](
     )
   }
 
-  override def persistEventsWithState(events: Seq[E], state: S, force: Boolean)(
+  override def persistEventsWithSnapshot(events: Seq[E], snapshot: S, forceSnapshot: Boolean)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M] = {
     ctx.log.debug("Persisting events with state: {}", events)
     persistenceRef ! PersistMultipleEvents(events, adapter)
@@ -299,16 +300,17 @@ final class DefaultPersistenceEffector[S, E, M](
       persistedEvents => {
         // スナップショット戦略の評価またはforce=trueの場合に自動スナップショット取得
         // 最後のイベントとシーケンス番号だけで評価
-        val shouldSave = force || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
-          val lastEvent = events.last
-          val result = criteria.shouldTakeSnapshot(lastEvent, state, finalSequenceNumber)
-          ctx.log.debug("Snapshot criteria evaluation result: {}", result)
-          result
-        })
+        val shouldSaveSnapshot =
+          forceSnapshot || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
+            val lastEvent = events.last
+            val result = criteria.shouldTakeSnapshot(lastEvent, snapshot, finalSequenceNumber)
+            ctx.log.debug("Snapshot criteria evaluation result: {}", result)
+            result
+          })
 
-        if (shouldSave) {
+        if (shouldSaveSnapshot) {
           ctx.log.debug("Taking snapshot at sequence number {}", finalSequenceNumber)
-          handleSnapshotSave(state, stashBuffer.unstashAll(onPersisted(persistedEvents)))
+          handleSnapshotSave(snapshot, stashBuffer.unstashAll(onPersisted(persistedEvents)))
         } else {
           stashBuffer.unstashAll(onPersisted(persistedEvents))
         }
