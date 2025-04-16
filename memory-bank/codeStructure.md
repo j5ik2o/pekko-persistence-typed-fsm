@@ -1,299 +1,87 @@
-# pekko-persistence-effector コード構造解析
+# pekko-persistence-effector コード構造の設計思想
 
-## コア構成要素
+## コア構造: 関心の分離
 
-### コンポーネント階層
+pekko-persistence-effector のコード構造は、**関心の分離 (Separation of Concerns)** を中心的な原則として設計されています。主なコンポーネントとその役割分担は以下の通りです。
 
-```
-PersistenceEffector (trait)
-├── DefaultPersistenceEffector (class) - 実際の永続化実装
-└── InMemoryEffector (class) - インメモリ実装
-```
+```mermaid
+graph TD
+    A[主アクター (Your Actor)] -- 永続化依頼 (イベント) --> PE(PersistenceEffector);
+    PE -- 永続化完了/リカバリー完了 --> MC(MessageConverter);
+    MC -- アクター向けメッセージ --> A;
+    PE -- 設定読み込み --> CONF(PersistenceEffectorConfig);
+    CONF -- 変換ロジック指定 --> MC;
+    A -- ドメインロジック実行 --> DM(ドメインモデル);
+    DM -- 結果 (新状態, イベント) --> A;
 
-### 主要クラス・トレイトと役割
+    subgraph "永続化レイヤー"
+        PE
+        CONF
+        MC
+        PEI(PersistenceEffector 実装);
+    end
 
-| クラス/トレイト | 役割 | 主要機能 |
-|-----------------|------|----------|
-| `PersistenceEffector` | イベント永続化の中核インターフェース | イベント/スナップショットの永続化 |
-| `PersistenceEffectorConfig` | Effectorの設定を定義 | 永続化ID、イベント適用関数などの設定 |
-| `MessageConverter` | 型変換の抽象化 | 状態/イベント/メッセージ間の変換 |
-| `MessageWrapper` | メッセージの型付けサポート | タイプセーフなメッセージハンドリング |
-| `InMemoryEffector` | メモリ内の実装 | 開発/テスト向けの永続化機能 |
-| `DefaultPersistenceEffector` | 実際のDBを使用する実装 | Pekko Persistenceを活用した永続化 |
-| `SnapshotCriteria` | スナップショット戦略の定義 | スナップショット取得条件の設定 |
-| `RetentionCriteria` | スナップショット保持ポリシー | 古いスナップショットの削除管理 |
+    subgraph "アプリケーションレイヤー"
+        A
+        DM
+    end
 
-## 詳細コード分析
-
-### PersistenceEffector
-
-```scala
-trait PersistenceEffector[S, E, M] {
-  def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
-  def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
-  def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M]
-  // その他のメソッド...
-}
+    PE --- PEI;
 ```
 
-- **型パラメータ**:
-  - `S`: 状態の型
-  - `E`: イベントの型
-  - `M`: メッセージの型
-- **主要メソッド**:
-  - `persistEvent`: 単一イベントの永続化
-  - `persistEvents`: 複数イベントの永続化
-  - `persistSnapshot`: スナップショットの永続化
-  - `persistEventWithState`: イベント永続化とスナップショット評価
-  - `persistEventsWithState`: 複数イベント永続化とスナップショット評価
+- **主アクター (Your Actor):** ビジネスロジックの実行、状態管理、メッセージハンドリングを担当します。永続化が必要な場合、イベントを `PersistenceEffector` に依頼します。**通常の Pekko Actor スタイル (`Behavior` ベース) で実装されます。**
+- **ドメインモデル (Domain Model):** 純粋なビジネスロジック（状態遷移ルール、検証など）をカプセル化します。アクターから独立しており、テスト容易性が高いです。
+- **PersistenceEffector (Trait):** イベントとスナップショットの永続化操作のインターフェースを定義します。主アクターはこのインターフェースを通じて永続化を依頼します。
+- **PersistenceEffector 実装 (InMemory / Default):** `PersistenceEffector` トレイトの具体的な実装です。ストラテジーパターンにより、永続化戦略（インメモリか、実際のDBか）を切り替え可能にします。
+    - `InMemoryEffector`: 開発・テスト用のインメモリ実装。
+    - `DefaultPersistenceEffector`: Pekko Persistence を利用した実際の永続化実装。内部で PersistentActor を利用しますが、主アクターからは隠蔽されています。
+- **PersistenceEffectorConfig:** `PersistenceEffector` の動作に必要な設定（永続化ID、初期状態、イベント適用関数、`MessageConverter` など）を提供します。
+- **MessageConverter:** 主アクターのメッセージ型 (`M`) と、永続化レイヤーが扱う状態 (`S`)・イベント (`E`) との間の型安全な変換を担当します。これにより、主アクターと永続化レイヤーが互いの内部詳細に依存しないようにします。
 
-#### 特筆すべき設計パターン:
-- コールバックベースのAPI設計 (`onPersisted` 関数)
-- 型パラメータによる柔軟性と型安全性
-- コマンドパターンとイベントソーシングの融合
+**なぜこの構造なのか？**
+この分離により、以下の利点が生まれます。
+- **主アクターのシンプル化:** 永続化の複雑さを `PersistenceEffector` に委譲することで、主アクターはビジネスロジックに集中できます。
+- **従来スタイルの維持:** 主アクターは `EventSourcedBehavior` のような特殊な DSL を使う必要がなく、慣れ親しんだ `Behavior` ベースのスタイルで実装できます。
+- **テスト容易性:** ドメインモデルは単体テストが容易です。`InMemoryEffector` を使えば、永続化を含むアクターの振る舞いも高速にテストできます。
+- **柔軟性:** `PersistenceMode` の切り替えや、`SnapshotCriteria`/`RetentionCriteria` による戦略のカスタマイズが容易です。
 
-### PersistenceEffectorConfig
+## 主要コンポーネントの役割と設計意図
 
-```scala
-final case class PersistenceEffectorConfig[S, E, M](
-  persistenceId: String,
-  initialState: S,
-  applyEvent: (S, E) => S,
-  messageConverter: MessageConverter[S, E, M],
-  persistenceMode: PersistenceMode,
-  stashSize: Int,
-  snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
-  retentionCriteria: Option[RetentionCriteria] = None,
-)
-```
+| コンポーネント                 | 役割                                                                 | 設計意図・なぜ必要か？                                                                                                                               |
+| :----------------------------- | :------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PersistenceEffector` (Trait)  | イベント/スナップショット永続化の**インターフェース**                  | 主アクターが具体的な永続化実装（インメモリ/DB）を意識せずに済むように、操作を抽象化するため。                                                               |
+| `DefaultPersistenceEffector` | **実際の永続化** (Pekko Persistence利用)                             | 本番環境での永続化を実現するため。内部の PersistentActor 利用は、安定した基盤を活用しつつ、主アクターのロジック二重実行を防ぐため。                       |
+| `InMemoryEffector`           | **インメモリ永続化** (開発/テスト用)                                 | データベース設定なしで迅速な開発・テストを可能にするため。段階的な永続化導入をサポートするため。                                                         |
+| `PersistenceEffectorConfig`  | Effector の**設定情報**を集約                                        | Effector の動作に必要なパラメータ（ID, 初期状態, イベント適用方法, 変換方法など）を一元管理し、生成を容易にするため。                                       |
+| `MessageConverter`           | **型変換** (状態/イベント/メッセージ間)                              | 主アクターのメッセージ型と永続化レイヤーの内部型を分離し、疎結合にするため。Scala 3 の交差型などを活用し、型安全な変換を実現するため。                   |
+| `MessageWrapper` (関連Trait) | `MessageConverter` が返す**メッセージの型情報**を付与 (マーカー)       | `PersistenceEffector` からの通知メッセージ（例: 永続化完了）の種類と、それに含まれるデータ（例: イベント）を型安全に識別できるようにするため。             |
+| `SnapshotCriteria`           | **スナップショット取得戦略**の定義                                   | いつスナップショットを取るか、という戦略を外部から注入可能にするため（ストラテジーパターン）。                                                           |
+| `RetentionCriteria`          | **イベント/スナップショット保持戦略**の定義                          | 古いデータをどのように削除するか、という戦略を外部から注入可能にするため（ストラテジーパターン）。                                                       |
 
-- **機能**:
-  - 永続化ID、初期状態、イベント適用ロジックなどの基本設定
-  - `MessageConverter`との統合によるボイラープレートコードの削減
-  - イベント/状態の変換関数へのアクセスをラップ
+## 実装例 (BankAccountAggregate) の構造的側面
 
-### MessageConverter
+`BankAccountAggregate` のサンプル実装は、この構造を以下のように活用しています。
 
-```scala
-trait MessageConverter[S, E, M] {
-  def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
-  def wrapPersistedSnapshot(state: S): M & PersistedState[S, M]
-  def wrapRecoveredState(state: S): M & RecoveredState[S, M]
-  def wrapDeleteSnapshots(maxSequenceNumber: Long): M & DeletedSnapshots[M]
-  // アンラップ関連メソッド...
-}
-```
+- **アクター定義:** 通常の `Behaviors.setup` を使用し、その中で `PersistenceEffector.create` を呼び出して子アクターとして `PersistenceEffector` (InMemory または Default) を生成します。
+- **状態管理:** アクターの状態 (`State` enum: `NotCreated`, `Created`) を定義し、現在の状態に応じて異なる `Behavior` (`handleNotCreated`, `handleCreated`) を返します。
+- **コマンド処理:**
+    - コマンドを受け取ると、対応する `Behavior` 内で処理します。
+    - ドメインロジック（例: `bankAccount.add`）を実行し、`Result(newState, event)` を受け取ります。
+    - 新しい状態 (`newState`) をアクターの次の `Behavior` に反映させます。
+    - イベント (`event`) を `effector.persistEvent` に渡して永続化を依頼します。
+    - 永続化完了のコールバック内で、応答メッセージを送信したり、さらに `Behavior` を変更したりします。
+- **リカバリー:** アクター起動時、`PersistenceEffector.create` のコールバックに、リカバリーされた状態 (`initialState`) が渡されます。これを使って初期の `Behavior` を決定します。
+- **メッセージ変換:** `BankAccountCommand` enum 内に `MessageConverter` の実装を含め、`PersistenceEffector` からの内部通知（`PersistedEvent`, `RecoveredState` など）を `BankAccountCommand` のプライベートなケースクラスにマッピングします。
 
-- **機能**:
-  - Scala 3の交差型を活用した型安全な変換
-  - ドメインイベント/状態からアクターメッセージへの変換
-  - パターンマッチングと型キャストによる安全な復元
+このように、`BankAccountAggregate` はビジネスロジックと状態遷移に集中し、永続化の詳細は `PersistenceEffector` に委任するという、関心の分離が実現されています。
 
-### MessageWrapper
+## テスト戦略との関連
 
-```scala
-sealed trait MessageWrapper[M] { self: M => }
-
-trait PersistedEvent[E, M] extends MessageWrapper[M] { self: M =>
-  def events: Seq[E]
-}
-
-trait PersistedState[S, M] extends MessageWrapper[M] { self: M =>
-  def state: S
-}
-
-trait RecoveredState[S, M] extends MessageWrapper[M] { self: M =>
-  def state: S
-}
-
-trait DeletedSnapshots[M] extends MessageWrapper[M] { self: M =>
-  def maxSequenceNumber: Long
-}
-```
-
-- **設計パターン**:
-  - 自己型注釈（self-type annotation）による型合成
-  - マーカーインターフェースによるメッセージ分類
-  - タイプセーフなパターンマッチングのサポート
-
-### インメモリ実装 (InMemoryEffector)
-
-```scala
-final class InMemoryEffector[S, E, M](
-  ctx: ActorContext[M],
-  stashBuffer: StashBuffer[M],
-  config: PersistenceEffectorConfig[S, E, M],
-) extends PersistenceEffector[S, E, M]
-```
-
-- **特徴**:
-  - `InMemoryEventStore`シングルトンを使用したメモリ内永続化
-  - イベント/スナップショットの非同期な振る舞いのエミュレーション
-  - 実DBを使わない開発/テスト用の軽量な実装
-
-#### InMemoryEventStore
-
-```scala
-private[effector] object InMemoryEventStore {
-  // スレッドセーフなコレクション
-  private val events: scala.collection.mutable.Map[String, Vector[Any]] = ...
-  private val snapshots: scala.collection.mutable.Map[String, Any] = ...
-  // その他のコレクション...
-  
-  // 操作メソッド
-  def addEvent[E](id: String, event: E): Unit = ...
-  def addEvents[E](id: String, newEvents: Seq[E]): Unit = ...
-  def saveSnapshot[S](id: String, snapshot: S): Unit = ...
-  // 他のメソッド...
-}
-```
-
-- **重要なポイント**:
-  - スレッドセーフなコレクションを使用
-  - ID（永続化ID）ベースのイベント/スナップショット管理
-  - リプレイロジックの実装
-
-### 本番実装 (DefaultPersistenceEffector)
-
-```scala
-final class DefaultPersistenceEffector[S, E, M](
-  ctx: ActorContext[M],
-  stashBuffer: StashBuffer[M],
-  config: PersistenceEffectorConfig[S, E, M],
-  persistenceRef: ActorRef[PersistenceCommand[S, E]],
-  adapter: ActorRef[PersistenceReply[S, E]])
-  extends PersistenceEffector[S, E, M]
-```
-
-- **実装の特徴**:
-  - 内部にPersistentActorを使用
-  - メッセージアダプタによる型変換の自動化
-  - 永続化コマンドとコールバック処理のコーディネーション
-  - スタッシュバッファによるメッセージキューイング
-
-#### 永続化フロー:
-1. PersistenceRefへコマンド送信
-2. Adapterを通じた永続化完了通知の受信
-3. `waitForMessage`によるメッセージ待機
-4. 成功時のコールバック実行と新しいBehaviorの生成
-
-## 実装例: BankAccountAggregate
-
-```scala
-object BankAccountAggregate {
-  // 状態の定義
-  enum State {
-    def aggregateId: BankAccountId
-    case NotCreated(aggregateId: BankAccountId)
-    case Created(aggregateId: BankAccountId, bankAccount: BankAccount)
-    
-    def applyEvent(event: BankAccountEvent): State = ...
-  }
-
-  // アクター生成
-  def apply(aggregateId: BankAccountId, persistenceMode: PersistenceMode = PersistenceMode.Persisted): Behavior[BankAccountCommand] = {
-    val config = PersistenceEffectorConfig[...]
-    Behaviors.setup[BankAccountCommand] { implicit ctx =>
-      PersistenceEffector.create[...](config) {
-        case (initialState: State.NotCreated, effector) => handleNotCreated(initialState, effector)
-        case (initialState: State.Created, effector) => handleCreated(initialState, effector)
-      }
-    }
-  }
-  
-  // 状態ごとのハンドラメソッド
-  private def handleNotCreated(...): Behavior[BankAccountCommand] = ...
-  private def handleCreated(...): Behavior[BankAccountCommand] = ...
-}
-```
-
-### 状態遷移の特徴:
-- 列挙型による状態の型安全な表現
-- 状態に応じたハンドラメソッドの分割
-- Behaviorを返すコールバック関数による明示的な状態遷移
-
-### メッセージプロトコル:
-
-```scala
-enum BankAccountCommand {
-  case GetBalance(override val aggregateId: BankAccountId, replyTo: ActorRef[GetBalanceReply])
-  case Stop(override val aggregateId: BankAccountId, replyTo: ActorRef[StopReply])
-  case Create(override val aggregateId: BankAccountId, replyTo: ActorRef[CreateReply])
-  // その他のコマンド...
-  
-  // 内部メッセージ
-  private case StateRecovered(state: BankAccountAggregate.State) extends ... with RecoveredState[...]
-  private case EventPersisted(events: Seq[BankAccountEvent]) extends ... with PersistedEvent[...]
-  // その他の内部メッセージ...
-}
-```
-
-- **設計ポイント**:
-  - コマンドとイベントの明確な分離
-  - レスポンスメッセージの型安全な定義
-  - メッセージコンバーターとの連携
-
-## 永続化モードとスナップショット戦略
-
-### PersistenceMode
-
-```scala
-enum PersistenceMode {
-  case Persisted
-  case InMemory
-}
-```
-
-- **利点**: 
-  - 単一の設定パラメータで実装を切り替え可能
-  - テスト・開発・本番環境の柔軟な設定
-
-### SnapshotCriteria
-
-```scala
-trait SnapshotCriteria[S, E] {
-  def shouldTakeSnapshot(event: E, state: S, sequenceNumber: Long): Boolean
-}
-```
-
-- **実装例**:
-  - `SnapshotCriteria.every(n)`: n個のイベントごとにスナップショット
-  - カスタム条件に基づくスナップショット戦略
-
-### RetentionCriteria
-
-```scala
-final case class RetentionCriteria(
-  snapshotEvery: Option[Int] = None,
-  keepNSnapshots: Option[Int] = None,
-)
-```
-
-- **機能**:
-  - 古いスナップショットの自動削除
-  - ストレージ使用量の最適化
-  - 不要なデータの継続的なクリーンアップ
-
-## テスト戦略
-
-テストでは、主に以下のアプローチを採用:
-
-1. **InMemoryEffectorを使用した単体テスト**:
-   - 永続化ロジックのモック不要
-   - 実際の永続化の挙動を模倣しつつ高速なテスト実行
-
-2. **実際のPersistenceを使用した統合テスト**:
-   - インメモリジャーナルを使用
-   - 実際の永続化・復元フローの検証
-
-3. **スナップショット戦略のテスト**:
-   - 条件に基づくスナップショット作成の検証
-   - 保持ポリシーに基づく削除の検証
+このコード構造はテスト容易性に貢献します。
+- ドメインモデルはアクターから独立しているため、単体テストが容易です。
+- `InMemoryEffector` を使用することで、永続化層をモックすることなく、イベント永続化やリカバリーを含むアクターの振る舞いを `ActorTestKit` でテストできます。
+詳細は `testPatterns.md` を参照してください。
 
 ## まとめ
 
-eff-sm-splitterは、イベントソーシングパターンを通常のアクタープログラミングスタイルで実装できるよう設計された柔軟なライブラリです。特にPekkoの標準的なEventSourcedBehaviorとは異なり、集約アクター内で通常のBehaviorベースのプログラミングを維持しつつイベント永続化を実現しています。
-
-また、InMemoryEffectorの提供により、永続化を考慮しないステップバイステップの実装が可能となり、開発初期段階での柔軟性が大幅に向上します。
-
-コードベースは高度に型安全なAPIを提供し、Scala 3の最新機能（交差型、列挙型など）を活用して、タイプセーフなイベントソーシングの実装を支援します。
+pekko-persistence-effector のコード構造は、**関心の分離**を徹底し、**従来のアクタープログラミングスタイル**を維持しながら**イベントソーシング**を実現することを目指しています。`PersistenceEffector` という抽象化レイヤーと、`InMemoryEffector` による段階的実装のサポートが、その中心的な特徴です。この構造により、開発者はドメインロジックに集中でき、テスト容易性と保守性の高いアプリケーションを構築することが可能になります。

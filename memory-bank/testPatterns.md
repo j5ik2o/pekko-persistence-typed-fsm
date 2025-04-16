@@ -1,332 +1,70 @@
-# pekko-persistence-effector テスト戦略と実装パターン
+# pekko-persistence-effector テスト戦略と設計思想
 
-## テスト戦略の概要
+## テスト戦略の目的と階層
 
-pekko-persistence-effectorは複数層のテスト戦略を採用しており、主に以下のレベルでテストを行っています：
+pekko-persistence-effector のテスト戦略は、ライブラリの信頼性と堅牢性を多角的に保証することを目的としています。以下の階層でテストを実施しています。
 
-1. **単体テスト**: コンポーネントごとの機能検証
-2. **統合テスト**: アクター間の相互作用のテスト
-3. **モード横断テスト**: InMemoryモードとPersistedモードの双方での動作検証
-4. **サンプル実装テスト**: 実際のユースケース（BankAccount）によるテスト
+1.  **単体テスト (Unit Tests):** `SnapshotCriteria` や `RetentionCriteria` など、独立して動作するコンポーネントの内部ロジックを検証します。これにより、個々の部品が期待通りに機能することを確認します。
+2.  **統合テスト (Integration Tests):** `PersistenceEffector` と主アクター（テスト内では `Behavior` で表現）が連携して動作することを検証します。イベントの永続化、状態の復元、スナップショットの取得、コールバックの実行など、主要な機能が相互作用するシナリオをテストします。
+3.  **モード横断テスト (Cross-Mode Tests):** 同じテストケースを `InMemoryEffector` と `DefaultPersistenceEffector` (実際の永続化バックエンドを使用) の両方のモードで実行します。これは、永続化メカニズムの違いによらず、ライブラリのコア機能が一貫して動作することを保証するために極めて重要です。
+4.  **サンプル実装テスト (Example Implementation Tests):** `BankAccountAggregate` のような具体的なユースケースに基づいたテストを実施します。これにより、ライブラリが実際のアプリケーションシナリオで正しく利用でき、期待される結果をもたらすことを確認します。
 
-## テスト基盤
+## テスト基盤: なぜ `PersistenceEffectorTestBase` があるのか？
 
-### PersistenceEffectorTestBase
+`PersistenceEffectorTestBase` は、モード横断テストを実現するための抽象基盤クラスです。
 
-テストの基盤となる抽象クラスとして`PersistenceEffectorTestBase`が提供されています。このクラスは：
+- **目的:**
+    - **テストコードの再利用:** InMemory モードと Persisted モードで共通するテストロジック（イベント永続化の基本動作、状態復元など）をこの基底クラスに集約し、コードの重複を避けます。
+    - **一貫したテストスイート:** サブクラス (`InMemoryEffectorSpec`, `PersistedEffectorSpec`) は、テスト対象の `PersistenceMode` を指定するだけで、基底クラスで定義された共通テストスイートを実行できます。これにより、両モードで同じ観点のテストが実施されることを保証します。
+    - **設定の共通化:** `ActorTestKit` の設定や、テストで共通して利用するヘルパーメソッドなどを集約します。
 
-- 永続化モードに依存しない共通のテストケースを定義
-- サブクラスで永続化モードを指定できる抽象メソッドを提供
-- スナップショットテストの有効/無効を制御するフラグを提供
+この基盤があることで、新しいテストケースを追加する際に、両方のモードでの動作を効率的に検証できます。
 
-```scala
-abstract class PersistenceEffectorTestBase
-  extends ScalaTestWithActorTestKit(TestConfig.config)
-  with AnyWordSpecLike
-  with Matchers
-  with Eventually
-  with BeforeAndAfterAll
-  with OptionValues {
+## 主要なテスト観点と「なぜ」
 
-  // サブクラスで実装するメソッド - テスト対象のPersistenceMode
-  def persistenceMode: PersistenceMode
-  
-  // スナップショットテストを実行するかどうか
-  def runSnapshotTests: Boolean = true
-  
-  // ...
-}
-```
+テストケースは、ライブラリのコア機能と設計上の重要な側面をカバーするように設計されています。
 
-### テスト実装のバリエーション
+- **状態の復元:** アクターが起動または再起動した際に、永続化されたイベントに基づいて正しく状態が復元されるか。これはイベントソーシングの基本であり、最も重要な検証項目の一つです。
+- **イベントの永続化:** 単一または複数のイベントが、要求通りに永続化されるか。永続化完了後に期待されるコールバックが実行されるかも含めて検証します。
+- **アクター停止・再起動後の状態復元:** アクターが一度停止し、同じ `persistenceId` で再起動した場合でも、以前の状態が正確に復元されるか。永続化メカニズムが正しく機能していることを保証します。
+- **スナップショット機能:** スナップショットが設定された基準 (`SnapshotCriteria`) に従って取得され、永続化されるか。また、スナップショットからの状態復元が正しく行われるかも検証します。
+- **保持ポリシー (`RetentionCriteria`):** 古いイベントやスナップショットが、設定された保持ポリシーに従って削除されるか。ストレージ効率に関わる重要な機能です。
 
-- **InMemoryEffectorSpec**: インメモリモード特有のテスト
-- **PersistedEffectorSpec**: 実際の永続化モードのテスト
-- **SnapshotCriteriaSpec**: スナップショット戦略のテスト
-- **RetentionCriteriaSpec**: 保持ポリシーのテスト
+## InMemory モード特有のテスト: なぜ必要か？
 
-## 主要なテストケース
+`InMemoryEffector` はデータベースアクセスを行わないため、`DefaultPersistenceEffector` とは異なる側面からのテストが必要です。
 
-### 1. 状態の復元テスト
+- **`getState` メソッドの検証:** `InMemoryEffector` は、テストやデバッグ目的で現在の内部状態に同期的にアクセスする `getState` メソッドを提供します。このメソッドが期待通りに動作するかを検証します。
+- **`applyEvent` の二重実行防止:** `InMemoryEffector` は、イベント永続化時に内部状態を直接更新します。この際、`PersistenceEffectorConfig` で渡された `applyEvent` 関数が意図せず二重に呼び出されないこと（永続化時の内部更新と、主アクター側での状態更新の重複がないこと）を確認する必要があります。これは、`DefaultPersistenceEffector` ではリカバリー時にのみ `applyEvent` が内部的に使用されるため、異なる検証ポイントとなります。
 
-```scala
-"properly handle state recovery" in {
-  val persistenceId = s"test-recovery-${java.util.UUID.randomUUID()}"
-  val initialState = TestState()
-  
-  // ... 設定 ...
-  
-  val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-    PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
-      case (state, effector) =>
-        recoveredEvents += TestMessage.StateRecovered(state)
-        // ... Behavior ...
-    }(using context)
-  })
-  
-  eventually {
-    recoveredEvents.size shouldBe 1
-    recoveredEvents.head shouldBe TestMessage.StateRecovered(initialState)
-  }
-}
-```
+これらのテストにより、InMemory モードが開発やテスト支援という目的に沿って、正しくかつ効率的に動作することを確認します。
 
-このテストでは、アクター初期化時に状態が正しく復元されることを検証しています。
+## テスト実装パターンとその意図
 
-### 2. イベント永続化テスト
+テストコードには、アクターテスト特有のパターンが用いられています。
 
-```scala
-"successfully persist single event" in {
-  // ... 設定 ...
-  
-  val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-    PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
-      case (state, effector) =>
-        effector.persistEvent(event) { _ =>
-          events += TestMessage.EventPersisted(Seq(event))
-          Behaviors.stopped
-        }
-    }(using context)
-  })
-  
-  eventually {
-    events.size shouldBe 1
-    val TestMessage.EventPersisted(evts) = events.head: @unchecked
-    evts should contain(event)
-  }
-}
-```
+- **テスト識別子の一意性確保 (UUID):** 各テストケースで `persistenceId` に UUID を含めることで、テスト間の状態の衝突を防ぎます。特に、テストが並列実行される可能性がある場合や、クリーンアップが不完全な場合に重要です。
+- **`eventually` パターン:** アクターの処理（メッセージ受信、イベント永続化、コールバック実行）は非同期に行われるため、期待する状態やメッセージ受信を即座にアサートできません。`eventually` を使用して、一定時間内に期待する条件が満たされるまで待機し、非同期性を考慮した検証を行います。
+- **テスト前提条件のスキップ (`assume`):** 特定のテスト（例: スナップショット関連）が、設定フラグ (`runSnapshotTests`) によって実行されるべきか判断し、不要な場合はスキップします。これにより、テストスイート全体の実行時間を最適化したり、特定の環境下でのみテストを実行したりできます。
+- **メッセージの収集と検証:** アクターからの応答や通知メッセージを `TestProbe` や `ArrayBuffer` などで収集し、テストの最後にその内容や順序を検証します。これは、アクターの振る舞いを確認する基本的な方法です。
+- **テスト用の型変換やキャスト (`@unchecked`):** テストコード内で、収集したメッセージの型を検証済みとして安全にキャストするために `@unchecked` を使うことがあります。これは、テストの可読性を保ちつつ、特定のメッセージ型であることを前提としたアサーションを行うためです。
 
-このテストでは、単一イベントが正しく永続化されることを検証しています。
+## BankAccount サンプルのテスト: なぜ重要か？
 
-### 3. アクターの停止と再起動時の状態復元テスト
+`BankAccountAggregateSpec` のようなサンプル実装に基づいたテストは、ライブラリが実際のユースケースでどのように機能するかを示す上で重要です。
 
-```scala
-"restore state after actor is stopped and restarted with the same id" in {
-  // ... 1回目のアクター実行 ...
-  
-  // 2回目のアクターを実行（同じID）
-  val behavior2 = spawn(Behaviors.setup[TestMessage] { context =>
-    PersistenceEffector.create[TestState, TestEvent, TestMessage](config2) {
-      case (state, effector) =>
-        // 復元された状態を記録
-        secondRunRecoveredState += state
-        // ...
-    }(using context)
-  })
-  
-  // 状態が正しく復元されていることを確認
-  eventually {
-    secondRunRecoveredState.size shouldBe 1
-    val recoveredState = secondRunRecoveredState.head
-    // 1回目のアクターで永続化したイベントが適用された状態が復元されていることを確認
-    recoveredState.values should contain.allOf("event1", "42")
-  }
-}
-```
+- **実用性の検証:** 単純な `TestState`/`TestEvent` だけでなく、より具体的なドメイン（銀行口座）における一連の操作（開設、入金、出金、残高照会）を通じて、ライブラリが実用的なシナリオで問題なく動作することを確認します。
+- **利用例の提示:** これらのテストは、ライブラリ利用者が自身の実装でどのようにテストを書けばよいかの具体的な例としても機能します。
 
-このテストは、アクターが停止して再起動した後でも、永続化されたイベントが適用された状態が正しく復元されることを検証します。
+## テスト後のクリーンアップ: なぜ必要か？
 
-### 4. スナップショット関連テスト
+特に `InMemoryEventStore` を使用する場合、テストケース間で状態が共有されてしまうため、各テストの後（またはスイートの後）に `InMemoryEventStore.clear()` を呼び出して状態をリセットする必要があります。これにより、テストケースの独立性が保たれ、他のテストの結果に影響されることなく、各テストがクリーンな状態で開始されることを保証します。
 
-```scala
-"persist event with state" in {
-  assume(runSnapshotTests, "Snapshot test is disabled")
-  // ... 設定 ...
-  
-  val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-    PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
-      case (state, effector) =>
-        // persistEventWithStateを使用
-        effector.persistEventWithState(event, newState, force = false) { _ =>
-          // ... 処理 ...
-        }
-    }(using context)
-  })
-  
-  eventually {
-    // ... 検証 ...
-    snapshots.size shouldBe 1
-    val TestMessage.SnapshotPersisted(state) = snapshots.head: @unchecked
-    state.values should contain("event-with-state")
-  }
-}
-```
+## まとめ: テスト戦略がもたらすもの
 
-このテストでは、イベントと状態を同時に永続化し、スナップショット戦略に基づいてスナップショットが作成されることを検証しています。
+pekko-persistence-effector の多層的なテスト戦略は、以下の価値を提供します。
 
-### 5. 保持ポリシーテスト
-
-```scala
-"apply retention policy when taking snapshots" in {
-  assume(runSnapshotTests, "Snapshot test is disabled")
-  // ... 設定 ...
-  
-  // スナップショットを2つおきに作成し、最新の2つだけ保持する設定
-  val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
-    // ... 
-    snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
-    retentionCriteria = Some(RetentionCriteria.snapshotEvery(2, 2))
-  )
-  
-  // ... テスト実行 ...
-  
-  eventually {
-    // 削除メッセージの検証
-    deletedSnapshotMessages.nonEmpty shouldBe true
-    
-    // シーケンス番号2のスナップショットが削除対象になっていることを確認
-    val seqNr = deletedSnapshotMessages.collectFirst {
-      case TestMessage.SnapshotsDeleted(maxSeqNr) => maxSeqNr
-    }.getOrElse(0L)
-    
-    seqNr should be > 0L
-  }
-}
-```
-
-このテストでは、スナップショット保持ポリシーに基づいて古いスナップショットが削除されることを検証しています。
-
-## InMemoryモード特有のテスト
-
-InMemoryモードでは、実際の永続化処理を行わないため、いくつかの追加検証が必要です：
-
-```scala
-"provide access to current state via getState" in {
-  // ... 設定 ...
-  
-  val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-    PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
-      case (state, effector) =>
-        // 型キャストで InMemoryEffector を取得
-        val inMemoryEffector =
-          effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
-        effectorRef = Some(inMemoryEffector)
-        // ... 処理 ...
-    }(using context)
-  })
-  
-  eventually {
-    // InMemoryEffectorのgetStateメソッドで状態が取得できることを確認
-    effectorRef.isDefined shouldBe true
-    // ... 状態の検証 ...
-  }
-}
-```
-
-また、`InMemoryEffector`でイベント適用ロジックが二重実行されないことを確認するテストも追加されています：
-
-```scala
-"not execute applyEvent twice when persistEvent is called" in {
-  // applyEventの呼び出し回数をカウントするための変数
-  var applyEventCount = 0
-  
-  // 呼び出し回数をカウントするapplyEvent関数
-  val countingApplyEvent = (state: TestState, event: TestEvent) => {
-    applyEventCount += 1
-    state.applyEvent(event)
-  }
-  
-  // ... テスト実行 ...
-  
-  // applyEventが1回だけ呼ばれることを確認（手動更新時のみ）
-  applyEventCount shouldBe 1
-}
-```
-
-## 実装パターン
-
-テストから見えてくる実装パターンには、以下のようなものがあります：
-
-### 1. テスト識別子の一意性確保
-
-テストごとに一意のID（UUID）を使用することで、テスト間の干渉を防いでいます：
-
-```scala
-val persistenceId = s"test-persist-single-${java.util.UUID.randomUUID()}"
-```
-
-### 2. Eventually パターン
-
-アクターの非同期処理を扱うため、`eventually`ブロックを使用して条件が満たされるまで待機します：
-
-```scala
-eventually {
-  recoveredEvents.size shouldBe 1
-  // ... 検証 ...
-}
-```
-
-### 3. テスト前提条件のスキップ
-
-特定の条件が満たされない場合にテストをスキップする`assume`を使用：
-
-```scala
-assume(runSnapshotTests, "Snapshot test is disabled")
-```
-
-### 4. メッセージの収集と検証
-
-アクターから送信されるメッセージを収集し、後で検証する手法：
-
-```scala
-val events = ArrayBuffer.empty[TestMessage]
-// ... アクター処理 ...
-eventually {
-  events.size shouldBe 1
-  // ... 検証 ...
-}
-```
-
-### 5. テスト用の型変換やキャスト
-
-型安全性を確保しつつ、テスト用のキャストを行う手法：
-
-```scala
-val TestMessage.EventPersisted(evts) = events.head: @unchecked
-```
-
-## BankAccountサンプルのテスト
-
-実際のアプリケーションに近いシナリオでは、BankAccountのサンプル実装を使ってテストを行っています：
-
-```scala
-class InMemoryBankAccountAggregateSpec extends BankAccountAggregateTestBase {
-  // InMemoryモードを使用
-  override def persistenceMode: PersistenceMode = PersistenceMode.InMemory
-  
-  // ... テストケース ...
-}
-```
-
-このテストでは：
-
-1. 銀行口座の作成
-2. 入金処理
-3. 出金処理
-4. 残高照会
-
-などの実際のユースケースをシミュレートして、整合性を検証しています。
-
-## テスト後のクリーンアップ
-
-テスト間の干渉を防ぐため、特にInMemoryモードではテスト後にストアをクリアしています：
-
-```scala
-override def afterAll(): Unit = {
-  InMemoryEventStore.clear()
-  super.afterAll()
-}
-```
-
-## まとめ
-
-eff-sm-splitterのテスト戦略は、以下の点で優れています：
-
-1. **抽象化されたテスト基盤**: 共通のテストロジックを抽象基底クラスに集約
-2. **モード横断のテスト**: InMemoryとPersistedの両方のモードでの動作検証
-3. **特殊ケースのテスト**: スナップショットや保持ポリシーなどの高度な機能のテスト
-4. **実際のユースケース**: 具体的なドメインモデル（BankAccount）を使った検証
-5. **非同期処理の扱い**: アクターモデルの非同期性を考慮したテスト手法
-
-これらのテスト戦略により、ライブラリの堅牢性と信頼性が確保されています。
+1.  **信頼性の向上:** 様々な角度からのテストにより、ライブラリのバグを早期に発見し、修正することができます。
+2.  **保守性の確保:** 回帰テストとして機能し、将来のコード変更が既存の機能を破壊しないことを保証します。
+3.  **設計の健全性:** テスト容易性を考慮した設計（例: `PersistenceEffectorTestBase`）は、ライブラリ自体のモジュール性や関心の分離を促進します。
+4.  **利用者の安心感:** 包括的なテストスイートは、ライブラリ利用者に安定性と信頼性に対する安心感を与えます。

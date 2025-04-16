@@ -4,307 +4,57 @@
 
 このドキュメントの目的は、Pekko Persistence Typedの実装方法の改善についての提案です。
 
-## 問題
+## Pekko Persistence Typed における課題
 
-Pekko Persistence Typedの現在の実装では、次のような問題があります。
+Pekko Persistence Typed は Pekko におけるイベントソーシングの標準的な実装方法ですが、特定の実装スタイルやユースケースにおいて、いくつかの課題が生じる可能性があります。
 
-- 問題1: これまでのアクタープログラミングのスタイルとは大きく異なります。
-- 問題2: 複雑な状態遷移を実装する場合は、match/caseが複雑になり保守性が低下します。
-- 問題3: コマンドハンドラでは新しい状態に遷移することができないため、ドメインオブジェクトを使いにくい
+- **課題1: 従来のアクタープログラミングスタイルとの乖離**
+    - Pekko Persistence Typed は `EventSourcedBehavior` という専用の DSL を導入しており、これは `Behaviors.receive` や `Behaviors.setup` を中心とした従来の Pekko Actor のプログラミングスタイルとは異なります。
+    - これにより、既存の Pekko Actor の知識や設計パターン（例: 状態に応じた `Behavior` の切り替え）が直接適用しにくく、開発者は新しいスタイルを学習する必要があります。特に、イベントソーシングを初めて導入する場合や、既存のアクターベースのシステムに組み込む場合に、学習コストや実装上の戸惑いが生じることがあります。
 
-この問題をわかりやすくするために、銀行口座集約を例にして解説します。
+- **課題2: 複雑な状態遷移における保守性の低下**
+    - `EventSourcedBehavior` では、コマンド処理ロジックは主に単一の `commandHandler` に、イベント適用ロジックは単一の `eventHandler` に記述されます。
+    - アクターが持つ状態の種類が多く、状態遷移が複雑になってくると、これらのハンドラ関数が肥大化し、条件分岐（`match/case`）が複雑になりがちです。
+    - 従来のアクタースタイルであれば `Behavior` を切り替えることで状態ごとの処理を明確に分離できますが、`EventSourcedBehavior` の構造ではそれが難しく、結果としてコードの見通しが悪くなり、保守性が低下する可能性があります。（※ ハンドラ関数を内部で分割するなどの対策は可能ですが、基本的な構造は変わりません。）
 
-## 通常のアクタープログラミングではどうなるか
+- **課題3: ドメインオブジェクトとの連携の難しさ (DDD との相性)**
+    - ドメイン駆動設計 (DDD) では、ビジネスロジックをドメインオブジェクト（エンティティや値オブジェクト）にカプセル化することが推奨されます。
+    - しかし、Pekko Persistence Typed の `commandHandler` は、直接アクターの状態を変更するのではなく、永続化すべきイベント（または副作用なしを示す `Effect.none` など）を含む `ReplyEffect` を返す必要があります。
+    - この制約のため、ドメインオブジェクトのメソッドが新しい状態オブジェクトを返したとしても（例: `bankAccount.add(amount)` が新しい `BankAccount` インスタンスを返す）、その新しい状態を `commandHandler` 内で直接アクターの次の状態として利用することができません。状態の更新は、`eventHandler` がイベントを適用する際に間接的に行われます。
+    - これにより、ドメインオブジェクトの設計とアクターの実装との間にギャップが生じ、ドメインロジックを自然な形でアクターに組み込むことが難しくなる場合があります。特に、コマンド処理の結果として得られた新しい状態をすぐに利用したい場合に、実装が煩雑になる可能性があります。
 
-Behaviorを使って状態遷移を記述できます。
+これらの課題は、特に状態遷移が複雑なドメインや、DDD の原則に厳密に従いたい場合、あるいは既存の Pekko Actor の開発スタイルを維持したい場合に顕著になる可能性があります。
 
-```scala
-object BankAccountAggregate {
-  private final case class Created(aggregateId: BankAccountAggregateId, bankAccount: BankAccount)
+## pekko-persistence-effector による解決アプローチ
 
-  def apply(aggregateId: BankAccountAggregateId): Behavior[BankAccountCommands.Command] = {
-    notCreated(aggregateId)
-  }
+pekko-persistence-effector は、これらの課題に対処するために、異なるアーキテクチャを採用しています。
 
-  private def notCreated(
-      aggregateId: BankAccountAggregateId
-  ): Behavior[BankAccountCommands.Command] =
-    Behaviors.receiveMessagePartial {
-      // 口座の開設
-      case command: BankAccountCommands.CreateBankAccount if command.aggregateId == aggregateId =>
-        command.replyTo ! BankAccountCommands.CreateBankAccountSucceeded(command.aggregateId)
-        created(Created(aggregateId, bankAccount = BankAccount(command.aggregateId.toEntityId)))
-    }
+- **解決策1: 従来スタイルの維持と永続化の分離**
+    - イベント永続化の責務を、主アクターの子アクターとして動作する `PersistenceEffector` に委譲します。
+    - これにより、主アクターは `EventSourcedBehavior` を使う必要がなくなり、**通常の `Behavior` ベースのプログラミングスタイルをそのまま利用できます**。状態に応じた `Behavior` の切り替えも自由に行えます。開発者は慣れ親しんだスタイルで実装を進めることができます。
 
-  private def created(state: Created): Behavior[BankAccountCommands.Command] =
-    Behaviors.receiveMessagePartial {
-      // 残高の取得
-      case BankAccountCommands.GetBalance(aggregateId, replyTo) if aggregateId == state.aggregateId =>
-        replyTo ! BankAccountCommands.GetBalanceReply(aggregateId, state.bankAccount.balance)
-        Behaviors.same
-      // 現金の入金
-      case BankAccountCommands.DepositCash(aggregateId, amount, replyTo) if aggregateId == state.aggregateId =>
-        state.bankAccount.add(amount) match {
-          case Right(result) =>
-            replyTo ! BankAccountCommands.DepositCashSucceeded(aggregateId)
-            created(state.copy(bankAccount = result))
-          case Left(error) =>
-            replyTo ! BankAccountCommands.DepositCashFailed(aggregateId, error)
-            Behaviors.same
-        }
-      // 現金の出金
-      case BankAccountCommands.WithdrawCash(aggregateId, amount, replyTo) if aggregateId == state.aggregateId =>
-        state.bankAccount.subtract(amount) match {
-          case Right(result) =>
-            replyTo ! BankAccountCommands.WithdrawCashSucceeded(aggregateId)
-            created(state.copy(bankAccount = result))
-          case Left(error) =>
-            replyTo ! BankAccountCommands.WithdrawCashFailed(aggregateId, error)
-            Behaviors.same
-        }
+- **解決策2: 状態遷移ロジックの自由な配置**
+    - 主アクターは通常の `Behavior` を使用するため、状態遷移ロジックを状態ごとにメソッドに分割するなど、**従来のアクタースタイルでコードを整理できます**。これにより、複雑な状態遷移を持つアクターでも、見通し良く保守性の高いコードを維持しやすくなります。
 
-    }
-}
-```
+- **解決策3: ドメインオブジェクトとの自然な連携**
+    - 主アクターのメッセージハンドラ（`Behavior` 内）では、**ドメインオブジェクトのメソッドを呼び出し、その結果（新しい状態とイベントを含む `Result` など）を直接受け取って利用できます**。
+    - アクターは、受け取った新しい状態を自身の次の状態として保持し、同時に `Result` に含まれるイベントを `PersistenceEffector` に渡して永続化を依頼します。
+    - このように、**状態の更新は主アクター側で直接的に行われ、永続化は副作用として分離される**ため、ドメインオブジェクトとの連携がより自然になり、DDD のプラクティスとも整合しやすくなります。
 
+### InMemoryEffector による段階的実装の支援
 
-## Akka Persistence Typed での問題
+さらに、`InMemoryEffector` は、これらの課題に対する**段階的なアプローチ**を可能にします。
 
-- EventSourcedBehaviorに従う必要があるため、コマンドハンドラはBehaviorを返せません。漸進的な実装がしにくい。
-- StateとCommandが複雑な場合はコマンドハンドラの保守性が下がります。→これについては分割して記述するなど対策はあります。
-- 状態更新を扱えないとなると、ロジックをドメインオブジェクトに委譲しにくい。DDDとの相性がよくないです。
+- **開発初期:** 開発者は、まず `InMemoryEffector` を使用して、永続化の詳細や `EventSourcedBehavior` の制約を意識することなく、**通常のアクタープログラミングとドメインロジックの実装に集中できます**。これにより、ビジネスロジックの検証やテストを迅速に行えます。
+- **永続化の導入:** アプリケーションのコアロジックが固まった後、必要に応じて `PersistenceEffector` の実装を `DefaultPersistenceEffector` に切り替え、実際の永続化バックエンド（データベースなど）を設定します。
 
-```scala
-/** このスタイルの問題
-  *
-  *   - デメリット
-  *     - Behaviorを使ったアクタープログラミングができない。状態が複雑な場合は保守性が下がる
-  *     - コマンドハンドラでドメインオブジェクトが使いにくい
-  *   - メリット
-  *     - 記述するコード量が少ない
-  */
-object BankAccountAggregate {
+このワークフローにより、イベントソーシング導入の初期障壁が低減され、よりスムーズな開発プロセスが実現します。
 
-  private[styleDefault] object States {
-    sealed trait State
-    final case object NotCreated extends State
-    final case class Created(aggregateId: BankAccountAggregateId, bankAccount: BankAccount) extends State
-  }
+## まとめ: どのような場合に検討すべきか？
 
-  def apply(aggregateId: BankAccountAggregateId): Behavior[BankAccountCommands.Command] = {
-    EventSourcedBehavior.withEnforcedReplies(
-      persistenceId = PersistenceId.ofUniqueId(aggregateId.asString),
-      emptyState = States.NotCreated,
-      commandHandler,
-      eventHandler
-    )
-  }
+Pekko Persistence Typed が多くのケースで有効な選択肢である一方、以下のような課題を感じている、または要件がある場合には、pekko-persistence-effector のアプローチを検討する価値があります。
 
-  private def commandHandler
-      : (States.State, BankAccountCommands.Command) => ReplyEffect[BankAccountEvents.Event, States.State] = {
-    // 口座残高の取得
-    case (Created(_, bankAccount), BankAccountCommands.GetBalance(aggregateId, replyTo)) =>
-      Effect.reply(replyTo)(BankAccountCommands.GetBalanceReply(aggregateId, bankAccount.balance))
-    // 口座開設コマンド
-    case (_, BankAccountCommands.CreateBankAccount(aggregateId, replyTo)) =>
-      Effect.persist(BankAccountEvents.BankAccountCreated(aggregateId, Instant.now())).thenReply(replyTo) { _ =>
-        BankAccountCommands.CreateBankAccountSucceeded(aggregateId)
-      }
-    // 現金の入金
-    case (state: Created, BankAccountCommands.DepositCash(aggregateId, amount, replyTo)) =>
-      // NOTE: コマンドはドメインロジックを呼び出す
-      state.bankAccount.add(amount) match {
-        // NOTE: コマンドハンドラではステートを更新できないので、戻り値は捨てることになる…
-        case Right(_) =>
-          Effect.persist(BankAccountEvents.CashDeposited(aggregateId, amount, Instant.now())).thenReply(replyTo) { _ =>
-            BankAccountCommands.DepositCashSucceeded(aggregateId)
-          }
-        case Left(error) =>
-          Effect.reply(replyTo)(BankAccountCommands.DepositCashFailed(aggregateId, error))
-      }
-    // 現金の出金
-    case (state: Created, BankAccountCommands.WithdrawCash(aggregateId, amount, replyTo)) =>
-      state.bankAccount.subtract(amount) match {
-        case Right(_) =>
-          Effect.persist(BankAccountEvents.CashWithdrew(aggregateId, amount, Instant.now())).thenReply(replyTo) { _ =>
-            BankAccountCommands.WithdrawCashSucceeded(aggregateId)
-          }
-        case Left(error) =>
-          Effect.reply(replyTo)(BankAccountCommands.WithdrawCashFailed(aggregateId, error))
-      }
-  }
-
-  private def eventHandler: (States.State, BankAccountEvents.Event) => States.State = {
-    case (_, BankAccountEvents.BankAccountCreated(aggregateId, _)) =>
-      Created(aggregateId, bankAccount = BankAccount(aggregateId.toEntityId))
-    case (Created(_, bankAccount), BankAccountEvents.CashDeposited(aggregateId, amount, _)) =>
-      // NOTE: イベントハンドラでも結局Eitherは使う価値がない...
-      bankAccount
-        .add(amount).fold(
-          { error => throw new Exception(s"error = $error") },
-          { result => Created(aggregateId, bankAccount = result) }
-        )
-    case (Created(_, bankAccount), BankAccountEvents.CashWithdrew(aggregateId, amount, _)) =>
-      bankAccount
-        .subtract(amount).fold(
-          { error => throw new Exception(s"error = $error") },
-          { result => Created(aggregateId, bankAccount = result) }
-        )
-  }
-
-}
-```
-
-## 新しい書き方の提案
-
-- この方法ではEventSourcedBehaviorを集約アクターの子アクターとするため、上記の問題を解消できます。
-- 通常のアクタープログラミングの実装方法をそのまま適用可能です。
-- 通常のアクタープログラミングの実装から永続化対応されることが比較的容易です。
-- 実装例では完全なインメモリモードを提供しているので、初期実装を書く上ではPekko Persistence Typedさえ不要になります。
-
-### InMemoryEffectorについて
-
-このライブラリの特長的な機能として、`InMemoryEffector`があります。これは`PersistenceEffector`の実装の一つで、イベントとスナップショットをメモリ内に保存します。
-
-```scala
-final class InMemoryEffector[S, E, M](
-  ctx: ActorContext[M],
-  stashBuffer: StashBuffer[M],
-  config: PersistenceEffectorConfig[S, E, M],
-) extends PersistenceEffector[S, E, M]
-```
-
-#### 主な特徴
-- シングルトンの`InMemoryEventStore`を使用してイベントとスナップショットをメモリに保存します
-- データベース設定なしで開発やテストを素早く行えます
-- アクター初期化時に保存されたイベントから状態を自動的に復元します
-- 実際のデータベース操作のような遅延なしで即時に永続化処理を行います
-
-#### 開発ワークフローの改善
-
-`InMemoryEffector`を使用することで、次のような開発ワークフローが可能になります：
-
-1. 最初はインメモリモードで開発を開始し、ビジネスロジックに集中
-2. ユニットテストを実装し、機能を検証
-3. アプリケーションが成熟した段階で、実際の永続化を設定
-
-このアプローチにより、開発初期段階ではデータベースの設定や永続化の詳細について考慮する必要がなく、ビジネスロジックの実装に集中できます。また、テストも高速に実行できるため、開発サイクルを短縮できます。
-
-```scala
-object BankAccountAggregate {
-  def actorName(aggregateId: BankAccountId): String =
-    s"${aggregateId.aggregateTypeName}-${aggregateId.asString}"
-
-  enum State {
-    def aggregateId: BankAccountId
-    case NotCreated(aggregateId: BankAccountId)
-    case Created(aggregateId: BankAccountId, bankAccount: BankAccount)
-
-    def applyEvent(event: BankAccountEvent): State = (this, event) match {
-      case (State.NotCreated(aggregateId), BankAccountEvent.Created(id, _)) =>
-        Created(id, BankAccount(id))
-      case (State.Created(id, bankAccount), BankAccountEvent.CashDeposited(_, amount, _)) =>
-        bankAccount
-          .add(amount)
-          .fold(
-            error => throw new IllegalStateException(s"Failed to apply event: $error"),
-            result => State.Created(id, result.bankAccount),
-          )
-      case (State.Created(id, bankAccount), BankAccountEvent.CashWithdrew(_, amount, _)) =>
-        bankAccount
-          .subtract(amount)
-          .fold(
-            error => throw new IllegalStateException(s"Failed to apply event: $error"),
-            result => State.Created(id, result.bankAccount),
-          )
-      case _ =>
-        throw new IllegalStateException(
-          s"Invalid state transition: $this -> $event",
-        )
-    }
-  }
-
-  def apply(
-             aggregateId: BankAccountId,
-           ): Behavior[BankAccountCommand] = {
-    val config = PersistenceEffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
-      persistenceId = actorName(aggregateId),
-      initialState = State.NotCreated(aggregateId),
-      applyEvent = (state, event) => state.applyEvent(event),
-      messageConverter = BankAccountCommand.messageConverter,
-    )
-    Behaviors.setup[BankAccountCommand] { implicit ctx =>
-      PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
-        config,
-      ) {
-        case (initialState: State.NotCreated, effector) =>
-          handleNotCreated(initialState, effector)
-        case (initialState: State.Created, effector) =>
-          handleCreated(initialState, effector)
-      }
-    }
-  }
-
-  private def handleNotCreated(
-                                state: BankAccountAggregate.State.NotCreated,
-                                effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
-  : Behavior[BankAccountCommand] =
-    Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
-      val Result(bankAccount, event) = BankAccount.create(cmd.aggregateId)
-      effector.persistEvent(event) { _ =>
-        cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
-        handleCreated(State.Created(state.aggregateId, bankAccount), effector)
-      }
-    }
-
-  private def handleCreated(
-                             state: BankAccountAggregate.State.Created,
-                             effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
-  : Behavior[BankAccountCommand] =
-    Behaviors.receiveMessagePartial {
-      case BankAccountCommand.Stop(aggregateId, replyTo) =>
-        replyTo ! StopReply.Succeeded(aggregateId)
-        Behaviors.stopped
-      case BankAccountCommand.GetBalance(aggregateId, replyTo) =>
-        replyTo ! GetBalanceReply.Succeeded(aggregateId, state.bankAccount.balance)
-        Behaviors.same
-      case BankAccountCommand.DepositCash(aggregateId, amount, replyTo) =>
-        state.bankAccount
-          .add(amount)
-          .fold(
-            error => {
-              replyTo ! DepositCashReply.Failed(aggregateId, error)
-              Behaviors.same
-            },
-            { case Result(newBankAccount, event) =>
-              effector.persistEvent(event) { _ =>
-                replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
-                handleCreated(state.copy(bankAccount = newBankAccount), effector)
-              }
-            },
-          )
-      case BankAccountCommand.WithdrawCash(aggregateId, amount, replyTo) =>
-        state.bankAccount
-          .subtract(amount)
-          .fold(
-            error => {
-              replyTo ! WithdrawCashReply.Failed(aggregateId, error)
-              Behaviors.same
-            },
-            { case Result(newBankAccount, event) =>
-              effector.persistEvent(event) { _ =>
-                replyTo ! WithdrawCashReply.Succeeded(aggregateId, amount)
-                handleCreated(state.copy(bankAccount = newBankAccount), effector)
-              }
-            },
-          )
-    }
-}
-```
-
-## まとめ
-
-以下のようなケースに当てはまる場合はこの方法を検討してください。
-
-- 最初から永続化を考慮しないでステップバイステップで実装する場合は、新しい書き方をする
-- 状態遷移が複雑な場合は、新しい書き方をする
+- **従来のアクタースタイルを維持したい:** `EventSourcedBehavior` の DSL よりも、`Behaviors` を使ったプログラミングスタイルを好む、または既存のコードベースとの一貫性を保ちたい場合。
+- **状態遷移が複雑:** アクターの状態が多く、遷移ロジックが複雑になり、`commandHandler` が肥大化して保守性に懸念がある場合。状態ごとに `Behavior` を分割したい場合。
+- **DDD との親和性を高めたい:** ドメインオブジェクトを積極的に活用し、コマンドハンドラ内でドメインオブジェクトが返した新しい状態を直接利用したい場合。アクターの責務をドメインロジックの調整役に限定したい場合。
+- **段階的にイベントソーシングを導入したい:** まずは永続化なしでアクターとドメインロジックを実装・テストし、後から永続化機能を追加したい場合。

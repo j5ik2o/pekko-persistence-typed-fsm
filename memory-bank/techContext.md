@@ -1,8 +1,10 @@
-# eff-sm-splitter 技術コンテキスト
+# pekko-persistence-effector 技術コンテキスト
 
 ## 技術概要
 
-eff-sm-splitterは、Apache Pekkoを基盤としたイベントソーシングパターン実装支援ライブラリです。従来のPekko Persistence Typedの制約を解消し、より直感的なアクタープログラミングスタイルでイベントソーシングを実現します。具体的には、Untyped PersistentActorを集約アクターの子アクターとして実装することで、通常のBehaviorベースのプログラミングパラダイムを維持しつつ永続化機能を提供します。
+pekko-persistence-effector は、Apache Pekko を基盤とし、イベントソーシングの実装を支援するライブラリです。Pekko Persistence Typed とは異なるアプローチを採用し、従来のアクタープログラミングスタイル（`Behavior` ベース）を維持しながらイベント永続化機能を利用可能にすることを目指しています。
+
+技術的な核心は、イベント永続化の責務を専用の `PersistenceEffector` アクター（内部的に Untyped PersistentActor を利用）に委譲し、主となるドメインロジックを持つアクター（以下、主アクター）から分離する点にあります。これにより、主アクターは永続化の詳細を意識することなく、ビジネスロジックと状態遷移の管理に集中できます。
 
 ## 技術アーキテクチャ
 
@@ -20,118 +22,60 @@ eff-sm-splitterは、Apache Pekkoを基盤としたイベントソーシング�
    - 様々なドメインモデルに適用可能な汎用設計
    - インメモリモードと永続化モードの切り替えが容易
 
-### 主要コンポーネントと技術詳細
+### 主要コンポーネントの技術的背景と設計意図
 
-#### 1. PersistenceEffector
+#### 1. PersistenceEffector: イベント永続化の実行エンジン
 
-永続化機能の中核となるトレイトおよびその実装です。
+- **役割:** 主アクターからの依頼に基づき、イベントやスナップショットの永続化処理を実行します。
+- **技術的選択:** 内部的に **Untyped PersistentActor** を利用しています。これは、Pekko Persistence の安定した永続化・リカバリーメカニズムを活用するためです。Typed Actor ではなく Untyped を選択したのは、主アクター側でのドメインロジックの二重実行（コマンド処理時とリカバリー時）を避け、イベント適用ロジックを主アクター側で一元管理するためです。`PersistenceEffector` は純粋に永続化の「副作用」を実行する役割に徹します。
+- **コールバック設計:** イベント永続化メソッド (`persistEvent`, `persistEvents`, `persistSnapshot`) は、永続化完了後に実行されるコールバック関数を受け取ります。このコールバック関数が `Behavior[M]`（主アクターの次の振る舞い）を返す設計になっている点が重要です。これにより、永続化の完了という非同期イベントの結果を受けて、主アクターが自然な形で次の状態に遷移できます。
+- **メッセージスタッシング:** 永続化処理中に主アクターが新しいメッセージを受信した場合に備え、内部でメッセージスタッシングを行います。これにより、永続化処理が完了するまでメッセージを一時保管し、処理順序の整合性を保ちます。
 
-```scala
-trait PersistenceEffector[S, E, M] {
-  def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
-  def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
-  def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M]
-}
-```
+#### 2. PersistenceEffectorConfig: 振る舞いの構成要素
 
-- **技術的実装**:
-  - `persistEvent`メソッドは単一イベントの永続化を担当
-  - `persistEvents`メソッドは複数イベントのバッチ永続化を担当
-  - `persistSnapshot`メソッドはスナップショットの永続化を担当
-  - 内部的にはUntyped PersistentActorを使用（ドメインロジックの二重実行を避けるため）
-  - 永続化後のコールバック処理を型安全に実行
+- **役割:** `PersistenceEffector` の動作に必要な設定情報を集約します。
+- **主要な設定項目とその意図:**
+    - `persistenceId`: 永続化アクターを一意に識別するための ID。Pekko Persistence の要件です。
+    - `initialState`: アクターの初期状態。リカバリー時にイベントがない場合に適用されます。
+    - `applyEvent`: イベントを現在の状態に適用して新しい状態を計算する関数 `(S, E) => S`。これは主にリカバリー時に `PersistenceEffector` 内部で使用されます。主アクター側でも同様のロジックを持つことになりますが、リカバリー処理を `PersistenceEffector` 側で完結させるために必要となります。
+    - メッセージ変換関数群 (`wrapXxx`, `unwrapXxx`): `MessageConverter` トレイトで定義される変換ロジックを `PersistenceEffector` に提供します。これにより、`PersistenceEffector` は主アクターのメッセージ型を意識せずに、内部イベント（永続化完了、リカバリー完了など）を主アクター向けのメッセージに変換して通知できます。
+    - `stashSize`: 内部スタッシュのバッファサイズ。
 
-- **技術的特徴**:
-  - コールバック関数がBehavior[M]を返すことで状態遷移と連動
-  - メッセージスタッシングによる永続化中のメッセージ管理
-  - 内部的な子アクターとしてUntyped PersistentActorを実装
+#### 3. MessageConverter: 型安全なメッセージ変換の要
 
-#### 2. PersistenceEffectorConfig
+- **役割:** 主アクターが扱うメッセージ型 `M` と、`PersistenceEffector` が内部で扱う状態 `S` およびイベント `E` との間の、型安全な相互変換ロジックを提供します。
+- **技術的選択:** Scala 3 の **交差型 (Intersection Types)** を利用しています（例: `M & PersistedEvent[E, M]`）。これにより、`PersistenceEffector` から送られてくる通知メッセージ（例: 永続化完了通知）が、主アクターのメッセージ型 `M` であり、かつ特定の情報（例: 永続化されたイベント `E`）を保持していることをコンパイル時に保証できます。`unwrap` 関数でのパターンマッチングと組み合わせることで、型安全性を高めています。
+- **必要性:** この変換レイヤーを設けることで、主アクターのメッセージプロトコルと永続化メカニズムの詳細を分離しています。主アクターは `PersistenceEffector` からの通知を自身のメッセージ型の範囲で処理でき、`PersistenceEffector` は主アクターの具体的なメッセージ型を知る必要がありません。
 
-PersistenceEffectorの設定と動作を定義するための構成クラスです。
+#### 4. Result: ドメインロジックの結果表現
 
-```scala
-final case class PersistenceEffectorConfig[S, E, M](
-  persistenceId: String,
-  initialState: S,
-  applyEvent: (S, E) => S,
-  wrapPersistedEvents: Seq[E] => M,
-  wrapPersistedSnapshot: S => M,
-  wrapRecoveredState: S => M,
-  unwrapPersistedEvents: M => Option[Seq[E]],
-  unwrapPersistedSnapshot: M => Option[S],
-  unwrapRecoveredState: M => Option[S],
-  stashSize: Int = 32,
-)
-```
+- **役割:** ドメインロジック（通常は主アクターまたはそれが利用するドメインオブジェクト内）が、コマンド処理の結果として「新しい状態 `S`」と「発生したイベント `E`」の両方を返すための標準的な方法を提供します。
+- **技術的利点:** 単純なタプル `(S, E)` ではなく専用の `Result` ケースクラスを使うことで、コードの意図が明確になります。また、将来的にドメイン操作の結果として追加の情報（例: 返すべき値、次に実行すべきコマンドなど）が必要になった場合に、`Result` クラスを拡張することで対応しやすくなります。
 
-- **技術的実装**:
-  - 型パラメータS（状態）、E（イベント）、M（メッセージ）を持つジェネリックなケースクラス
-  - `applyEvent`関数によるイベント適用ロジックの定義
-  - MessageConverterとの統合によるボイラープレートコードの削減
+#### 5. メッセージプロトコル関連トレイト (`PersistedEvent`, `PersistedState`, `RecoveredState`)
 
-#### 3. MessageConverter
+- **役割:** これらは主にマーカートレイトとして機能し、`MessageConverter` の実装において、`PersistenceEffector` からの通知メッセージの種類を識別しやすくするために利用されます。交差型と組み合わせることで、特定の通知メッセージがどのような情報（イベント、状態）を持っているかを型レベルで表現します。
 
-状態、イベント、メッセージ間の変換を定義するトレイトです。
+## イベント永続化と状態復元の仕組み（利用者の視点）
 
-```scala
-trait MessageConverter[S, E, M <: Matchable] {
-  def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
-  def wrapPersistedState(state: S): M & PersistedState[S, M]
-  def wrapRecoveredState(state: S): M & RecoveredState[S, M]
-  def unwrapPersistedEvents(message: M): Option[Seq[E]]
-  def unwrapPersistedState(message: M): Option[S]
-  def unwrapRecoveredState(message: M): Option[S]
-}
-```
+ライブラリの利用者が直接内部実装の詳細を意識する必要はありませんが、以下の動作原理を理解しておくと役立ちます。
 
-- **技術的実装**:
-  - Scala 3の交差型（Intersection Type）を活用した型安全な変換
-  - パターンマッチングとアンチェック型キャストによる型安全な復元
+- **イベント永続化は非同期:** 主アクターが `PersistenceEffector` に `persistEvent` 等で永続化を依頼すると、処理は非同期に行われます。主アクターはすぐにブロックされず、次のメッセージを処理できます（ただし、永続化完了を待つ必要がある場合は、コールバック内で次の `Behavior` を返すことで制御します）。
+- **完了通知はメッセージ:** 永続化が完了すると、`PersistenceEffector` は `MessageConverter` で定義された変換ルールに従って、完了通知メッセージを主アクターに送信します。主アクターはこのメッセージを受信して、後続処理（例: リクエスト元への応答、他のアクターへの通知）を行います。
+- **状態復元は自動:** 主アクターが（再）起動されると、`PersistenceEffector` は自動的に関連付けられた `persistenceId` に基づいて、ジャーナルからイベントを読み込み、`PersistenceEffectorConfig` で指定された `applyEvent` 関数を使って状態を復元します。
+- **リカバリー完了通知:** 状態の復元が完了すると、`PersistenceEffector` は復元された状態を含むリカバリー完了メッセージを主アクターに送信します。主アクターはこのメッセージを受け取って、自身の状態を初期化し、通常のメッセージ処理を開始できる状態になります。
 
-#### 4. Result
+## サンプル実装パターンとの関連
 
-ドメイン操作の結果を型安全にカプセル化するケースクラスです。
+`implementationPatterns.md` で解説される実装パターンは、上記の技術的背景に基づいています。例えば、主アクターが状態ごとに `Behavior` を切り替えるパターンは、`PersistenceEffector` のコールバックが `Behavior[M]` を返す設計によって自然に実現されます。
 
-```scala
-final case class Result[S, E](
-  bankAccount: S,
-  event: E,
-)
-```
+## ドメインのモデル化パターンとの関連
 
-- **技術的実装**:
-  - 新しい状態とイベントを明示的にカプセル化
-  - タプルと比較して意味的に明確で、コードの可読性を向上
-  - ドメインロジックからの戻り値を標準化
+`Result` 型は、ドメインロジックの結果（新しい状態とイベント）を明確に分離するという、イベントソーシングにおける重要な設計原則を技術的にサポートします。これにより、ドメインロジックと永続化ロジックの関心を分離しやすくなります。詳細は `implementationPatterns.md` を参照してください。
 
-#### 5. メッセージプロトコル関連トレイト
+## テスト戦略との関連
 
-メッセージの基本構造を定義する一連のトレイトです。
-
-```scala
-trait PersistedEvent[E, M]
-trait PersistedState[S, M]
-trait RecoveredState[S, M] 
-```
-
-- **技術的実装**:
-  - メッセージタイプを型安全に定義
-  - 内部アクターとの通信用プロトコルを整理
-
-## イベント永続化の内部実装
-
-1. **イベント永続化の流れ**:
-   - 集約アクターがPersistenceEffectorのpersistEvent/persistEvents/persistSnapshotメソッドを呼び出し
-   - 内部子アクター（Untyped PersistentActor）がイベントを処理
-   - アダプタを通じて永続化完了通知を受け取り
-   - コールバック関数を実行して新しいBehaviorを返却
-
-2. **状態復元の流れ**:
-   - アクター起動時にPersistentActorが自動的に状態を復元
-   - RecoveryCompletedシグナルで復元完了を検知
-   - 復元された状態をメッセージアダプタを通じて親アクターに通知
-   - onReady関数を呼び出して初期Behaviorを設定
+`InMemoryEffector` の存在は、テスト戦略に大きく貢献します。データベースへの依存なしに、イベントの永続化と状態復元を含むアクターの振る舞いを高速にテストできます。具体的なテスト手法については `testPatterns.md` を参照してください。
 
 ## サンプル実装パターン
 
@@ -191,16 +135,11 @@ PersistenceEffectorSpecから見るテスト戦略:
    - アクター停止・再起動による状態復元のテスト
    - 永続化されたイベントに基づく状態復元の検証
 
-## 性能と拡張性の考慮
+## 性能と拡張性に関する技術的考慮点
 
-1. **スタッシングの活用**:
-   - 永続化処理中のメッセージをスタッシュして後続処理を保証
-   - スタッシュバッファサイズの上限設定（デフォルト32）
-
-2. **非同期処理モデル**:
-   - イベント永続化と状態更新を完全に非同期処理
-   - メッセージアダプタを通じたコールバック駆動の設計
-
-3. **拡張ポイント**:
-   - カスタムのMessageConverter実装による変換ロジックの拡張
-   - PersistenceEffectorConfigによる柔軟な設定調整
+- **スタッシングによるスループット:** 永続化処理中のメッセージスタッシングは、処理順序の保証に不可欠ですが、スタッシュバッファのサイズ（`PersistenceEffectorConfig` で設定可能）が性能に影響を与える可能性があります。バッファが満杯になると、主アクターは一時的にメッセージの受信をブロックする可能性があります。
+- **非同期処理の利点と注意点:** イベント永続化が非同期であるため、主アクターは永続化を待つ間も他の（永続化を伴わない）処理を進めることができます。ただし、永続化完了を待ってから応答を返す必要がある場合など、非同期処理の完了を適切にハンドリングする必要があります（コールバック設計がこれを支援します）。
+- **拡張ポイント:**
+    - `MessageConverter`: アプリケーション固有のメッセージプロトコルや、イベント/状態のシリアライズ形式に合わせて、変換ロジックを自由にカスタマイズできます。
+    - `PersistenceEffectorConfig`: イベント適用ロジックやリカバリー完了時の処理など、`PersistenceEffector` の振る舞いを細かく調整できます。
+    - `PersistenceEffector` の実装差し替え: デフォルトの `DefaultPersistenceEffector` や `InMemoryEffector` 以外に、特定の要件（例: カスタムジャーナル連携）に合わせた独自の `PersistenceEffector` 実装を作成することも理論上可能です（ただし、通常は不要です）。

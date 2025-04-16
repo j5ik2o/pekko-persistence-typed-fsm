@@ -1,10 +1,30 @@
-# pekko-persistence-effector 実装パターンとドメイン駆動設計
+# pekko-persistence-effector 実装パターンとドメイン駆動設計（DDD）
 
-本ドキュメントでは、eff-sm-splitterのサンプル実装であるBankAccountを通じて、このライブラリが提供する実装パターンとドメイン駆動設計（DDD）の実践方法について詳細に分析します。
+本ドキュメントでは、pekko-persistence-effector を利用する際に推奨される実装パターンと、それがドメイン駆動設計（DDD）の原則とどのように連携するかを、サンプル実装（BankAccount）を例に解説します。コードの断片ではなく、その背後にある設計思想や「なぜ」そのパターンが有効なのかに焦点を当てます。
 
-## 実装パターンの全体像
+## 実装パターンの設計思想
 
-eff-sm-splitterでは、以下の実装パターンが採用されています：
+pekko-persistence-effector を用いた実装では、以下の設計思想に基づいたパターンが推奨されます。
+
+1.  **ドメインモデルとアクターの分離:**
+    *   **思想:** ドメイン固有のビジネスロジック（状態遷移、検証ルールなど）は、アクターの外部にある純粋なドメインモデル（ケースクラス、オブジェクトなど）にカプセル化します。アクターは、メッセージの受信、ドメインモデルへの処理委譲、`PersistenceEffector` への永続化依頼、そして応答の調整役（コーディネーター）に徹します。
+    *   **利点:** ドメインロジックをアクターのライフサイクルやメッセージングの詳細から切り離せるため、単体テストが容易になり、ロジックの再利用性も向上します。アクターのコードはシンプルに保たれます。
+
+2.  **Result パターンによる明確な結果表現:**
+    *   **思想:** ドメインモデルの操作（コマンド処理）の結果として、単に新しい状態を返すだけでなく、「新しい状態」と「その状態遷移を引き起こしたイベント」のペアを明示的なデータ構造（例: `Result(newState, event)`）で返します。
+    *   **利点:** ドメインロジックの実行と、その結果としてのイベント永続化という副作用を明確に分離できます。アクターは `Result` を受け取り、そこに含まれるイベントを `PersistenceEffector` に渡して永続化を依頼します。タプル `(State, Event)` よりも意図が明確で、将来的な拡張（例: 結果に追加情報を含める）にも対応しやすくなります。
+
+3.  **状態に応じた振る舞いの分割:**
+    *   **思想:** アクターの状態を `enum` などで型安全に定義し、状態ごとに異なるメッセージハンドリングロジック（`Behavior`）を定義します。例えば、「口座未開設状態 (`NotCreated`)」と「口座開設済み状態 (`Created`)」で受け付けるコマンドや処理内容が異なる場合、それぞれに対応する `handleNotCreated` や `handleCreated` といった `Behavior` を用意します。
+    *   **利点:** アクターの振る舞いが状態によって大きく変わる場合に、単一の巨大な `receive` ブロックよりもコードの見通しが格段に良くなります。各状態で有効な操作が型レベルで明確になり、不正な状態遷移を防ぎやすくなります。
+
+4.  **イベントソーシングの原則適用:**
+    *   **思想:** システムの状態は、発生したイベントのシーケンスを適用することで導出される、というイベントソーシングの基本原則に従います。コマンドが処理されるとイベントが発生し、そのイベントが永続化され、状態が更新されます。
+    *   **利点:** 変更履歴がイベントとして保存されるため、監査証跡の取得や、過去の特定時点の状態の再現が可能です。状態の更新ロジック（`applyEvent`）を一箇所に集約できます。
+
+5.  **段階的な永続化導入 (モード切替):**
+    *   **思想:** 開発初期段階では `InMemoryEffector` を使用し、永続化の詳細（データベース設定など）を意識せずにドメインロジックとアクターの振る舞いの実装に集中できます。後に必要に応じて `DefaultPersistenceEffector` に切り替えることで、実際の永続化バックエンドを導入します。
+    *   **利点:** 開発の初期段階でのセットアップの手間を省き、迅速なプロトタイピングや TDD を可能にします。永続化要件が未確定な場合や、段階的に機能をリリースする場合にも有効です。テスト実行も高速になります。
 
 1. **ドメインモデルとアクターの分離**
    - ドメインロジックを純粋な関数型スタイルで実装
@@ -27,175 +47,56 @@ eff-sm-splitterでは、以下の実装パターンが採用されています�
    - InMemoryモードとPersistedモードの簡単な切り替え
    - 実装初期段階ではInMemoryモードでスタート可能
 
-## ドメインモデルの設計
+## ドメイン駆動設計 (DDD) との連携
 
-### BankAccount（銀行口座）の例
+pekko-persistence-effector の設計思想は、DDD のプラクティスと自然に連携します。
 
-BankAccountの実装は、ドメイン駆動設計の考え方に基づいています。
+- **集約 (Aggregate):** アクター（例: `BankAccountAggregate`）が集約ルートの役割を果たします。集約は一貫性の境界となり、外部からのアクセスポイントを提供します。アクターの状態 (`State` enum) が集約のライフサイクル（例: 未作成、作成済み）を表現し、`PersistenceEffector` が集約の状態（イベント）の永続化を担当します。ドメインロジックをドメインモデルに分離するパターンは、集約ルートの責務を明確にする上で役立ちます。
+- **エンティティ (Entity) と 値オブジェクト (Value Object):** ドメインモデルは、識別子を持つエンティティ（例: `BankAccount`）と、属性で識別される値オブジェクト（例: `Money`）で構成されます。これらは不変 (immutable) として設計することが推奨され、pekko-persistence-effector は状態更新時に新しいインスタンスを生成するこのスタイルとよく適合します。
+- **ドメインイベント (Domain Event):** ドメインモデルの操作結果として `Result` に含まれるイベント（例: `BankAccountEvent`）が、DDD におけるドメインイベントに相当します。これらは過去に起こった事実を表し、状態変更の根拠となります。`enum` で型安全に定義することが推奨されます。
+- **コマンド (Command):** アクターが受信するメッセージ（例: `BankAccountCommand`）がコマンドに相当します。システムに対する意図を表現し、通常は対象となる集約の ID と、応答を返すための `replyTo` を含みます。
+- **リポジトリ (Repository):** `PersistenceEffector` は、イベントの永続化と読み込み（リカバリー）を抽象化する点で、イベントリポジトリのような役割を果たします。主アクターは永続化ストレージの詳細を意識することなく、`PersistenceEffector` を通じてイベントの保存と、起動時の状態復元（イベントの再生）を行います。
 
-```scala
-final case class BankAccount(
-  bankAccountId: BankAccountId,
-  limit: Money = Money(100000, Money.JPY),
-  balance: Money = Money(0, Money.JPY),
-) {
-  def add(amount: Money): Either[BankAccountError, Result[BankAccount, BankAccountEvent]] =
-    if (limit < (balance + amount))
-      Left(BankAccountError.LimitOverError)
-    else
-      Right(
-        Result(
-          copy(balance = balance + amount),
-          BankAccountEvent.CashDeposited(bankAccountId, amount, Instant.now())))
+## ユースケース実装パターン解説
 
-  def subtract(amount: Money): Either[BankAccountError, Result[BankAccount, BankAccountEvent]] =
-    // ...
-}
-```
+サンプル実装（BankAccount）に見られる典型的なユースケースの処理フローとその背後にある考え方を解説します。
 
-**特徴**:
-- 不変オブジェクト（immutable）として設計
-- ビジネスルール（入金上限、残高チェック）をカプセル化
-- すべての操作は新しいインスタンスを返す（副作用なし）
-- 操作の結果は「新しい状態」と「発生したイベント」の両方を含む
+1.  **集約の作成 (Create):**
+    *   **フロー:** `NotCreated` 状態のアクターが `Create` コマンドを受信 → ドメインモデル (`BankAccount.create`) を呼び出し、初期状態と `Created` イベントを含む `Result` を取得 → `PersistenceEffector` に `Created` イベントの永続化を依頼 → 永続化完了のコールバック内で、リクエスト元に成功応答 (`CreateReply.Succeeded`) を送信し、アクターの `Behavior` を `handleCreated` に遷移させる。
+    *   **なぜ？:**
+        *   初期状態 (`NotCreated`) では `Create` 以外のコマンドを受け付けないようにし、不正な操作を防ぎます。
+        *   イベントが確実に永続化された後で、応答と状態遷移を行うことで、システムの整合性を保ちます（永続化失敗時に中途半端な状態になるのを防ぐ）。
 
-### Resultパターン
+2.  **状態変更操作 (Update - 例: DepositCash):**
+    *   **フロー:** `Created` 状態のアクターが `DepositCash` コマンドを受信 → 保持しているドメインモデル (`state.bankAccount`) の `add` メソッドを呼び出し → バリデーション（例: 上限チェック）の結果を `Either` で受け取る →
+        *   **失敗時 (Left):** リクエスト元に失敗応答 (`DepositCashReply.Failed`) を送信し、`Behaviors.same` で状態は変更しない。
+        *   **成功時 (Right):** `Result` から新しい状態 (`newBankAccount`) と `CashDeposited` イベントを取得 → `PersistenceEffector` にイベントの永続化を依頼 → 永続化完了のコールバック内で、リクエスト元に成功応答 (`DepositCashReply.Succeeded`) を送信し、アクターの `Behavior` を新しい状態 (`state.copy(bankAccount = newBankAccount)`) を持つ `handleCreated` に遷移させる。
+    *   **なぜ？:**
+        *   ドメインモデル内でビジネスルール（バリデーション）をチェックし、結果を `Either` で明確に返します。
+        *   失敗時はイベントを発生させず、状態も変更しません。応答だけを返します。
+        *   成功時のみイベントを永続化し、永続化が完了してから応答と状態遷移を行います。これにより、イベントログとアクターの状態の一貫性を保証します。
 
-```scala
-final case class Result[S, E](
-  bankAccount: S,
-  event: E,
-)
-```
+3.  **照会操作 (Query - 例: GetBalance):**
+    *   **フロー:** `Created` 状態のアクターが `GetBalance` コマンドを受信 → 現在のアクターの状態 (`state.bankAccount.balance`) から残高を取得 → リクエスト元に残高を含む成功応答 (`GetBalanceReply.Succeeded`) を送信 → `Behaviors.same` で状態は変更しない。
+    *   **なぜ？:**
+        *   状態を読み取るだけの操作なので、イベントを発生させる必要も、永続化する必要もありません。
+        *   現在の状態から直接応答を生成し、即座に返します。状態遷移も伴いません。
 
-**特徴**:
-- 型パラメータSは状態、Eはイベントを表す
-- ドメイン操作の結果を状態とイベントのペアで表現
-- 副作用（イベント永続化）を遅延させるための明示的構造
-- タプルではなく意味のある名前で構造化
+4.  **集約の停止 (Stop):**
+    *   **フロー:** アクターが `Stop` コマンドを受信 → リクエスト元に成功応答 (`StopReply.Succeeded`) を送信 → `Behaviors.stopped` を返してアクターを停止させる。
+    *   **なぜ？:**
+        *   アクターが停止する前に、リクエスト元に停止処理が受け付けられたことを通知します。
+        *   `Behaviors.stopped` により、アクターシステムが適切にアクターをシャットダウンします。
 
-### イベント設計
+## テストパターンとの関連
 
-```scala
-enum BankAccountEvent {
-  def aggregateId: BankAccountId
-  def occurredAt: Instant
+これらの実装パターンは、テスト容易性を考慮して設計されています。
 
-  case Created(aggregateId: BankAccountId, occurredAt: Instant)
-  case CashDeposited(aggregateId: BankAccountId, amount: Money, occurredAt: Instant)
-  case CashWithdrew(aggregateId: BankAccountId, amount: Money, occurredAt: Instant)
-}
-```
+- **ドメインモデルの単体テスト:** アクターから分離されたドメインモデルは、Pekko Actor TestKit を使わずに、通常の単体テストフレームワーク（ScalaTest など）で容易にテストできます。
+- **アクターの統合テスト:** `ActorTestKit` と `TestProbe` を使用して、アクターへのコマンド送信、期待される応答メッセージの受信、そして状態遷移（必要であれば `InMemoryEffector` の `getState` を利用）を検証できます。
+- **InMemory モードの活用:** `InMemoryEffector` を使うことで、データベースなどの外部依存なしに、イベント永続化とリカバリーを含むアクターの振る舞いを高速にテストできます。
 
-**特徴**:
-- 列挙型（enum）を使って型安全に定義
-- イベントごとに必要な情報をパラメータとして定義
-- 全イベントに共通のメタデータ（集約ID、発生時間）を定義
-- 名詞ではなく動詞の過去形でイベントを命名
-
-## 集約（Aggregate）の実装
-
-銀行口座の集約アクターは、ドメインモデルとイベント永続化の橋渡し役として設計されています：
-
-```scala
-object BankAccountAggregate {
-  // 状態の定義
-  enum State {
-    def aggregateId: BankAccountId
-    case NotCreated(aggregateId: BankAccountId)
-    case Created(aggregateId: BankAccountId, bankAccount: BankAccount)
-    
-    def applyEvent(event: BankAccountEvent): State = ...
-  }
-
-  def apply(aggregateId: BankAccountId, persistenceMode: PersistenceMode = PersistenceMode.Persisted): Behavior[BankAccountCommand] = {
-    val config = PersistenceEffectorConfig[State, BankAccountEvent, BankAccountCommand](...)
-    Behaviors.setup[BankAccountCommand] { implicit ctx =>
-      PersistenceEffector.create[State, BankAccountEvent, BankAccountCommand](config) {
-        case (initialState: State.NotCreated, effector) => handleNotCreated(initialState, effector)
-        case (initialState: State.Created, effector) => handleCreated(initialState, effector)
-      }
-    }
-  }
-  
-  private def handleNotCreated(state: State.NotCreated, effector: PersistenceEffector[State, BankAccountEvent, BankAccountCommand]): Behavior[BankAccountCommand] =
-    Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
-      val Result(bankAccount, event) = BankAccount.create(cmd.aggregateId)
-      effector.persistEvent(event) { _ =>
-        cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
-        handleCreated(State.Created(state.aggregateId, bankAccount), effector)
-      }
-    }
-    
-  private def handleCreated(state: State.Created, effector: PersistenceEffector[State, BankAccountEvent, BankAccountCommand]): Behavior[BankAccountCommand] =
-    // ...
-}
-```
-
-**特徴**:
-1. **状態の型安全な表現**:
-   - 列挙型（enum）による状態の明示的な型定義
-   - 状態ごとに保持すべき情報を定義
-   - アクターの状態遷移をコンパイル時に型チェック可能
-
-2. **状態に応じたハンドラの分割**:
-   - 状態ごとに別のハンドラメソッド（handleNotCreated, handleCreated）
-   - 各状態で受け付け可能なコマンドを型安全に制限
-   - 状態ごとの振る舞いを明確に分離
-
-3. **イベント永続化と状態遷移の連携**:
-   - ドメインモデルでロジックを実行し、Resultオブジェクトを取得
-   - effector.persistEventでイベントを永続化
-   - コールバック内で明示的に新しい状態への遷移を定義
-
-4. **明示的なコマンド応答**:
-   - 各コマンド処理の後に適切な応答メッセージを送信
-   - 成功／失敗ケースを明示的に処理
-   - デッドレターを防止する設計
-
-## コマンド設計
-
-```scala
-enum BankAccountCommand {
-  case GetBalance(override val aggregateId: BankAccountId, replyTo: ActorRef[GetBalanceReply])
-  case Stop(override val aggregateId: BankAccountId, replyTo: ActorRef[StopReply])
-  case Create(override val aggregateId: BankAccountId, replyTo: ActorRef[CreateReply])
-  case DepositCash(override val aggregateId: BankAccountId, amount: Money, replyTo: ActorRef[DepositCashReply])
-  case WithdrawCash(override val aggregateId: BankAccountId, amount: Money, replyTo: ActorRef[WithdrawCashReply])
-  
-  // 内部メッセージ
-  private case StateRecovered(state: BankAccountAggregate.State) extends ... with RecoveredState[...]
-  private case EventPersisted(events: Seq[BankAccountEvent]) extends ... with PersistedEvent[...]
-  // ...
-  
-  def aggregateId: BankAccountId = ...
-}
-```
-
-**特徴**:
-- すべてのコマンドに集約IDを含める
-- 応答チャネル（replyTo）を明示的に指定
-- 応答メッセージの型を明示的に定義
-- 内部メッセージをprivateとして保護
-
-## 応答メッセージ設計
-
-```scala
-enum CreateReply {
-  case Succeeded(aggregateId: BankAccountId)
-}
-
-enum DepositCashReply {
-  case Succeeded(aggregateId: BankAccountId, amount: Money)
-  case Failed(aggregateId: BankAccountId, error: BankAccountError)
-}
-```
-
-**特徴**:
-- 列挙型で成功/失敗ケースを型安全に表現
-- 集約IDを常に含めて送信元を追跡可能に
-- 必要な情報（金額、エラー情報など）を含める
-- コマンドごとに専用の応答型を定義
+テスト戦略と具体的なテスト手法の詳細については、`testPatterns.md` を参照してください。
 
 ## ドメイン駆動設計の実践
 
@@ -405,43 +306,29 @@ response.aggregateId shouldBe accountId
 - アクターの停止と再起動を含むシナリオ
 - 永続化と状態復元の検証
 
-## 実装上の留意点
+## 実装パターンがもたらす価値
 
-サンプル実装から抽出できる重要な実装上のポイント：
+これらの実装パターンを採用することで、以下の価値が得られます。
 
-### 1. 純粋なドメインモデル
-- ドメインロジックをアクターから分離し、純粋関数として実装
-- 副作用（イベント永続化）を明示的に分離
-- ドメインモデルの再利用性と単体テスト容易性の向上
+- **高いテスト容易性:** ドメインロジックがアクターから分離されているため、個別にテストが容易です。`InMemoryEffector` により、永続化を含むアクターの振る舞いも高速にテストできます。
+- **保守性と拡張性の向上:** 関心が明確に分離され、状態遷移が明示的に管理されるため、コードの理解や変更が容易になります。新しい状態やコマンドの追加も、影響範囲を限定しやすくなります。
+- **ドメインへの集中:** 開発者は、永続化の低レベルな詳細ではなく、ドメインの本質的な複雑さに集中できます。
+- **コードの明確性:** `Result` パターンや状態ごとのハンドラ分割により、コードの意図が明確になり、可読性が向上します。`Either` を用いたエラーハンドリングも、失敗ケースの処理を明確にします。
+- **柔軟な開発プロセス:** 段階的な永続化導入により、開発初期のオーバーヘッドを削減し、アジャイルな開発プロセスを支援します。
 
-### 2. 明示的な状態遷移
-- 状態を列挙型で明示的に表現
-- 状態ごとのハンドラメソッドの分割
-- コールバックベースのBehavior返却による状態遷移
+## まとめ: なぜこのアプローチなのか？
 
-### 3. イベントファースト設計
-- ドメインオペレーションは状態変更とイベントを共に返す
-- イベントは「何が起きたか」を表現
-- イベントから現在の状態を再構築可能
+pekko-persistence-effector で推奨される実装パターンは、イベントソーシングとアクターモデル、そしてドメイン駆動設計の原則を組み合わせ、それぞれの利点を活かすことを目指しています。
 
-### 4. Eitherによるエラー処理
-- ドメインエラーを専用の型で表現
-- Either[Error, Result]パターンの一貫した使用
-- 失敗ケースの明示的な処理
+- **関心の分離:** ドメインロジック、アクターの調整役、イベント永続化という異なる関心を明確に分離します。
+- **型安全性:** Scala の型システムを活用し、状態、イベント、コマンド、メッセージ間の関係を安全に扱います。
+- **明示性:** 状態遷移やドメイン操作の結果をコード上で明示的に表現することで、暗黙的な動作や予期せぬ副作用を減らします。
+- **テスト容易性:** 設計の各段階でテストのしやすさを考慮に入れています。
 
-### 5. テスト駆動型API設計
-- テストファーストで使いやすいAPIを設計
-- InMemoryモードによる迅速な開発サイクル
-- クリーンなテストコードによる実装意図の明確化
+このアプローチは、特に以下のような場合に有効です。
+- ドメインロジックが複雑で、アクター内部にすべてを詰め込むと見通しが悪くなる場合。
+- ドメインモデルのテスト容易性を重視する場合。
+- Pekko Persistence Typed の DSL よりも、従来のアクタープログラミングスタイルを好む場合。
+- 永続化要件が後から決まる、または段階的に導入したい場合。
 
-## まとめ
-
-eff-sm-splitterのサンプル実装は、以下の点で優れたドメイン駆動設計の実践例を示しています：
-
-1. **関心の分離**: ドメインロジック、イベント永続化、メッセージハンドリングの明確な分離
-2. **型安全性**: 列挙型、Either、ジェネリクスを活用した型安全な実装
-3. **明示的な設計**: 状態、イベント、コマンド、応答の明示的な設計
-4. **テスト容易性**: 実装から永続化を分離することによるテスト容易性の向上
-5. **フレキシブルなモード**: インメモリモードと永続化モードの切り替えによる開発柔軟性
-
-このアプローチにより、ドメインロジックとアクターモデルを自然に統合し、イベントソーシングパターンを実装する際の複雑さを軽減しています。特に「状態遷移に応じたハンドラメソッドの分割」と「Resultパターンによるドメインロジックの明示的な返却」は、複雑なビジネスロジックを持つアプリケーションにおいて高い保守性と拡張性をもたらす優れた設計パターンです。
+「状態に応じたハンドラ分割」や「Result パターン」といった具体的なテクニックは、この設計思想を実現するための手段であり、これらを組み合わせることで、複雑なビジネスロジックを持つアプリケーションにおいても、保守性と拡張性の高いイベントソーシング実装を構築することが可能になります。
