@@ -6,19 +6,23 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import compiletime.asMatchable
 
+// initialSequenceNr パラメータを追加
 final class DefaultPersistenceEffector[S, E, M](
   ctx: ActorContext[M],
   stashBuffer: StashBuffer[M],
   config: PersistenceEffectorConfig[S, E, M],
   persistenceRef: ActorRef[PersistenceCommand[S, E]],
-  adapter: ActorRef[PersistenceReply[S, E]])
+  adapter: ActorRef[PersistenceReply[S, E]],
+  initialSequenceNr: Long) // リカバリー後のシーケンス番号を受け取る
   extends PersistenceEffector[S, E, M] {
   import config.*
 
   // 現在のシーケンス番号をPersistenceIdごとに管理
-  private val sequenceNumbers = scala.collection.mutable.Map[String, Long]()
+  // 初期値を initialSequenceNr で設定
+  private val sequenceNumbers = scala.collection.mutable.Map[String, Long](persistenceId -> initialSequenceNr)
 
-  private def getCurrentSequenceNumber: Long = sequenceNumbers.getOrElse(persistenceId, 0L)
+  // getOrElse のデフォルト値を initialSequenceNr に変更 (ただし、通常はマップに存在するはず)
+  private def getCurrentSequenceNumber: Long = sequenceNumbers.getOrElse(persistenceId, initialSequenceNr)
 
   private def incrementSequenceNumber(inc: Long = 1): Long = {
     val current = getCurrentSequenceNumber

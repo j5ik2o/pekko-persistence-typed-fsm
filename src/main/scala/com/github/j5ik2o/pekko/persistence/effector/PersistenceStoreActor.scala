@@ -49,7 +49,7 @@ object PersistenceStoreActor {
   final case class DeleteSnapshotsFailed[S, E](maxSequenceNumber: Long, cause: Throwable)
     extends DeleteSnapshotsReply[S, E]
 
-  final case class RecoveryDone[S](state: S)
+  final case class RecoveryDone[S](state: S, sequenceNr: Long) // シーケンス番号を追加
 
   def props[S, E, M](
     persistenceId: String,
@@ -81,7 +81,9 @@ final class PersistenceStoreActor[S, E, M](
       case RecoveryCompleted =>
         log.debug("receiveRecover: RecoveryCompleted")
         recoveryActorRef ! RecoveryDone(
-          recoveryState.getOrElse(throw new IllegalStateException("State is not set")))
+          recoveryState.getOrElse(throw new IllegalStateException("State is not set")),
+          lastSequenceNr, // lastSequenceNr を含める
+        )
         recoveryState = None
       case event =>
         if (event != null) {

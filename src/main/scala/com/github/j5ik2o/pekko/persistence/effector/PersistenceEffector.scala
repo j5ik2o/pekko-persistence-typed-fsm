@@ -5,6 +5,8 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import org.apache.pekko.actor.typed.scaladsl.adapter.*
 
+import scala.compiletime.asMatchable
+
 trait PersistenceEffector[S, E, M] {
   def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
   def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
@@ -103,6 +105,9 @@ trait PersistenceEffector[S, E, M] {
 }
 
 object PersistenceEffector {
+  // リカバリー完了を内部的に扱うためのメッセージ
+  private case class RecoveryCompletedInternal[S](state: S, sequenceNr: Long)
+
   def create[S, E, M <: Matchable](
     persistenceId: String,
     initialState: S,
@@ -171,13 +176,21 @@ object PersistenceEffector {
       case PersistenceMode.Persisted =>
         // 既存の永続化実装
         import config.*
+        // recoveryAdapter を修正: RecoveryDone から RecoveryCompletedInternal へ変換
+        val recoveryAdapter = context.messageAdapter[RecoveryDone[S]] { rd =>
+          // state と sequenceNr の両方をラップする
+          // M 型にキャストする必要があるため asInstanceOf を使用
+          RecoveryCompletedInternal(rd.state, rd.sequenceNr).asInstanceOf[M]
+        }
+
         val persistenceRef =
           spawnEventStoreActor(
             context,
             persistenceId,
             initialState,
             applyEvent,
-            context.messageAdapter[RecoveryDone[S]](rd => wrapRecoveredState(rd.state)))
+            recoveryAdapter, // 修正したアダプターを使用
+          )
 
         val adapter = context.messageAdapter[PersistenceReply[S, E]] {
           // イベント保存
@@ -195,21 +208,33 @@ object PersistenceEffector {
 
         def awaitRecovery(): Behavior[M] =
           Behaviors.withStash(config.stashSize) { stashBuffer =>
-            Behaviors.receivePartial {
-              case (ctx, msg) if unwrapRecoveredState(msg).isDefined =>
-                val state = unwrapRecoveredState(msg).get
-                val effector = DefaultPersistenceEffector[S, E, M](
-                  ctx,
-                  stashBuffer,
-                  config,
-                  persistenceRef,
-                  adapter,
-                )
-                stashBuffer.unstashAll(onReady(state, effector))
-              case (ctx, msg) =>
-                ctx.log.debug("Stashing message: {}", msg)
-                stashBuffer.stash(msg)
-                Behaviors.same
+            // receiveMessagePartial を使用し、型安全性を向上
+            Behaviors.receiveMessagePartial { msg =>
+              // RecoveryCompletedInternal 型で直接マッチング (@unchecked が必要)
+              msg.asMatchable match {
+                case msg: RecoveryCompletedInternal[?] =>
+                  val state = msg.asInstanceOf[RecoveryCompletedInternal[S]].state
+                  val sequenceNr =
+                    msg.asInstanceOf[RecoveryCompletedInternal[S]].sequenceNr // sequenceNr を抽出
+                  context.log.debug(
+                    "Recovery completed. State = {}, SequenceNr = {}",
+                    state,
+                    sequenceNr,
+                  ) // context を直接使用
+                  val effector = new DefaultPersistenceEffector[S, E, M](
+                    context, // context を直接使用
+                    stashBuffer,
+                    config,
+                    persistenceRef,
+                    adapter,
+                    sequenceNr, // sequenceNr を DefaultPersistenceEffector に渡す
+                  )
+                  stashBuffer.unstashAll(onReady(state, effector))
+                case msg => // 他のメッセージはスタッシュ
+                  context.log.debug("Stashing message during recovery: {}", msg) // context を直接使用
+                  stashBuffer.stash(msg)
+                  Behaviors.same
+              }
             }
           }
 
