@@ -15,7 +15,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
   override def persistenceMode: PersistenceMode = PersistenceMode.Persisted
 
   // 現在のテスト環境ではスナップショットテストを無効にする
-  override def runSnapshotTests: Boolean = false
+  override def runSnapshotTests: Boolean = true
 
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 10.seconds, interval = 500.millis)
