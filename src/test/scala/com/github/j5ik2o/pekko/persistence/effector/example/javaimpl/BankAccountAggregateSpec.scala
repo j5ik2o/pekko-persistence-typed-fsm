@@ -1,6 +1,5 @@
 package com.github.j5ik2o.pekko.persistence.effector.example.javaimpl
 
-import com.github.j5ik2o.pekko.persistence.effector.example.javaimpl.BankAccountAggregateTestBase
 import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceMode
 
 import java.io.File
