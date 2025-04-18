@@ -10,7 +10,7 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
 
   // スナップショットテストを有効化
   override def runSnapshotTests: Boolean = true
-  
+
   // InMemoryモード特有のテスト
   s"Effector with ${persistenceMode} mode" should {
     "provide access to current state via getState" in {

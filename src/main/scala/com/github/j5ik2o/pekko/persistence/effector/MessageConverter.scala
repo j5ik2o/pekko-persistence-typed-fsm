@@ -1,6 +1,5 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-
 import scala.compiletime.asMatchable
 
 trait MessageConverter[S, E, M] {

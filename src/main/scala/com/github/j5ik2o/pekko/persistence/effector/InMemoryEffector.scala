@@ -1,7 +1,7 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-import org.apache.pekko.actor.typed.scaladsl.{ActorContext, StashBuffer}
 import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext, StashBuffer}
 
 /**
  * インメモリのイベントとスナップショットを格納するためのシングルトンオブジェクト
@@ -317,12 +317,13 @@ final class InMemoryEffector[S, E, M](
     val finalSequenceNumber = getCurrentSequenceNumber
 
     // スナップショット戦略の評価またはforce=trueの場合にスナップショットを保存
-    val shouldSave = forceSnapshot || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
-      val lastEvent = events.last
-      val result = criteria.shouldTakeSnapshot(lastEvent, snapshot, finalSequenceNumber)
-      ctx.log.debug("Snapshot criteria evaluation result: {}", result)
-      result
-    })
+    val shouldSave =
+      forceSnapshot || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
+        val lastEvent = events.last
+        val result = criteria.shouldTakeSnapshot(lastEvent, snapshot, finalSequenceNumber)
+        ctx.log.debug("Snapshot criteria evaluation result: {}", result)
+        result
+      })
 
     if (shouldSave) {
       ctx.log.debug("Taking snapshot at sequence number {}", finalSequenceNumber)

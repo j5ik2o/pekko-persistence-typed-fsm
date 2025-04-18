@@ -3,7 +3,6 @@ package com.github.j5ik2o.pekko.persistence.effector.example
 import com.github.j5ik2o.pekko.persistence.effector.PersistenceMode
 
 import java.io.File
-import java.util.UUID
 
 /**
  * Persistedモードを使用したBankAccountAggregateのテスト
