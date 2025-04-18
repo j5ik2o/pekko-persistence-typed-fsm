@@ -22,7 +22,8 @@ jobs:
         java-version: '17'
         cache: 'sbt'
     - uses: sbt/setup-sbt@v1
-    - run: |
+    - name: publish
+      run: |
         VERSION=${GITHUB_REF#refs/tags/}
         VERSION=${VERSION#v}
         echo "Publishing version=$VERSION"
