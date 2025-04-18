@@ -27,7 +27,10 @@ object RetentionCriteria {
 
   val Empty: RetentionCriteria = apply()
 
-  def snapshotEvery(numberOfEvents: Int, keepNSnapshots: Int): RetentionCriteria = {
+  def ofSnapshotEvery(numberOfEvents: Int): RetentionCriteria =
+    ofSnapshotEvery(numberOfEvents, 2)
+
+  def ofSnapshotEvery(numberOfEvents: Int, keepNSnapshots: Int): RetentionCriteria = {
     require(numberOfEvents > 0, "numberOfEvents must be greater than 0")
     require(keepNSnapshots > 0, "keepNSnapshots must be greater than 0")
 
