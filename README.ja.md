@@ -130,115 +130,223 @@ public interface MessageConverter<State, Event, Message> {
 }
 ```
 
-### Result
-
-ドメイン操作の結果をカプセル化するケースクラス (Scala) / クラス (Java) で、新しい状態とイベントを含みます。
-
-```scala
-// Scala DSL
-final case class Result[S, E](
-  newState: S, // 明確化のためにリネーム
-  event: E,
-)
-```
-```java
-// Java DSL
-public class Result<State, Event> {
-    private final State newState;
-    private final Event event;
-    // コンストラクタ、ゲッター...
-}
-```
-
-Resultクラスは以下の主要な利点を提供します：
-- **型安全性**: 新しい状態と対応するイベントの関係を明示的に捕捉
-- **可読性**: タプルよりも意味が明確で、各値の目的を明示
-- **保守性**: パターンマッチングがより明示的になり、変更が容易に
-- **ドメインモデリング**: ドメインロジックからの戻り値を標準化
-
 ## 使用例
 
 ### 銀行口座の例 (Scala DSL)
 
+pekko-persistence-effectorを使用した銀行口座集約の完全な実装例を以下に示します：
+
 ```scala
-// 1. 状態と状態遷移関数を定義
-enum State {
-  def aggregateId: BankAccountId
-  case NotCreated(aggregateId: BankAccountId)
-  case Created(aggregateId: BankAccountId, bankAccount: BankAccount)
+// 1. ドメインモデル、コマンド、イベント、応答の定義
 
-  def applyEvent(event: BankAccountEvent): State = (this, event) match {
-    case (State.NotCreated(aggregateId), BankAccountEvent.Created(id, _)) =>
-      Created(id, BankAccount(id))
-    // ... 他の遷移
-    case _ =>
-      throw new IllegalStateException(s"Invalid state transition: $this -> $event")
-  }
+// ドメインモデル
+final case class BankAccountId(value: String)
+final case class Money(amount: BigDecimal)
+final case class BankAccount(id: BankAccountId, balance: Money = Money(0)) {
+  def deposit(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] = 
+    if (amount.amount <= 0) Left(BankAccountError.InvalidAmount)
+    else Right((copy(balance = Money(balance.amount + amount.amount)), 
+                BankAccountEvent.Deposited(id, amount, Instant.now())))
+                
+  def withdraw(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] =
+    if (amount.amount <= 0) Left(BankAccountError.InvalidAmount)
+    else if (balance.amount < amount.amount) Left(BankAccountError.InsufficientFunds)
+    else Right((copy(balance = Money(balance.amount - amount.amount)),
+                BankAccountEvent.Withdrawn(id, amount, Instant.now())))
 }
 
-// 2. PersistenceEffectorConfig を設定
-val config = PersistenceEffectorConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
-  persistenceId = actorName(aggregateId),
-  initialState = State.NotCreated(aggregateId),
-  applyEvent = (state, event) => state.applyEvent(event),
-  messageConverter = BankAccountCommand.messageConverter,
-  persistenceMode = PersistenceMode.Persisted, // または InMemory
-  persistTimeout = 5.seconds,
-  maxRetries = 2
-)
-
-// 3. PersistenceEffector を使用したアクターを作成
-Behaviors.setup[BankAccountCommand] { implicit ctx =>
-  PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](config) {
-    case (initialState: State.NotCreated, effector) =>
-      handleNotCreated(initialState, effector)
-    case (initialState: State.Created, effector) =>
-      handleCreated(initialState, effector)
-  }
+// コマンド
+sealed trait BankAccountCommand
+object BankAccountCommand {
+  final case class Create(id: BankAccountId, replyTo: ActorRef[CreateReply]) extends BankAccountCommand
+  final case class Deposit(id: BankAccountId, amount: Money, replyTo: ActorRef[DepositReply]) extends BankAccountCommand
+  final case class Withdraw(id: BankAccountId, amount: Money, replyTo: ActorRef[WithdrawReply]) extends BankAccountCommand
+  final case class GetBalance(id: BankAccountId, replyTo: ActorRef[GetBalanceReply]) extends BankAccountCommand
+  
+  // PersistenceEffectorとの通信用の内部メッセージ
+  private final case class WrappedPersistEvent(event: BankAccountEvent) extends BankAccountCommand
+  private final case class WrappedRecoveredState(state: BankAccountAggregate.State) extends BankAccountCommand
+  private final case class WrappedPersistFailed(command: Any, cause: Throwable) extends BankAccountCommand
+  
+  // MessageConverter実装
+  val messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] = 
+    new MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] {
+      override def wrapPersistedEvents(events: Seq[BankAccountEvent]): BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand] =
+        WrappedPersistEvent(events.head).asInstanceOf[BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand]]
+        
+      override def wrapRecoveredState(state: BankAccountAggregate.State): BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand] =
+        WrappedRecoveredState(state).asInstanceOf[BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand]]
+        
+      override def wrapPersistFailedAfterRetries(command: Any, cause: Throwable): BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand] =
+        WrappedPersistFailed(command, cause).asInstanceOf[BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand]]
+        
+      // その他の必要なメソッド...
+    }
 }
 
-// 4. 状態に応じたハンドラを実装
-private def handleNotCreated(
-  state: BankAccountAggregate.State.NotCreated,
-  effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
-  : Behavior[BankAccountCommand] =
-  Behaviors.receiveMessagePartial { case cmd: BankAccountCommand.Create =>
-    val Result(bankAccount, event) = BankAccount.create(cmd.aggregateId)
-    effector.persistEvent(event) { _ => // 永続化成功後に実行されるコールバック
-      cmd.replyTo ! CreateReply.Succeeded(cmd.aggregateId)
-      handleCreated(State.Created(state.aggregateId, bankAccount), effector)
-    } // リトライ後に永続化が失敗した場合、MessageConverter経由でPersistFailedAfterRetriesメッセージが送信される
-  }
+// イベント
+sealed trait BankAccountEvent {
+  def id: BankAccountId
+  def occurredAt: Instant
+}
+object BankAccountEvent {
+  final case class Created(id: BankAccountId, occurredAt: Instant) extends BankAccountEvent
+  final case class Deposited(id: BankAccountId, amount: Money, occurredAt: Instant) extends BankAccountEvent
+  final case class Withdrawn(id: BankAccountId, amount: Money, occurredAt: Instant) extends BankAccountEvent
+}
 
-private def handleCreated(
-  state: BankAccountAggregate.State.Created,
-  effector: PersistenceEffector[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand])
-  : Behavior[BankAccountCommand] =
-  Behaviors.receiveMessagePartial {
-    case BankAccountCommand.DepositCash(aggregateId, amount, replyTo) =>
-      // ドメインロジックを実行
-      state.bankAccount
-        .add(amount)
-        .fold(
-          error => { // ドメインバリデーション失敗
-            replyTo ! DepositCashReply.Failed(aggregateId, error)
-            Behaviors.same
-          },
-          { case Result(newBankAccount, event) => // ドメインロジック成功
-            // イベントを永続化（失敗時はリトライ）
-            effector.persistEvent(event) { _ => // 成功時のコールバック
-              replyTo ! DepositCashReply.Succeeded(aggregateId, amount)
-              // アクターの状態と振る舞いを更新
-              handleCreated(state.copy(bankAccount = newBankAccount), effector)
-            }
-          },
+// 応答メッセージ
+sealed trait CreateReply
+object CreateReply {
+  final case class Succeeded(id: BankAccountId) extends CreateReply
+  final case class Failed(id: BankAccountId, error: BankAccountError) extends CreateReply
+}
+
+sealed trait DepositReply
+object DepositReply {
+  final case class Succeeded(id: BankAccountId, amount: Money) extends DepositReply
+  final case class Failed(id: BankAccountId, error: BankAccountError) extends DepositReply
+}
+
+// エラー型
+sealed trait BankAccountError
+object BankAccountError {
+  case object InvalidAmount extends BankAccountError
+  case object InsufficientFunds extends BankAccountError
+  case object AlreadyExists extends BankAccountError
+  case object NotFound extends BankAccountError
+}
+
+// 2. 集約アクターの定義
+object BankAccountAggregate {
+  // 状態定義
+  sealed trait State {
+    def id: BankAccountId
+  }
+  object State {
+    case class NotCreated(id: BankAccountId) extends State
+    case class Active(id: BankAccountId, account: BankAccount) extends State
+    
+    // イベント適用ロジック
+    def applyEvent(state: State, event: BankAccountEvent): State = (state, event) match {
+      case (NotCreated(id), BankAccountEvent.Created(_, _)) =>
+        Active(id, BankAccount(id))
+        
+      case (active: Active, evt: BankAccountEvent.Deposited) =>
+        val newAccount = active.account.copy(
+          balance = Money(active.account.balance.amount + evt.amount.amount)
         )
-    // 必要に応じて PersistFailedAfterRetries メッセージを処理
-    case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
-       // エラーログ記録、元の送信者への通知、アクター停止など
-       Behaviors.same
+        active.copy(account = newAccount)
+        
+      case (active: Active, evt: BankAccountEvent.Withdrawn) =>
+        val newAccount = active.account.copy(
+          balance = Money(active.account.balance.amount - evt.amount.amount)
+        )
+        active.copy(account = newAccount)
+        
+      case _ =>
+        throw new IllegalStateException(s"Invalid state transition: $state -> $event")
+    }
   }
+  
+  // アクターファクトリ
+  def apply(id: BankAccountId): Behavior[BankAccountCommand] = {
+    Behaviors.setup { context =>
+      // PersistenceEffector設定の作成
+      val config = PersistenceEffectorConfig[State, BankAccountEvent, BankAccountCommand](
+        persistenceId = s"bank-account-${id.value}",
+        initialState = State.NotCreated(id),
+        applyEvent = State.applyEvent,
+        messageConverter = BankAccountCommand.messageConverter,
+        persistenceMode = PersistenceMode.Persisted, // 開発時はInMemoryも選択可能
+        stashSize = 100,
+        persistTimeout = 5.seconds,
+        maxRetries = 3
+      )
+      
+      // PersistenceEffectorの作成
+      PersistenceEffector.create(config) {
+        case (state: State.NotCreated, effector) => handleNotCreated(state, effector)
+        case (state: State.Active, effector) => handleActive(state, effector)
+      }
+    }
+  }
+  
+  // NotCreated状態のハンドラ
+  private def handleNotCreated(
+    state: State.NotCreated,
+    effector: PersistenceEffector[State, BankAccountEvent, BankAccountCommand]
+  ): Behavior[BankAccountCommand] = {
+    Behaviors.receiveMessagePartial {
+      case cmd: BankAccountCommand.Create =>
+        // 新しいアカウントを作成しイベントを生成
+        val event = BankAccountEvent.Created(cmd.id, Instant.now())
+        
+        // イベントを永続化
+        effector.persistEvent(event) { _ =>
+          // 永続化成功後、応答を返し振る舞いを変更
+          cmd.replyTo ! CreateReply.Succeeded(cmd.id)
+          handleActive(State.Active(cmd.id, BankAccount(cmd.id)), effector)
+        }
+        
+      case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
+        // 永続化失敗の処理
+        cmd match {
+          case createCmd: BankAccountCommand.Create =>
+            createCmd.replyTo ! CreateReply.Failed(createCmd.id, BankAccountError.AlreadyExists)
+          case _ => // 他のコマンドは無視
+        }
+        Behaviors.same
+    }
+  }
+  
+  // Active状態のハンドラ
+  private def handleActive(
+    state: State.Active,
+    effector: PersistenceEffector[State, BankAccountEvent, BankAccountCommand]
+  ): Behavior[BankAccountCommand] = {
+    Behaviors.receiveMessagePartial {
+      case cmd: BankAccountCommand.Deposit =>
+        // ドメインロジックを実行
+        state.account.deposit(cmd.amount) match {
+          case Left(error) =>
+            // ドメインバリデーション失敗
+            cmd.replyTo ! DepositReply.Failed(cmd.id, error)
+            Behaviors.same
+            
+          case Right((newAccount, event)) =>
+            // イベントを永続化
+            effector.persistEvent(event) { _ =>
+              // 永続化成功後、応答を返し状態を更新
+              cmd.replyTo ! DepositReply.Succeeded(cmd.id, cmd.amount)
+              handleActive(state.copy(account = newAccount), effector)
+            }
+        }
+        
+      case cmd: BankAccountCommand.Withdraw =>
+        // Depositと同様の実装...
+        
+      case cmd: BankAccountCommand.GetBalance =>
+        // 読み取り専用操作、永続化不要
+        cmd.replyTo ! GetBalanceReply.Success(cmd.id, state.account.balance)
+        Behaviors.same
+        
+      case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
+        // 異なるコマンドに対する永続化失敗の処理
+        // エラーログ記録、送信者への通知など
+        Behaviors.same
+    }
+  }
+}
 ```
+
+この例では以下を示しています：
+1. バリデーションロジックを持つドメインモデル
+2. コマンド、イベント、応答メッセージの定義
+3. イベント適用ロジックを持つ状態定義
+4. PersistenceEffectorの設定と作成
+5. 状態固有のメッセージハンドラ
+6. ドメインバリデーションと永続化失敗の両方に対するエラー処理
 
 *(Java DSL の例は `src/test/java` ディレクトリを参照してください)*
 
@@ -247,16 +355,16 @@ private def handleCreated(
 より詳細な実装例については、以下のファイルを参照してください：
 
 **Scala DSL:**
-- [BankAccountAggregate](src/test/scala/com/github/j5ik2o/pekko/persistence/effector/example/scalaimpl/BankAccountAggregate.scala)
-- [BankAccount](src/test/scala/com/github/j5ik2o/pekko/persistence/effector/example/scalaimpl/BankAccount.scala)
-- [BankAccountCommand](src/test/scala/com/github/j5ik2o/pekko/persistence/effector/example/scalaimpl/BankAccountCommand.scala)
-- [BankAccountEvent](src/test/scala/com/github/j5ik2o/pekko/persistence/effector/example/scalaimpl/BankAccountEvent.scala)
+- 集約: [BankAccountAggregate.scala](src/test/scala/com/github/j5ik2o/pekko/persistence/effector/example/scalaimpl/BankAccountAggregate.scala)
+- ドメインモデル: [BankAccount.scala](src/test/scala/com/github/j5ik2o/pekko/persistence/effector/example/scalaimpl/BankAccount.scala)
+- コマンド: [BankAccountCommand.scala](src/test/scala/com/github/j5ik2o/pekko/persistence/effector/example/scalaimpl/BankAccountCommand.scala)
+- イベント: [BankAccountEvent.scala](src/test/scala/com/github/j5ik2o/pekko/persistence/effector/example/scalaimpl/BankAccountEvent.scala)
 
 **Java DSL:**
-- [BankAccountAggregate](src/test/java/com/github/j5ik2o/pekko/persistence/effector/example/javaimpl/BankAccountAggregate.java)
-- [BankAccount](src/test/java/com/github/j5ik2o/pekko/persistence/effector/example/javaimpl/BankAccount.java)
-- [BankAccountCommand](src/test/java/com/github/j5ik2o/pekko/persistence/effector/example/javaimpl/BankAccountCommand.java)
-- [BankAccountEvent](src/test/java/com/github/j5ik2o/pekko/persistence/effector/example/javaimpl/BankAccountEvent.java)
+- 集約: [BankAccountAggregate.java](src/test/java/com/github/j5ik2o/pekko/persistence/effector/example/javaimpl/BankAccountAggregate.java)
+- ドメインモデル: [BankAccount.java](src/test/java/com/github/j5ik2o/pekko/persistence/effector/example/javaimpl/BankAccount.java)
+- コマンド: [BankAccountCommand.java](src/test/java/com/github/j5ik2o/pekko/persistence/effector/example/javaimpl/BankAccountCommand.java)
+- イベント: [BankAccountEvent.java](src/test/java/com/github/j5ik2o/pekko/persistence/effector/example/javaimpl/BankAccountEvent.java)
 
 ## このライブラリを使用するシーン
 
