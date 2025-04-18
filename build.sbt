@@ -45,6 +45,7 @@ lazy val root = (project in file("."))
       "-language:implicitConversions", // 暗黙の型変換を許可
       "-language:higherKinds", // 高階型を許可
       "-language:postfixOps", // 後置演算子を許可
+      "-language:adhocExtensions",
       "-explain", // コンパイルエラーと警告に詳細な説明を追加
       "-explain-types", // 型関連のエラーで詳細な型情報を表示
       "-Wunused:imports,privates", // 使用されていないインポートとプライベートメンバーに警告
