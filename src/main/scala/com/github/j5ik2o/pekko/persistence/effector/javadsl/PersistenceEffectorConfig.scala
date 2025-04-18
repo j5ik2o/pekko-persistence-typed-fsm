@@ -2,7 +2,7 @@ package com.github.j5ik2o.pekko.persistence.effector.javadsl
 
 import com.github.j5ik2o.pekko.persistence.effector.scaladsl.{
   PersistenceEffectorConfig as SPersistenceEffectorConfig,
-  PersistenceMode as SPersistenceMode
+  PersistenceMode as SPersistenceMode,
 }
 
 import java.util.Optional
@@ -24,7 +24,7 @@ final case class PersistenceEffectorConfig[S, E, M](
       case PersistenceMode.PERSISTENCE => SPersistenceMode.Persisted
       case PersistenceMode.IN_MEMORY => SPersistenceMode.InMemory
     }
-    
+
     SPersistenceEffectorConfig(
       persistenceId = persistenceId,
       initialState = initialState,
@@ -34,10 +34,11 @@ final case class PersistenceEffectorConfig[S, E, M](
       stashSize = stashSize,
       snapshotCriteria = snapshotCriteria.toScala.map(_.toScala),
       retentionCriteria = retentionCriteria.toScala.map(_.toScala),
-      backoffConfig = backoffConfig.toScala.map(_.toScala)
+      backoffConfig = backoffConfig.toScala.map(_.toScala),
     )
   }
-  def wrapPersistedEvents: java.util.function.Function[java.util.List[E], M] = messageConverter.wrapPersistedEvents
+  def wrapPersistedEvents: java.util.function.Function[java.util.List[E], M] =
+    messageConverter.wrapPersistedEvents
   def wrapPersistedSnapshot: java.util.function.Function[S, M] =
     messageConverter.wrapPersistedSnapshot
   def wrapRecoveredState: java.util.function.Function[S, M] = messageConverter.wrapRecoveredState
