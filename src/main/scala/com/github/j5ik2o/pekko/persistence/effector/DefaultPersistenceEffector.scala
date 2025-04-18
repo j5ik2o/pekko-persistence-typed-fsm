@@ -1,11 +1,10 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-import com.github.j5ik2o.pekko.persistence.effector.PersistenceStoreActor.*
+import com.github.j5ik2o.pekko.persistence.effector.PersistenceStoreProtocol.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors, StashBuffer}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
-import compiletime.asMatchable
-
+import scala.compiletime.asMatchable
 // initialSequenceNr パラメータを追加
 final class DefaultPersistenceEffector[S, E, M](
   ctx: ActorContext[M],
@@ -13,16 +12,19 @@ final class DefaultPersistenceEffector[S, E, M](
   config: PersistenceEffectorConfig[S, E, M],
   persistenceRef: ActorRef[PersistenceCommand[S, E]],
   adapter: ActorRef[PersistenceReply[S, E]],
-  initialSequenceNr: Long) // リカバリー後のシーケンス番号を受け取る
+  initialSequenceNr: Long,
+) // リカバリー後のシーケンス番号を受け取る
   extends PersistenceEffector[S, E, M] {
   import config.*
 
   // 現在のシーケンス番号をPersistenceIdごとに管理
   // 初期値を initialSequenceNr で設定
-  private val sequenceNumbers = scala.collection.mutable.Map[String, Long](persistenceId -> initialSequenceNr)
+  private val sequenceNumbers =
+    scala.collection.mutable.Map[String, Long](persistenceId -> initialSequenceNr)
 
   // getOrElse のデフォルト値を initialSequenceNr に変更 (ただし、通常はマップに存在するはず)
-  private def getCurrentSequenceNumber: Long = sequenceNumbers.getOrElse(persistenceId, initialSequenceNr)
+  private def getCurrentSequenceNumber: Long =
+    sequenceNumbers.getOrElse(persistenceId, initialSequenceNr)
 
   private def incrementSequenceNumber(inc: Long = 1): Long = {
     val current = getCurrentSequenceNumber

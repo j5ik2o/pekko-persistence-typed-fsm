@@ -10,7 +10,7 @@ class PersistedEffectorSpec extends PersistenceEffectorTestBase {
 
   // スナップショットテストを実行する
   override def runSnapshotTests: Boolean = true
-  
+
   // テスト前にLevelDBの保存ディレクトリを確実に作成
   override def beforeAll(): Unit = {
     val journalDir = new File("target/journal")

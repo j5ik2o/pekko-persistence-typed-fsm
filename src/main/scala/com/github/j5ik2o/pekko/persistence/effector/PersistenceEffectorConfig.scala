@@ -9,6 +9,7 @@ final case class PersistenceEffectorConfig[S, E, M](
   stashSize: Int,
   snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
   retentionCriteria: Option[RetentionCriteria] = None,
+  backoffConfig: Option[BackoffConfig] = None,
 ) {
   def wrapPersistedEvents: Seq[E] => M = messageConverter.wrapPersistedEvents
   def wrapPersistedSnapshot: S => M = messageConverter.wrapPersistedSnapshot

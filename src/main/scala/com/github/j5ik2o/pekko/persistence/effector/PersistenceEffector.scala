@@ -1,9 +1,8 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-import PersistenceStoreActor.*
+import com.github.j5ik2o.pekko.persistence.effector.PersistenceStoreProtocol.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
-import org.apache.pekko.actor.typed.scaladsl.adapter.*
 
 import scala.compiletime.asMatchable
 
@@ -183,14 +182,14 @@ object PersistenceEffector {
           RecoveryCompletedInternal(rd.state, rd.sequenceNr).asInstanceOf[M]
         }
 
-        val persistenceRef =
-          spawnEventStoreActor(
-            context,
-            persistenceId,
-            initialState,
-            applyEvent,
-            recoveryAdapter, // 修正したアダプターを使用
-          )
+        val persistenceRef = spawnEventStoreActor(
+          context,
+          persistenceId,
+          initialState,
+          applyEvent,
+          recoveryAdapter,
+          backoffConfig,
+        )
 
         val adapter = context.messageAdapter[PersistenceReply[S, E]] {
           // イベント保存
@@ -258,7 +257,9 @@ object PersistenceEffector {
     persistenceId: String,
     initialState: S,
     applyEvent: (S, E) => S,
-    recoveryAdapter: ActorRef[RecoveryDone[S]]) =
+    recoveryAdapter: ActorRef[RecoveryDone[S]],
+    backoffConfig: Option[BackoffConfig]) = {
+    import org.apache.pekko.actor.typed.scaladsl.adapter.*
     context
       .actorOf(
         PersistenceStoreActor.props(
@@ -266,8 +267,10 @@ object PersistenceEffector {
           initialState,
           applyEvent,
           recoveryAdapter,
+          backoffConfig,
         ),
-        s"effector-$persistenceId")
-      .toTyped[PersistenceCommand[S, E]]
-
+        s"effector-$persistenceId",
+      )
+      .toTyped
+  }
 }
