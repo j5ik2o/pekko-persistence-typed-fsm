@@ -290,7 +290,7 @@ object PersistenceEffector {
       // ScalaDSL版のPersistenceEffectorを呼び出す
       ScalaPersistenceEffector.fromConfig(config.toScala) { case (state, scalaEffector) =>
         // JavaDSL用のPersistenceEffectorWrapperでラップ
-        val javaEffector = PersistenceEffectorWrapper(scalaEffector)
+        val javaEffector = PersistenceEffectorWrapper.create(scalaEffector)
         // onReadyコールバックを呼び出し
         onReady.apply(state, javaEffector)
       }(using ctx)

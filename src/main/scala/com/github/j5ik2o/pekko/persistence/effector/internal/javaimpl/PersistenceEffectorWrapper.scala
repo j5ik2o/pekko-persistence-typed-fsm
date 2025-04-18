@@ -17,41 +17,14 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import scala.jdk.CollectionConverters.*
 
 object PersistenceEffectorWrapper {
-  def apply[S, E, M](
+
+  def create[S, E, M](
     underlying: ScalaDPE[S, E, M],
   ): PersistenceEffector[S, E, M] = new PersistenceEffectorWrapper(underlying)
 
-  def ofDefault[S, E, M](
-    ctx: ActorContext[M],
-    stashBuffer: StashBuffer[M],
-    config: PersistenceEffectorConfig[S, E, M],
-    persistenceRef: ActorRef[PersistenceCommand[S, E]],
-    adapter: ActorRef[PersistenceReply[S, E]],
-    initialSequenceNr: Long,
-  ): PersistenceEffector[S, E, M] = apply(
-    ScalaDefaultPersistenceEffector(
-      ctx,
-      stashBuffer,
-      config,
-      persistenceRef,
-      adapter,
-      initialSequenceNr,
-    ))
-
-  def ofInMemory[S, E, M](
-    ctx: ActorContext[M],
-    stashBuffer: StashBuffer[M],
-    config: PersistenceEffectorConfig[S, E, M],
-  ): PersistenceEffector[S, E, M] = apply(
-    ScalaInMemoryEffector(
-      ctx,
-      stashBuffer,
-      config,
-    ))
-
 }
 
-final class PersistenceEffectorWrapper[S, E, M](
+final class PersistenceEffectorWrapper[S, E, M] private (
   underlying: ScalaDPE[S, E, M],
 ) extends PersistenceEffector[S, E, M] {
 
