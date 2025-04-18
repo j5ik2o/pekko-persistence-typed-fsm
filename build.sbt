@@ -1,4 +1,5 @@
 import Dependencies.*
+import xerial.sbt.Sonatype.sonatypeCentralHost
 
 ThisBuild / organization := "io.github.j5ik2o"
 ThisBuild / organizationName := "io.github.j5ik2o"
@@ -20,6 +21,8 @@ ThisBuild / scmInfo := Some(
     "scm:git@github.com:j5ik2o/pekko-persistence-effector.git",
   ),
 )
+ThisBuild / publishTo := sonatypePublishToBundle.value
+ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
 
 lazy val root = (project in file("."))
   .settings(
