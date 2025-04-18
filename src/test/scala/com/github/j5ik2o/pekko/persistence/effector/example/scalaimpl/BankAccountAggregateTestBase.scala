@@ -159,7 +159,7 @@ abstract class BankAccountAggregateTestBase
 
       val failedResponse = withdrawProbe.expectMessageType[WithdrawCashReply.Failed]
       failedResponse.aggregateId shouldBe accountId
-      failedResponse.error shouldBe BankAccountError.LimitOverError
+      failedResponse.error shouldBe BankAccountError.InsufficientFundsError
     }
 
     "fail to deposit when over limit" in {
@@ -181,9 +181,7 @@ abstract class BankAccountAggregateTestBase
       failedResponse.aggregateId shouldBe accountId
       failedResponse.error shouldBe BankAccountError.LimitOverError
     }
-  }
 
-  s"BankAccountAggregate with ${persistenceMode} mode" should {
     "maintain state after stop and restart with multiple actions" in {
       val accountId = BankAccountId(UUID.randomUUID())
 

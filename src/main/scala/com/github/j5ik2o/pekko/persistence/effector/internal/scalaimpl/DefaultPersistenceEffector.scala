@@ -122,6 +122,7 @@ final class DefaultPersistenceEffector[S, E, M](
     onSuccess: T => Behavior[M],
   ): Behavior[M] =
     Behaviors.receiveMessagePartial { msg =>
+      ctx.log.debug("Waiting for message: {}", msg)
       msg.asMatchable match {
         case msg if messageMatcher(msg).isDefined =>
           val result = messageMatcher(msg).get

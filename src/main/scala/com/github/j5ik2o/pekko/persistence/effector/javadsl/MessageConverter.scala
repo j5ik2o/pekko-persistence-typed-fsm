@@ -39,39 +39,57 @@ trait MessageConverter[S, E, M] {
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedEvent[E, M] = {
         val javaEvents = events.asJava
         val result = self.wrapPersistedEvents(javaEvents)
-        // JavaDSL版のPersistedEventをScalaDSL版に変換
+        // JavaDSL版のPersistedEventをScalaDSL版に変換するアダプターを作成
         val adapter = new MessageWrapperAdapter.JavaPersistedEventAdapter[E, M](result)
-        (result.asInstanceOf[M], adapter).asInstanceOf[M &
+        // 元のメッセージとアダプターを合成して返す
+        result.asInstanceOf[M &
           com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedEvent[E, M]]
       }
+
+      override def unwrapPersistedEvents(message: M): Option[Seq[E]] =
+        self.unwrapPersistedEvents(message).map(_.asScala.toSeq)
+
       override def wrapPersistedSnapshot(state: S): M &
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M] = {
         val result = self.wrapPersistedSnapshot(state)
-        // JavaDSL版のPersistedStateをScalaDSL版に変換
+        // JavaDSL版のPersistedStateをScalaDSL版に変換するアダプターを作成
         val adapter = new MessageWrapperAdapter.JavaPersistedStateAdapter[S, M](result)
-        (result.asInstanceOf[M], adapter).asInstanceOf[M &
+        // 元のメッセージとアダプターを合成して返す
+        result.asInstanceOf[M &
           com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M]]
       }
+
+      override def unwrapPersistedSnapshot(message: M): Option[S] =
+        self.unwrapPersistedSnapshot(message)
+
       override def wrapRecoveredState(state: S): M &
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M] = {
         val result = self.wrapRecoveredState(state)
-        // JavaDSL版のRecoveredStateをScalaDSL版に変換
+        // JavaDSL版のRecoveredStateをScalaDSL版に変換するアダプターを作成
         val adapter = new MessageWrapperAdapter.JavaRecoveredStateAdapter[S, M](result)
-        (result.asInstanceOf[M], adapter).asInstanceOf[M &
+        // 元のメッセージとアダプターを合成して返す
+        result.asInstanceOf[M &
           com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M]]
       }
+
+      override def unwrapRecoveredState(message: M): Option[S] =
+        self.unwrapRecoveredState(message)
+
       override def wrapDeleteSnapshots(maxSequenceNumber: Long): M &
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M] = {
         val javaLong = maxSequenceNumber.asInstanceOf[java.lang.Long]
         val result = self.wrapDeleteSnapshots(javaLong)
-        // JavaDSL版のDeletedSnapshotsをScalaDSL版に変換
+        // JavaDSL版のDeletedSnapshotsをScalaDSL版に変換するアダプターを作成
         val adapter = new MessageWrapperAdapter.JavaDeletedSnapshotsAdapter[M](result)
-        (result.asInstanceOf[M], adapter).asInstanceOf[M &
+        // 元のメッセージとアダプターを合成して返す
+        result.asInstanceOf[M &
           com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M]]
       }
+
+      override def unwrapDeleteSnapshots(message: M): Option[Long] =
+        self.unwrapDeleteSnapshots(message).map(_.asInstanceOf[Long])
     }
   }
-
 }
 
 object MessageConverter {

@@ -1,6 +1,7 @@
 package com.github.j5ik2o.pekko.persistence.effector.scaladsl
 
 import scala.compiletime.asMatchable
+import scala.jdk.CollectionConverters.*
 
 trait MessageConverter[S, E, M] {
   def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
@@ -10,7 +11,7 @@ trait MessageConverter[S, E, M] {
 
   def unwrapPersistedEvents(message: M): Option[Seq[E]] = message.asMatchable match {
     case msg: PersistedEvent[E, M] @unchecked => Some(msg.events)
-    case _ => None
+    case other => None
   }
 
   def unwrapPersistedSnapshot(message: M): Option[S] = message.asMatchable match {

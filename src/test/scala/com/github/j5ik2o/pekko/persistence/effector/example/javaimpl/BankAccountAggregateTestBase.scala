@@ -47,7 +47,7 @@ abstract class BankAccountAggregateTestBase
       response.getAggregateId shouldBe accountId
     }
 
-    "deposit cash successfully" ignore {
+    "deposit cash successfully" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
@@ -87,7 +87,7 @@ abstract class BankAccountAggregateTestBase
       // balanceResponse.balance shouldBe depositAmount
     }
 
-    "withdraw cash successfully" ignore {
+    "withdraw cash successfully" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
@@ -123,7 +123,7 @@ abstract class BankAccountAggregateTestBase
       balanceResponse.getBalance shouldBe Money.of(JavaBigDecimal.valueOf(7000), Money.JPY)
     }
 
-    "get balance successfully" ignore {
+    "get balance successfully" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
@@ -141,7 +141,7 @@ abstract class BankAccountAggregateTestBase
       initialBalanceResponse.getBalance shouldBe Money.of(JavaBigDecimal.valueOf(0), Money.JPY)
     }
 
-    "fail to withdraw when insufficient funds" ignore {
+    "fail to withdraw when insufficient funds" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
@@ -161,10 +161,10 @@ abstract class BankAccountAggregateTestBase
 
       val failedResponse = withdrawProbe.expectMessageType[WithdrawCashReply]
       failedResponse.getAggregateId shouldBe accountId
-      failedResponse.getError shouldBe BankAccountError.LIMIT_OVER_ERROR
+      failedResponse.getError shouldBe BankAccountError.INSUFFICIENT_FUNDS_ERROR
     }
 
-    "fail to deposit when over limit" ignore {
+    "fail to deposit when over limit" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
@@ -184,7 +184,7 @@ abstract class BankAccountAggregateTestBase
       failedResponse.getError shouldBe BankAccountError.LIMIT_OVER_ERROR
     }
 
-    "maintain state after stop and restart with multiple actions" ignore {
+    "maintain state after stop and restart with multiple actions" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
       // 最初のアクターを作成して状態を構築
@@ -248,7 +248,7 @@ abstract class BankAccountAggregateTestBase
       ) // 70000 - 10000
     }
 
-    "maintain state after stop and restart" ignore {
+    "maintain state after stop and restart" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
       // 最初のアクターを作成して状態を構築

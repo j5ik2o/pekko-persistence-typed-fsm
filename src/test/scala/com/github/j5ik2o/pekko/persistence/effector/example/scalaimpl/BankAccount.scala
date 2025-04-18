@@ -32,7 +32,7 @@ final case class BankAccount(
 
   def subtract(amount: Money): Either[BankAccountError, Result[BankAccount, BankAccountEvent]] =
     if (Money(0, Money.JPY) > (balance - amount))
-      Left(BankAccountError.LimitOverError)
+      Left(BankAccountError.InsufficientFundsError)
     else
       Right(
         Result(
