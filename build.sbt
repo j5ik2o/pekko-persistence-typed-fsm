@@ -1,5 +1,5 @@
 import Dependencies.*
-import xerial.sbt.Sonatype.sonatypeCentralHost
+// import xerial.sbt.Sonatype.sonatypeCentralHost
 
 ThisBuild / organization := "io.github.j5ik2o"
 ThisBuild / organizationName := "io.github.j5ik2o"
@@ -20,9 +20,18 @@ ThisBuild / scmInfo := Some(
     "scm:git@github.com:j5ik2o/pekko-persistence-effector.git",
   ),
 )
-ThisBuild / publishTo := sonatypePublishToBundle.value
-ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
-ThisBuild / sonatypeTimeoutMillis := 60 * 60 * 1000
+
+ThisBuild / publishMavenStyle := true
+ThisBuild / publishTo := Some(
+  "GitHub Package Registry" at
+    "https://maven.pkg.github.com/j5ik2o/pekko-persistence-effector",
+)
+ThisBuild / credentials += Credentials(
+  "GitHub Package Registry",
+  "maven.pkg.github.com",
+  sys.env.getOrElse("GITHUB_ACTOR", throw new IllegalAccessError("GitHub actor not found")),
+  sys.env.getOrElse("GITHUB_TOKEN", throw new IllegalAccessError("GitHub PAT not found")),
+)
 
 lazy val root = (project in file("."))
   .settings(
