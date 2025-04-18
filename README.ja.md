@@ -66,7 +66,7 @@ final class InMemoryEffector[S, E, M](
 ```
 
 - **主な特徴**:
-  - シングルトンの`InMemoryEventStore`を使用してイベントとスナップショットをメモリに保存
+  - イベントとスナップショットをメモリに保存
   - イベントとスナップショットはメモリに保存されるため、データベース設定なしで高速開発が可能
   - アクター初期化時に保存されたイベントから状態を復元
   - 実際のデータベース操作のレイテンシーなしでの即時永続化
@@ -82,7 +82,12 @@ final case class PersistenceEffectorConfig[S, E, M](
   persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
-  messageConverter: MessageConverter[S, E, M]
+  messageConverter: MessageConverter[S, E, M],
+  persistenceMode: PersistenceMode,
+  stashSize: Int,
+  snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
+  retentionCriteria: Option[RetentionCriteria] = None,
+  backoffConfig: Option[BackoffConfig] = None,
 )
 ```
 

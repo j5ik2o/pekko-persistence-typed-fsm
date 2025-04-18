@@ -66,7 +66,7 @@ final class InMemoryEffector[S, E, M](
 ```
 
 - **Key features**:
-  - In-memory storage of events and snapshots using the singleton `InMemoryEventStore`
+  - In-memory storage of events and snapshots
   - Events and snapshots are stored in memory, allowing for fast development without database setup
   - State restoration from saved events during actor initialization
   - Immediate persistence without the latency of actual database operations
@@ -82,7 +82,12 @@ final case class PersistenceEffectorConfig[S, E, M](
   persistenceId: String,
   initialState: S,
   applyEvent: (S, E) => S,
-  messageConverter: MessageConverter[S, E, M]
+  messageConverter: MessageConverter[S, E, M],
+  persistenceMode: PersistenceMode,
+  stashSize: Int,
+  snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
+  retentionCriteria: Option[RetentionCriteria] = None,
+  backoffConfig: Option[BackoffConfig] = None,
 )
 ```
 
