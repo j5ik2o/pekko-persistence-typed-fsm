@@ -213,6 +213,8 @@ private def handleCreated(
 
 ## インストール方法
 
+注意: 本ライブラリはpekko-persistence-typedに依存していません。pekko-persistence-typedを依存関係に追加しなくても本ライブラリを使用できます。
+
 build.sbt に以下を追加してください：
 
 ```scala

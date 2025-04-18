@@ -213,6 +213,8 @@ This library is particularly well-suited for:
 
 ## Installation
 
+Note: This library does not depend on pekko-persistence-typed. You can use this library even without adding pekko-persistence-typed as a dependency.
+
 Add the following to your build.sbt:
 
 ```scala
