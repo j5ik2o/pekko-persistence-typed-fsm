@@ -265,7 +265,7 @@ object BankAccountAggregate {
       )
       
       // Create PersistenceEffector
-      PersistenceEffector.create(config) {
+      PersistenceEffector.fromConfig(config) {
         case (state: State.NotCreated, effector) => handleNotCreated(state, effector)
         case (state: State.Active, effector) => handleActive(state, effector)
       }
