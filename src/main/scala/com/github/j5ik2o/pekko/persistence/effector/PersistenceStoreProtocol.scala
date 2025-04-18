@@ -2,7 +2,7 @@ package com.github.j5ik2o.pekko.persistence.effector
 
 import org.apache.pekko.actor.typed.ActorRef
 
-object PersistenceStoreProtocol {
+private[effector] object PersistenceStoreProtocol {
 
   sealed trait PersistenceCommand[S, E]
 

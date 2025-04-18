@@ -5,16 +5,15 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors, StashBuff
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.compiletime.asMatchable
-// initialSequenceNr パラメータを追加
-final class DefaultPersistenceEffector[S, E, M](
+
+private[effector] final class DefaultPersistenceEffector[S, E, M](
   ctx: ActorContext[M],
   stashBuffer: StashBuffer[M],
   config: PersistenceEffectorConfig[S, E, M],
   persistenceRef: ActorRef[PersistenceCommand[S, E]],
   adapter: ActorRef[PersistenceReply[S, E]],
   initialSequenceNr: Long,
-) // リカバリー後のシーケンス番号を受け取る
-  extends PersistenceEffector[S, E, M] {
+) extends PersistenceEffector[S, E, M] {
   import config.*
 
   // 現在のシーケンス番号をPersistenceIdごとに管理
