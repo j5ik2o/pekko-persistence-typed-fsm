@@ -9,5 +9,5 @@ enum PersistenceMode {
   case Persisted
 
   /** インメモリモード（ディスクに保存しない） */
-  case InMemory
+  case Ephemeral
 }

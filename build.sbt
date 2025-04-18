@@ -35,6 +35,7 @@ ThisBuild / credentials += Credentials(
 lazy val root = (project in file("."))
   .settings(
     name := "pekko-persistence-effector",
+    javacOptions ++= Seq("-source", "17", "-target", "17"),
     scalacOptions ++= Seq(
       "-encoding",
       "utf8", // ソースファイルの文字コード指定
