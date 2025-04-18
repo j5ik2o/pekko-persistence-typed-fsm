@@ -137,98 +137,86 @@ public interface MessageConverter<State, Event, Message> {
 Here's a complete example showing how to implement a bank account aggregate using pekko-persistence-effector:
 
 ```scala
-// 1. Define domain model, commands, events, and replies
+// 1. Define domain model, commands, events, and replies using Scala 3 features
 
 // Domain model
-final case class BankAccountId(value: String)
-final case class Money(amount: BigDecimal)
-final case class BankAccount(id: BankAccountId, balance: Money = Money(0)) {
+case class BankAccountId(value: String)
+case class Money(amount: BigDecimal)
+case class BankAccount(id: BankAccountId, balance: Money = Money(0)):
   def deposit(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] = 
-    if (amount.amount <= 0) Left(BankAccountError.InvalidAmount)
+    if amount.amount <= 0 then Left(BankAccountError.InvalidAmount)
     else Right((copy(balance = Money(balance.amount + amount.amount)), 
                 BankAccountEvent.Deposited(id, amount, Instant.now())))
                 
   def withdraw(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] =
-    if (amount.amount <= 0) Left(BankAccountError.InvalidAmount)
-    else if (balance.amount < amount.amount) Left(BankAccountError.InsufficientFunds)
+    if amount.amount <= 0 then Left(BankAccountError.InvalidAmount)
+    else if balance.amount < amount.amount then Left(BankAccountError.InsufficientFunds)
     else Right((copy(balance = Money(balance.amount - amount.amount)),
                 BankAccountEvent.Withdrawn(id, amount, Instant.now())))
-}
 
 // Commands
-sealed trait BankAccountCommand
-object BankAccountCommand {
-  final case class Create(id: BankAccountId, replyTo: ActorRef[CreateReply]) extends BankAccountCommand
-  final case class Deposit(id: BankAccountId, amount: Money, replyTo: ActorRef[DepositReply]) extends BankAccountCommand
-  final case class Withdraw(id: BankAccountId, amount: Money, replyTo: ActorRef[WithdrawReply]) extends BankAccountCommand
-  final case class GetBalance(id: BankAccountId, replyTo: ActorRef[GetBalanceReply]) extends BankAccountCommand
+enum BankAccountCommand:
+  case Create(id: BankAccountId, replyTo: ActorRef[CreateReply])
+  case Deposit(id: BankAccountId, amount: Money, replyTo: ActorRef[DepositReply])
+  case Withdraw(id: BankAccountId, amount: Money, replyTo: ActorRef[WithdrawReply])
+  case GetBalance(id: BankAccountId, replyTo: ActorRef[GetBalanceReply])
   
   // Internal messages for PersistenceEffector communication
-  private final case class WrappedPersistEvent(event: BankAccountEvent) extends BankAccountCommand
-  private final case class WrappedRecoveredState(state: BankAccountAggregate.State) extends BankAccountCommand
-  private final case class WrappedPersistFailed(command: Any, cause: Throwable) extends BankAccountCommand
-  
-  // MessageConverter implementation
+  private case WrappedPersistEvent(event: BankAccountEvent)
+  private case WrappedRecoveredState(state: BankAccountAggregate.State)
+  private case WrappedPersistFailed(command: Any, cause: Throwable)
+
+// MessageConverter implementation
+object BankAccountCommand:
   val messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] = 
-    new MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] {
+    new MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand]:
       override def wrapPersistedEvents(events: Seq[BankAccountEvent]): BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand] =
-        WrappedPersistEvent(events.head).asInstanceOf[BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand]]
+        BankAccountCommand.WrappedPersistEvent(events.head).asInstanceOf[BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand]]
         
       override def wrapRecoveredState(state: BankAccountAggregate.State): BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand] =
-        WrappedRecoveredState(state).asInstanceOf[BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand]]
+        BankAccountCommand.WrappedRecoveredState(state).asInstanceOf[BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand]]
         
       override def wrapPersistFailedAfterRetries(command: Any, cause: Throwable): BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand] =
-        WrappedPersistFailed(command, cause).asInstanceOf[BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand]]
+        BankAccountCommand.WrappedPersistFailed(command, cause).asInstanceOf[BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand]]
         
       // Other required methods...
-    }
-}
 
 // Events
-sealed trait BankAccountEvent {
+enum BankAccountEvent:
   def id: BankAccountId
   def occurredAt: Instant
-}
-object BankAccountEvent {
-  final case class Created(id: BankAccountId, occurredAt: Instant) extends BankAccountEvent
-  final case class Deposited(id: BankAccountId, amount: Money, occurredAt: Instant) extends BankAccountEvent
-  final case class Withdrawn(id: BankAccountId, amount: Money, occurredAt: Instant) extends BankAccountEvent
-}
+  
+  case Created(id: BankAccountId, occurredAt: Instant) extends BankAccountEvent
+  case Deposited(id: BankAccountId, amount: Money, occurredAt: Instant) extends BankAccountEvent
+  case Withdrawn(id: BankAccountId, amount: Money, occurredAt: Instant) extends BankAccountEvent
 
 // Replies
-sealed trait CreateReply
-object CreateReply {
-  final case class Succeeded(id: BankAccountId) extends CreateReply
-  final case class Failed(id: BankAccountId, error: BankAccountError) extends CreateReply
-}
+enum CreateReply:
+  case Succeeded(id: BankAccountId)
+  case Failed(id: BankAccountId, error: BankAccountError)
 
-sealed trait DepositReply
-object DepositReply {
-  final case class Succeeded(id: BankAccountId, amount: Money) extends DepositReply
-  final case class Failed(id: BankAccountId, error: BankAccountError) extends DepositReply
-}
+enum DepositReply:
+  case Succeeded(id: BankAccountId, amount: Money)
+  case Failed(id: BankAccountId, error: BankAccountError)
 
 // Error types
-sealed trait BankAccountError
-object BankAccountError {
-  case object InvalidAmount extends BankAccountError
-  case object InsufficientFunds extends BankAccountError
-  case object AlreadyExists extends BankAccountError
-  case object NotFound extends BankAccountError
-}
+enum BankAccountError:
+  case InvalidAmount
+  case InsufficientFunds
+  case AlreadyExists
+  case NotFound
 
 // 2. Define the aggregate actor
-object BankAccountAggregate {
-  // State definition
-  sealed trait State {
+object BankAccountAggregate:
+  // State definition using enum
+  enum State:
     def id: BankAccountId
-  }
-  object State {
-    case class NotCreated(id: BankAccountId) extends State
-    case class Active(id: BankAccountId, account: BankAccount) extends State
+    
+    case NotCreated(id: BankAccountId) extends State
+    case Active(id: BankAccountId, account: BankAccount) extends State
     
     // Event application logic
-    def applyEvent(state: State, event: BankAccountEvent): State = (state, event) match {
+    def applyEvent(event: BankAccountEvent): State = (this, event) match
       case (NotCreated(id), BankAccountEvent.Created(_, _)) =>
         Active(id, BankAccount(id))
         
@@ -245,18 +233,16 @@ object BankAccountAggregate {
         active.copy(account = newAccount)
         
       case _ =>
-        throw new IllegalStateException(s"Invalid state transition: $state -> $event")
-    }
-  }
+        throw IllegalStateException(s"Invalid state transition: $this -> $event")
   
   // Actor factory
-  def apply(id: BankAccountId): Behavior[BankAccountCommand] = {
+  def apply(id: BankAccountId): Behavior[BankAccountCommand] =
     Behaviors.setup { context =>
       // Create PersistenceEffector configuration
       val config = PersistenceEffectorConfig[State, BankAccountEvent, BankAccountCommand](
         persistenceId = s"bank-account-${id.value}",
         initialState = State.NotCreated(id),
-        applyEvent = State.applyEvent,
+        applyEvent = (state, event) => state.applyEvent(event),
         messageConverter = BankAccountCommand.messageConverter,
         persistenceMode = PersistenceMode.Persisted, // Or InMemory for development
         stashSize = 100,
@@ -270,13 +256,12 @@ object BankAccountAggregate {
         case (state: State.Active, effector) => handleActive(state, effector)
       }
     }
-  }
   
   // Handler for NotCreated state
   private def handleNotCreated(
     state: State.NotCreated,
     effector: PersistenceEffector[State, BankAccountEvent, BankAccountCommand]
-  ): Behavior[BankAccountCommand] = {
+  ): Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial {
       case cmd: BankAccountCommand.Create =>
         // Create a new account and generate event
@@ -291,24 +276,22 @@ object BankAccountAggregate {
         
       case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
         // Handle persistence failure
-        cmd match {
+        cmd match
           case createCmd: BankAccountCommand.Create =>
             createCmd.replyTo ! CreateReply.Failed(createCmd.id, BankAccountError.AlreadyExists)
           case _ => // Ignore other commands
-        }
         Behaviors.same
     }
-  }
   
   // Handler for Active state
   private def handleActive(
     state: State.Active,
     effector: PersistenceEffector[State, BankAccountEvent, BankAccountCommand]
-  ): Behavior[BankAccountCommand] = {
+  ): Behavior[BankAccountCommand] =
     Behaviors.receiveMessagePartial {
       case cmd: BankAccountCommand.Deposit =>
         // Execute domain logic
-        state.account.deposit(cmd.amount) match {
+        state.account.deposit(cmd.amount) match
           case Left(error) =>
             // Domain validation failed
             cmd.replyTo ! DepositReply.Failed(cmd.id, error)
@@ -321,7 +304,6 @@ object BankAccountAggregate {
               cmd.replyTo ! DepositReply.Succeeded(cmd.id, cmd.amount)
               handleActive(state.copy(account = newAccount), effector)
             }
-        }
         
       case cmd: BankAccountCommand.Withdraw =>
         // Similar implementation to Deposit...
@@ -336,7 +318,6 @@ object BankAccountAggregate {
         // Log error, notify sender, etc.
         Behaviors.same
     }
-  }
 }
 ```
 
