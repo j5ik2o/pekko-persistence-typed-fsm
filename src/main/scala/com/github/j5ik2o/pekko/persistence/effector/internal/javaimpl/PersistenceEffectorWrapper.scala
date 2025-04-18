@@ -2,17 +2,9 @@ package com.github.j5ik2o.pekko.persistence.effector.internal.javaimpl
 
 import com.github.j5ik2o.pekko.persistence.effector.scaladsl.{
   PersistenceEffector as ScalaDPE,
-  PersistenceEffectorConfig,
-}
-import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.DefaultPersistenceEffector as ScalaDefaultPersistenceEffector
-import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.InMemoryEffector as ScalaInMemoryEffector
-import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.PersistenceStoreProtocol.{
-  PersistenceCommand,
-  PersistenceReply,
 }
 import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceEffector
-import org.apache.pekko.actor.typed.scaladsl.{ActorContext, StashBuffer}
-import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import org.apache.pekko.actor.typed.Behavior
 
 import scala.jdk.CollectionConverters.*
 
