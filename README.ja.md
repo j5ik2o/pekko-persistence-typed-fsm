@@ -1,4 +1,9 @@
-# pekko-persistence-effector 
+# pekko-persistence-effector
+
+[![CI](https://github.com/j5ik2o/pekko-persistence-effector/workflows/CI/badge.svg)](https://github.com/j5ik2o/pekko-persistence-effector/actions?query=workflow%3ACI)
+[![Renovate](https://img.shields.io/badge/renovate-enabled-brightgreen.svg)](https://renovatebot.com)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Tokei](https://tokei.rs/b1/github/j5ik2o/pekko-persistence-dynamodb)](https://github.com/XAMPPRocky/tokei)
 
 イベントソーシングと状態遷移を Apache Pekko で効率的に実装するためのライブラリです。
 
