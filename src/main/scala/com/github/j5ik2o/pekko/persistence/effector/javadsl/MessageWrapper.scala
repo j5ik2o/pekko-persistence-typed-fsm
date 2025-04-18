@@ -40,22 +40,26 @@ trait DeletedSnapshots[M] extends MessageWrapper[M] {
  */
 object MessageWrapperAdapter {
   // JavaDSL版のPersistedEventをScalaDSL版に変換するためのアダプター
-  class JavaPersistedEventAdapter[E, M](javaEvent: PersistedEvent[E, M]) extends com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedEvent[E, M] {
+  class JavaPersistedEventAdapter[E, M](javaEvent: PersistedEvent[E, M])
+    extends com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedEvent[E, M] {
     override def events: Seq[E] = javaEvent.events.asScala.toSeq
   }
 
   // JavaDSL版のPersistedStateをScalaDSL版に変換するためのアダプター
-  class JavaPersistedStateAdapter[S, M](javaState: PersistedState[S, M]) extends com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M] {
+  class JavaPersistedStateAdapter[S, M](javaState: PersistedState[S, M])
+    extends com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M] {
     override def state: S = javaState.state
   }
 
   // JavaDSL版のRecoveredStateをScalaDSL版に変換するためのアダプター
-  class JavaRecoveredStateAdapter[S, M](javaState: RecoveredState[S, M]) extends com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M] {
+  class JavaRecoveredStateAdapter[S, M](javaState: RecoveredState[S, M])
+    extends com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M] {
     override def state: S = javaState.state
   }
 
   // JavaDSL版のDeletedSnapshotsをScalaDSL版に変換するためのアダプター
-  class JavaDeletedSnapshotsAdapter[M](javaSnapshots: DeletedSnapshots[M]) extends com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M] {
+  class JavaDeletedSnapshotsAdapter[M](javaSnapshots: DeletedSnapshots[M])
+    extends com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M] {
     override def maxSequenceNumber: Long = javaSnapshots.maxSequenceNumber
   }
 }
