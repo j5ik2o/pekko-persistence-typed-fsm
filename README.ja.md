@@ -142,20 +142,30 @@ pekko-persistence-effectorを使用した銀行口座集約の完全な実装例
 // ドメインモデル
 case class BankAccountId(value: String)
 case class Money(amount: BigDecimal)
-case class BankAccount(id: BankAccountId, balance: Money = Money(0)):
-  def deposit(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] = 
-    if amount.amount <= 0 then Left(BankAccountError.InvalidAmount)
-    else Right((copy(balance = Money(balance.amount + amount.amount)), 
-                BankAccountEvent.Deposited(id, amount, Instant.now())))
+case class BankAccount(id: BankAccountId, balance: Money = Money(0)) {
+  def deposit(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] = {
+    if (amount.amount <= 0) {
+      Left(BankAccountError.InvalidAmount)
+    } else {
+      Right((copy(balance = Money(balance.amount + amount.amount)), 
+             BankAccountEvent.Deposited(id, amount, Instant.now())))
+    }
+  }
                 
-  def withdraw(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] =
-    if amount.amount <= 0 then Left(BankAccountError.InvalidAmount)
-    else if balance.amount < amount.amount then Left(BankAccountError.InsufficientFunds)
-    else Right((copy(balance = Money(balance.amount - amount.amount)),
-                BankAccountEvent.Withdrawn(id, amount, Instant.now())))
+  def withdraw(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] = {
+    if (amount.amount <= 0) {
+      Left(BankAccountError.InvalidAmount)
+    } else if (balance.amount < amount.amount) {
+      Left(BankAccountError.InsufficientFunds)
+    } else {
+      Right((copy(balance = Money(balance.amount - amount.amount)),
+             BankAccountEvent.Withdrawn(id, amount, Instant.now())))
+    }
+  }
+}
 
 // コマンド
-enum BankAccountCommand:
+enum BankAccountCommand {
   case Create(id: BankAccountId, replyTo: ActorRef[CreateReply])
   case Deposit(id: BankAccountId, amount: Money, replyTo: ActorRef[DepositReply])
   case Withdraw(id: BankAccountId, amount: Money, replyTo: ActorRef[WithdrawReply])
@@ -165,58 +175,68 @@ enum BankAccountCommand:
   private case WrappedPersistEvent(event: BankAccountEvent)
   private case WrappedRecoveredState(state: BankAccountAggregate.State)
   private case WrappedPersistFailed(command: Any, cause: Throwable)
+}
 
 // MessageConverter実装
-object BankAccountCommand:
+object BankAccountCommand {
   val messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] = 
-    new MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand]:
-      override def wrapPersistedEvents(events: Seq[BankAccountEvent]): BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand] =
+    new MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] {
+      override def wrapPersistedEvents(events: Seq[BankAccountEvent]): BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand] = {
         BankAccountCommand.WrappedPersistEvent(events.head).asInstanceOf[BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand]]
+      }
         
-      override def wrapRecoveredState(state: BankAccountAggregate.State): BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand] =
+      override def wrapRecoveredState(state: BankAccountAggregate.State): BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand] = {
         BankAccountCommand.WrappedRecoveredState(state).asInstanceOf[BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand]]
+      }
         
-      override def wrapPersistFailedAfterRetries(command: Any, cause: Throwable): BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand] =
+      override def wrapPersistFailedAfterRetries(command: Any, cause: Throwable): BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand] = {
         BankAccountCommand.WrappedPersistFailed(command, cause).asInstanceOf[BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand]]
+      }
         
       // その他の必要なメソッド...
+    }
+}
 
 // イベント
-enum BankAccountEvent:
+enum BankAccountEvent {
   def id: BankAccountId
   def occurredAt: Instant
   
   case Created(id: BankAccountId, occurredAt: Instant) extends BankAccountEvent
   case Deposited(id: BankAccountId, amount: Money, occurredAt: Instant) extends BankAccountEvent
   case Withdrawn(id: BankAccountId, amount: Money, occurredAt: Instant) extends BankAccountEvent
+}
 
 // 応答メッセージ
-enum CreateReply:
+enum CreateReply {
   case Succeeded(id: BankAccountId)
   case Failed(id: BankAccountId, error: BankAccountError)
+}
 
-enum DepositReply:
+enum DepositReply {
   case Succeeded(id: BankAccountId, amount: Money)
   case Failed(id: BankAccountId, error: BankAccountError)
+}
 
 // エラー型
-enum BankAccountError:
+enum BankAccountError {
   case InvalidAmount
   case InsufficientFunds
   case AlreadyExists
   case NotFound
+}
 
 // 2. 集約アクターの定義
-object BankAccountAggregate:
+object BankAccountAggregate {
   // enumを使用した状態定義
-  enum State:
+  enum State {
     def id: BankAccountId
     
     case NotCreated(id: BankAccountId) extends State
     case Active(id: BankAccountId, account: BankAccount) extends State
     
     // イベント適用ロジック
-    def applyEvent(event: BankAccountEvent): State = (this, event) match
+    def applyEvent(event: BankAccountEvent): State = (this, event) match {
       case (NotCreated(id), BankAccountEvent.Created(_, _)) =>
         Active(id, BankAccount(id))
         
@@ -234,9 +254,11 @@ object BankAccountAggregate:
         
       case _ =>
         throw IllegalStateException(s"Invalid state transition: $this -> $event")
+    }
+  }
   
   // アクターファクトリ
-  def apply(id: BankAccountId): Behavior[BankAccountCommand] =
+  def apply(id: BankAccountId): Behavior[BankAccountCommand] = {
     Behaviors.setup { context =>
       // PersistenceEffector設定の作成
       val config = PersistenceEffectorConfig[State, BankAccountEvent, BankAccountCommand](
@@ -256,12 +278,13 @@ object BankAccountAggregate:
         case (state: State.Active, effector) => handleActive(state, effector)
       }
     }
+  }
   
   // NotCreated状態のハンドラ
   private def handleNotCreated(
     state: State.NotCreated,
     effector: PersistenceEffector[State, BankAccountEvent, BankAccountCommand]
-  ): Behavior[BankAccountCommand] =
+  ): Behavior[BankAccountCommand] = {
     Behaviors.receiveMessagePartial {
       case cmd: BankAccountCommand.Create =>
         // 新しいアカウントを作成しイベントを生成
@@ -276,22 +299,24 @@ object BankAccountAggregate:
         
       case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
         // 永続化失敗の処理
-        cmd match
+        cmd match {
           case createCmd: BankAccountCommand.Create =>
             createCmd.replyTo ! CreateReply.Failed(createCmd.id, BankAccountError.AlreadyExists)
           case _ => // 他のコマンドは無視
+        }
         Behaviors.same
     }
+  }
   
   // Active状態のハンドラ
   private def handleActive(
     state: State.Active,
     effector: PersistenceEffector[State, BankAccountEvent, BankAccountCommand]
-  ): Behavior[BankAccountCommand] =
+  ): Behavior[BankAccountCommand] = {
     Behaviors.receiveMessagePartial {
       case cmd: BankAccountCommand.Deposit =>
         // ドメインロジックを実行
-        state.account.deposit(cmd.amount) match
+        state.account.deposit(cmd.amount) match {
           case Left(error) =>
             // ドメインバリデーション失敗
             cmd.replyTo ! DepositReply.Failed(cmd.id, error)
@@ -304,6 +329,7 @@ object BankAccountAggregate:
               cmd.replyTo ! DepositReply.Succeeded(cmd.id, cmd.amount)
               handleActive(state.copy(account = newAccount), effector)
             }
+        }
         
       case cmd: BankAccountCommand.Withdraw =>
         // Depositと同様の実装...
@@ -318,6 +344,8 @@ object BankAccountAggregate:
         // エラーログ記録、送信者への通知など
         Behaviors.same
     }
+  }
+}
 }
 ```
 
