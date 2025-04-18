@@ -22,6 +22,7 @@ ThisBuild / scmInfo := Some(
 )
 ThisBuild / publishTo := sonatypePublishToBundle.value
 ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
+ThisBuild / sonatypeTimeoutMillis := 60 * 60 * 1000
 
 lazy val root = (project in file("."))
   .settings(
