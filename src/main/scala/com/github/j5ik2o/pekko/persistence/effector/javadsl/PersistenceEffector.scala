@@ -149,3 +149,135 @@ trait PersistenceEffector[S, E, M] {
     forceSnapshot: Boolean,
     onPersisted: Function[util.List[E], Behavior[M]]): Behavior[M]
 }
+
+object PersistenceEffector {
+  import com.github.j5ik2o.pekko.persistence.effector.internal.javaimpl.PersistenceEffectorWrapper
+  import com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistenceEffector as ScalaPersistenceEffector
+  import org.apache.pekko.actor.typed.Behavior
+  import org.apache.pekko.actor.typed.scaladsl.Behaviors
+  import scala.jdk.OptionConverters.*
+  import java.util.{function, Optional}
+  import java.util.function.{BiFunction, Function}
+
+  /**
+   * パーシステンスモードでPersistenceEffectorを作成する
+   *
+   * @param persistenceId
+   *   永続化ID
+   * @param initialState
+   *   初期状態
+   * @param applyEvent
+   *   イベント適用関数
+   * @param messageConverter
+   *   メッセージコンバーター
+   * @param stashSize
+   *   スタッシュサイズ
+   * @param snapshotCriteria
+   *   スナップショット基準
+   * @param retentionCriteria
+   *   保持基準
+   * @param backoffConfig
+   *   バックオフ設定
+   * @param onReady
+   *   準備完了時のコールバック
+   * @return
+   *   Behavior
+   */
+  def create[S, E, M](
+    persistenceId: String,
+    initialState: S,
+    applyEvent: BiFunction[S, E, S],
+    messageConverter: MessageConverter[S, E, M],
+    stashSize: Int = Int.MaxValue,
+    snapshotCriteria: Optional[SnapshotCriteria[S, E]] = Optional.empty(),
+    retentionCriteria: Optional[RetentionCriteria] = Optional.empty(),
+    backoffConfig: Optional[BackoffConfig] = Optional.empty(),
+    onReady: BiFunction[S, PersistenceEffector[S, E, M], Behavior[M]],
+  ): Behavior[M] = {
+    val config = new PersistenceEffectorConfig[S, E, M](
+      persistenceId = persistenceId,
+      initialState = initialState,
+      applyEvent = applyEvent,
+      messageConverter = messageConverter,
+      persistenceMode = PersistenceMode.PERSISTENCE,
+      stashSize = stashSize,
+      snapshotCriteria = snapshotCriteria,
+      retentionCriteria = retentionCriteria,
+      backoffConfig = backoffConfig,
+    )
+    createWithConfig(config, onReady)
+  }
+
+  /**
+   * インメモリモードでPersistenceEffectorを作成する
+   *
+   * @param persistenceId
+   *   永続化ID
+   * @param initialState
+   *   初期状態
+   * @param applyEvent
+   *   イベント適用関数
+   * @param messageConverter
+   *   メッセージコンバーター
+   * @param stashSize
+   *   スタッシュサイズ
+   * @param snapshotCriteria
+   *   スナップショット基準
+   * @param retentionCriteria
+   *   保持基準
+   * @param backoffConfig
+   *   バックオフ設定
+   * @param onReady
+   *   準備完了時のコールバック
+   * @return
+   *   Behavior
+   */
+  def createInMemory[S, E, M](
+    persistenceId: String,
+    initialState: S,
+    applyEvent: BiFunction[S, E, S],
+    messageConverter: MessageConverter[S, E, M],
+    stashSize: Int = Int.MaxValue,
+    snapshotCriteria: Optional[SnapshotCriteria[S, E]] = Optional.empty(),
+    retentionCriteria: Optional[RetentionCriteria] = Optional.empty(),
+    backoffConfig: Optional[BackoffConfig] = Optional.empty(),
+    onReady: BiFunction[S, PersistenceEffector[S, E, M], Behavior[M]],
+  ): Behavior[M] = {
+    val config = new PersistenceEffectorConfig[S, E, M](
+      persistenceId = persistenceId,
+      initialState = initialState,
+      applyEvent = applyEvent,
+      messageConverter = messageConverter,
+      persistenceMode = PersistenceMode.IN_MEMORY,
+      stashSize = stashSize,
+      snapshotCriteria = snapshotCriteria,
+      retentionCriteria = retentionCriteria,
+      backoffConfig = backoffConfig,
+    )
+    createWithConfig(config, onReady)
+  }
+
+  /**
+   * 設定を指定してPersistenceEffectorを作成する
+   *
+   * @param config
+   *   設定
+   * @param onReady
+   *   準備完了時のコールバック
+   * @return
+   *   Behavior
+   */
+  def createWithConfig[S, E, M](
+    config: PersistenceEffectorConfig[S, E, M],
+    onReady: BiFunction[S, PersistenceEffector[S, E, M], Behavior[M]],
+  ): Behavior[M] =
+    Behaviors.setup { ctx =>
+      // ScalaDSL版のPersistenceEffectorを呼び出す
+      ScalaPersistenceEffector.create(config.toScala) { case (state, scalaEffector) =>
+        // JavaDSL用のPersistenceEffectorWrapperでラップ
+        val javaEffector = PersistenceEffectorWrapper(scalaEffector)
+        // onReadyコールバックを呼び出し
+        onReady.apply(state, javaEffector)
+      }(using ctx)
+    }
+}

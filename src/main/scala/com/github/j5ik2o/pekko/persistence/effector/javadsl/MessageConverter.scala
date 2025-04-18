@@ -1,6 +1,14 @@
 package com.github.j5ik2o.pekko.persistence.effector.javadsl
 
+import com.github.j5ik2o.pekko.persistence.effector.scaladsl.{
+  MessageConverter as SMessageConverter,
+  PersistedEvent as SPersistedEvent,
+  PersistedState as SPersistedState,
+  RecoveredState as SRecoveredState,
+  DeletedSnapshots as SDeletedSnapshots
+}
 import scala.compiletime.asMatchable
+import scala.jdk.CollectionConverters.*
 
 trait MessageConverter[S, E, M] {
   def wrapPersistedEvents(events: java.util.List[E]): M & PersistedEvent[E, M]
@@ -29,6 +37,30 @@ trait MessageConverter[S, E, M] {
   def unwrapDeleteSnapshots(message: M): Option[java.lang.Long] = message.asMatchable match {
     case msg: DeletedSnapshots[M] @unchecked => Some(msg.maxSequenceNumber)
     case _ => None
+  }
+
+  def toScala: SMessageConverter[S, E, M] = {
+    val self = this
+    new SMessageConverter[S, E, M] {
+      override def wrapPersistedEvents(events: Seq[E]): M & com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedEvent[E, M] = {
+        val javaEvents = events.asJava
+        val result = self.wrapPersistedEvents(javaEvents)
+        result.toScala.asInstanceOf[M & com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedEvent[E, M]]
+      }
+      override def wrapPersistedSnapshot(state: S): M & com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M] = {
+        val result = self.wrapPersistedSnapshot(state)
+        result.toScala.asInstanceOf[M & com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M]]
+      }
+      override def wrapRecoveredState(state: S): M & com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M] = {
+        val result = self.wrapRecoveredState(state)
+        result.toScala.asInstanceOf[M & com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M]]
+      }
+      override def wrapDeleteSnapshots(maxSequenceNumber: Long): M & com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M] = {
+        val javaLong = maxSequenceNumber.asInstanceOf[java.lang.Long]
+        val result = self.wrapDeleteSnapshots(javaLong)
+        result.toScala.asInstanceOf[M & com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M]]
+      }
+    }
   }
 
 }
