@@ -53,26 +53,6 @@ trait PersistenceEffector[S, E, M] {
 }
 ```
 
-### InMemoryEffector
-
-イベントとスナップショットをメモリに保存するPersistenceEffectorの実装です。
-
-```scala
-final class InMemoryEffector[S, E, M](
-  ctx: ActorContext[M],
-  stashBuffer: StashBuffer[M],
-  config: PersistenceEffectorConfig[S, E, M],
-) extends PersistenceEffector[S, E, M]
-```
-
-- **主な特徴**:
-  - イベントとスナップショットをメモリに保存
-  - イベントとスナップショットはメモリに保存されるため、データベース設定なしで高速開発が可能
-  - アクター初期化時に保存されたイベントから状態を復元
-  - 実際のデータベース操作のレイテンシーなしでの即時永続化
-  - 開発、テスト、プロトタイピングフェーズに最適
-  - 後で実際の永続化に移行するためのシームレスなパスを提供
-
 ### PersistenceEffectorConfig
 
 PersistenceEffector の設定を定義するケースクラスです。
