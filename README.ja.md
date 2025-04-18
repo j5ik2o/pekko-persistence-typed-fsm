@@ -296,15 +296,6 @@ object BankAccountAggregate {
           cmd.replyTo ! CreateReply.Succeeded(cmd.id)
           handleActive(State.Active(cmd.id, BankAccount(cmd.id)), effector)
         }
-        
-      case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
-        // 永続化失敗の処理
-        cmd match {
-          case createCmd: BankAccountCommand.Create =>
-            createCmd.replyTo ! CreateReply.Failed(createCmd.id, BankAccountError.AlreadyExists)
-          case _ => // 他のコマンドは無視
-        }
-        Behaviors.same
     }
   }
   
@@ -337,11 +328,6 @@ object BankAccountAggregate {
       case cmd: BankAccountCommand.GetBalance =>
         // 読み取り専用操作、永続化不要
         cmd.replyTo ! GetBalanceReply.Success(cmd.id, state.account.balance)
-        Behaviors.same
-        
-      case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
-        // 異なるコマンドに対する永続化失敗の処理
-        // エラーログ記録、送信者への通知など
         Behaviors.same
     }
   }

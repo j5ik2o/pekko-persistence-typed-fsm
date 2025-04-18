@@ -296,15 +296,6 @@ object BankAccountAggregate {
           cmd.replyTo ! CreateReply.Succeeded(cmd.id)
           handleActive(State.Active(cmd.id, BankAccount(cmd.id)), effector)
         }
-        
-      case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
-        // Handle persistence failure
-        cmd match {
-          case createCmd: BankAccountCommand.Create =>
-            createCmd.replyTo ! CreateReply.Failed(createCmd.id, BankAccountError.AlreadyExists)
-          case _ => // Ignore other commands
-        }
-        Behaviors.same
     }
   }
   
@@ -337,11 +328,6 @@ object BankAccountAggregate {
       case cmd: BankAccountCommand.GetBalance =>
         // Read-only operation, no persistence needed
         cmd.replyTo ! GetBalanceReply.Success(cmd.id, state.account.balance)
-        Behaviors.same
-        
-      case BankAccountCommand.WrappedPersistFailed(cmd, cause) =>
-        // Handle persistence failure for different commands
-        // Log error, notify sender, etc.
         Behaviors.same
     }
   }
