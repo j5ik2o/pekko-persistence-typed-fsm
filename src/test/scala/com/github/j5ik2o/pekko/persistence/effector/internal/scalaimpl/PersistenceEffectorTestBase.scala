@@ -59,13 +59,16 @@ abstract class PersistenceEffectorTestBase
       val initialState = TestState()
 
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
+          snapshotCriteria = None,
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       val recoveredEvents = ArrayBuffer.empty[TestMessage]
@@ -94,13 +97,16 @@ abstract class PersistenceEffectorTestBase
       val events = ArrayBuffer.empty[TestMessage]
 
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
-          persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
+          persistenceMode = persistenceMode,
+          snapshotCriteria = None,
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       val probe = createTestProbe[TestMessage]()
@@ -130,13 +136,16 @@ abstract class PersistenceEffectorTestBase
       val events = ArrayBuffer.empty[TestMessage]
 
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
-          persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
+          persistenceMode = persistenceMode,
+          snapshotCriteria = None,
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       val probe = createTestProbe[TestMessage]()
@@ -170,13 +179,16 @@ abstract class PersistenceEffectorTestBase
 
       // 1回目の設定
       val config1 =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
-          persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
+          persistenceMode = persistenceMode,
+          snapshotCriteria = None,
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       // 1回目のアクターを実行してイベントを永続化
@@ -206,13 +218,16 @@ abstract class PersistenceEffectorTestBase
 
       // 2回目の設定（同じpersistenceIDを使用）
       val config2 =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState, // 初期状態は同じものを渡すが、復元されるはず
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
-          persistenceMode = persistenceMode, // サブクラスで指定されたモードを使用
+          persistenceMode = persistenceMode,
+          snapshotCriteria = None,
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       // 新しいプローブを作成
@@ -262,15 +277,17 @@ abstract class PersistenceEffectorTestBase
       val snapshots = ArrayBuffer.empty[TestMessage]
 
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
           // Force snapshot on every event
           snapshotCriteria = Some(SnapshotCriteria.always[TestState, TestEvent]),
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
@@ -315,15 +332,17 @@ abstract class PersistenceEffectorTestBase
       val snapshots = ArrayBuffer.empty[TestMessage]
 
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
           // Force snapshot on every even sequence number
           snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
@@ -366,15 +385,17 @@ abstract class PersistenceEffectorTestBase
       val snapshots = ArrayBuffer.empty[TestMessage]
 
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
           // スナップショットを生成しない設定（代わりに常に条件付きでforce=trueを使う）
           snapshotCriteria = None,
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
@@ -418,15 +439,16 @@ abstract class PersistenceEffectorTestBase
       val deletedSnapshotMessages = ArrayBuffer.empty[TestMessage]
 
       // スナップショットを2つおきに作成し、最新の2つだけ保持する設定
-      val config = PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+      val config = PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
         persistenceId = persistenceId,
         initialState = initialState,
         applyEvent = (state, event) => state.applyEvent(event),
-        messageConverter = messageConverter,
         stashSize = Int.MaxValue,
         persistenceMode = persistenceMode,
         snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
         retentionCriteria = Some(RetentionCriteria.snapshotEvery(2, 2)),
+        backoffConfig = None,
+        messageConverter = messageConverter,
       )
 
       // 6つのイベントを永続化して、3つのスナップショットを作成する

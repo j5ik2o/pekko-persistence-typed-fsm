@@ -118,4 +118,30 @@ object MessageConverter {
     wrapDeleteSnapshots: java.util.function.Function[java.lang.Long, M & DeletedSnapshots[M]],
   ): MessageConverter[S, E, M] =
     Default(wrapPersistedEvents, wrapPersistedState, wrapRecoveredState, wrapDeleteSnapshots)
+
+  // 標準的なメッセージラッパークラス（内部パッケージに移動することも検討）
+  private[effector] class StandardJavaPersistedEvent[E](val events: java.util.List[E])
+    extends PersistedEvent[E, Any]
+
+  private[effector] class StandardJavaPersistedState[S](val state: S) extends PersistedState[S, Any]
+
+  private[effector] class StandardJavaRecoveredState[S](val state: S) extends RecoveredState[S, Any]
+
+  private[effector] class StandardJavaDeletedSnapshots(val maxSequenceNumber: Long)
+    extends DeletedSnapshots[Any]
+
+  def defaultFunction[S, E, M]: MessageConverter[S, E, M] =
+    new MessageConverter[S, E, M] {
+      override def wrapPersistedEvents(events: java.util.List[E]): M & PersistedEvent[E, M] =
+        new StandardJavaPersistedEvent[E](events).asInstanceOf[M & PersistedEvent[E, M]]
+
+      override def wrapPersistedSnapshot(state: S): M & PersistedState[S, M] =
+        new StandardJavaPersistedState[S](state).asInstanceOf[M & PersistedState[S, M]]
+
+      override def wrapRecoveredState(state: S): M & RecoveredState[S, M] =
+        new StandardJavaRecoveredState[S](state).asInstanceOf[M & RecoveredState[S, M]]
+
+      override def wrapDeleteSnapshots(maxSequenceNumber: java.lang.Long): M & DeletedSnapshots[M] =
+        new StandardJavaDeletedSnapshots(maxSequenceNumber).asInstanceOf[M & DeletedSnapshots[M]]
+    }
 }

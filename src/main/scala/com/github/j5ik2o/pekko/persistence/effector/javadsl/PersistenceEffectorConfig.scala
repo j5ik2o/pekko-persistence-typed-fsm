@@ -8,16 +8,16 @@ import com.github.j5ik2o.pekko.persistence.effector.scaladsl.{
 import java.util.Optional
 import scala.jdk.OptionConverters.*
 
-final case class PersistenceEffectorConfig[S, E, M](
+final case class PersistenceEffectorConfig[S, E, M] private (
   persistenceId: String,
   initialState: S,
   applyEvent: java.util.function.BiFunction[S, E, S],
-  messageConverter: MessageConverter[S, E, M],
   persistenceMode: PersistenceMode,
   stashSize: Int,
   snapshotCriteria: Optional[SnapshotCriteria[S, E]] = Optional.empty(),
   retentionCriteria: Optional[RetentionCriteria] = Optional.empty(),
   backoffConfig: Optional[BackoffConfig] = Optional.empty(),
+  messageConverter: MessageConverter[S, E, M],
 ) {
   def toScala: SPersistenceEffectorConfig[S, E, M] = {
     val scalaPersistenceMode = persistenceMode match {
@@ -25,16 +25,16 @@ final case class PersistenceEffectorConfig[S, E, M](
       case PersistenceMode.EPHEMERAL => SPersistenceMode.Ephemeral
     }
 
-    SPersistenceEffectorConfig(
+    SPersistenceEffectorConfig.create(
       persistenceId = persistenceId,
       initialState = initialState,
       applyEvent = (s: S, e: E) => applyEvent.apply(s, e),
-      messageConverter = messageConverter.toScala,
       persistenceMode = scalaPersistenceMode,
       stashSize = stashSize,
       snapshotCriteria = snapshotCriteria.toScala.map(_.toScala),
       retentionCriteria = retentionCriteria.toScala.map(_.toScala),
       backoffConfig = backoffConfig.toScala.map(_.toScala),
+      messageConverter = messageConverter.toScala,
     )
   }
   def wrapPersistedEvents: java.util.function.Function[java.util.List[E], M] =
@@ -52,4 +52,51 @@ final case class PersistenceEffectorConfig[S, E, M](
     messageConverter.unwrapRecoveredState
   def unwrapDeleteSnapshots: java.util.function.Function[M, Option[java.lang.Long]] =
     messageConverter.unwrapDeleteSnapshots
+}
+
+object PersistenceEffectorConfig {
+  def create[S, E, M](
+    persistenceId: String,
+    initialState: S,
+    applyEvent: java.util.function.BiFunction[S, E, S],
+    persistenceMode: PersistenceMode,
+    stashSize: Int,
+    snapshotCriteria: Optional[SnapshotCriteria[S, E]],
+    retentionCriteria: Optional[RetentionCriteria],
+    backoffConfig: Optional[BackoffConfig],
+    messageConverter: MessageConverter[S, E, M],
+  ): PersistenceEffectorConfig[S, E, M] =
+    new PersistenceEffectorConfig[S, E, M](
+      persistenceId = persistenceId,
+      initialState = initialState,
+      applyEvent = applyEvent,
+      persistenceMode = persistenceMode,
+      stashSize = stashSize,
+      snapshotCriteria = snapshotCriteria,
+      retentionCriteria = retentionCriteria,
+      backoffConfig = backoffConfig,
+      messageConverter = messageConverter,
+    )
+
+  def create[S, E, M](
+    persistenceId: String,
+    initialState: S,
+    applyEvent: java.util.function.BiFunction[S, E, S],
+    persistenceMode: PersistenceMode,
+    stashSize: Int,
+    snapshotCriteria: Optional[SnapshotCriteria[S, E]],
+    retentionCriteria: Optional[RetentionCriteria],
+    backoffConfig: Optional[BackoffConfig],
+  ): PersistenceEffectorConfig[S, E, M] =
+    new PersistenceEffectorConfig[S, E, M](
+      persistenceId = persistenceId,
+      initialState = initialState,
+      applyEvent = applyEvent,
+      persistenceMode = persistenceMode,
+      stashSize = stashSize,
+      snapshotCriteria = snapshotCriteria,
+      retentionCriteria = retentionCriteria,
+      backoffConfig = backoffConfig,
+      messageConverter = MessageConverter.defaultFunction,
+    )
 }

@@ -150,16 +150,16 @@ object PersistenceEffector {
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] = {
-    val config = PersistenceEffectorConfig(
+    val config = PersistenceEffectorConfig.create(
       persistenceId = persistenceId,
       initialState = initialState,
       applyEvent = applyEvent,
-      messageConverter = messageConverter,
       persistenceMode = PersistenceMode.Persisted,
       stashSize = stashSize,
       snapshotCriteria = snapshotCriteria,
       retentionCriteria = retentionCriteria,
       backoffConfig = backoffConfig,
+      messageConverter = messageConverter,
     )
     build(config)(onReady)
   }
@@ -202,16 +202,16 @@ object PersistenceEffector {
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] = {
-    val config = PersistenceEffectorConfig(
+    val config = PersistenceEffectorConfig.create(
       persistenceId = persistenceId,
       initialState = initialState,
       applyEvent = applyEvent,
-      messageConverter = messageConverter,
       persistenceMode = PersistenceMode.Ephemeral,
       stashSize = stashSize,
       snapshotCriteria = snapshotCriteria,
       retentionCriteria = retentionCriteria,
       backoffConfig = backoffConfig,
+      messageConverter = messageConverter,
     )
     build(config)(onReady)
   }

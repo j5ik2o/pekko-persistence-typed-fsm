@@ -1,10 +1,6 @@
 package com.github.j5ik2o.pekko.persistence.effector.example.javaimpl;
 
-import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceEffector;
-import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceEffectorConfig;
-import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceMode;
-import com.github.j5ik2o.pekko.persistence.effector.javadsl.RetentionCriteria;
-import com.github.j5ik2o.pekko.persistence.effector.javadsl.SnapshotCriteria;
+import com.github.j5ik2o.pekko.persistence.effector.javadsl.*;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
@@ -116,19 +112,19 @@ public class BankAccountAggregate {
       ctx.getLog().debug("Creating BankAccount actor: {}", actorName(aggregateId));
 
       // メッセージコンバーターを作成
-      var messageConverter = new BankAccountCommand.Protocol().getJavaMessageConverter();
+      // var messageConverter = new BankAccountCommand.Protocol().getJavaMessageConverter();
 
       // PersistenceEffectorConfigを作成
-      var config = new PersistenceEffectorConfig<>(
+      PersistenceEffectorConfig<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> config = PersistenceEffectorConfig.create(
         actorName(aggregateId),
         new State.NotCreated(aggregateId),
         State::applyEvent,
-        messageConverter,
         persistenceMode,
         32,
         Optional.of(SnapshotCriteria.every(2)),
         Optional.of(RetentionCriteria.ofSnapshotEvery(2)),
         Optional.empty()
+        // , messageConverter
       );
 
       // fromConfigを使用してPersistenceEffectorを作成

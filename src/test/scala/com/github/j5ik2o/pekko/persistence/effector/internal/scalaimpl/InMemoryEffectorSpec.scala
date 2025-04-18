@@ -27,13 +27,16 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
       val event = TestEvent.TestEventA("test-state-access")
 
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
+          snapshotCriteria = None,
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       // InMemoryEffectorを取得するためのテスト用参照
@@ -86,13 +89,16 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
       }
 
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = countingApplyEvent, // カウンター付きの関数を使用
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
+          snapshotCriteria = None,
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>

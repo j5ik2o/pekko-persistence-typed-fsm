@@ -50,14 +50,16 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
 
       // CountBasedのスナップショット戦略を設定（2イベントごと）
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           persistenceMode = persistenceMode,
           stashSize = Int.MaxValue,
           snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       // テスト用データ
@@ -129,14 +131,16 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
 
       // CountBasedのスナップショット戦略を設定（2イベントごと）
       val config =
-        PersistenceEffectorConfig[TestState, TestEvent, TestMessage](
+        PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
           applyEvent = (state, event) => state.applyEvent(event),
-          messageConverter = messageConverter,
           stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
           snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
+          retentionCriteria = None,
+          backoffConfig = None,
+          messageConverter = messageConverter,
         )
 
       // テスト用データ

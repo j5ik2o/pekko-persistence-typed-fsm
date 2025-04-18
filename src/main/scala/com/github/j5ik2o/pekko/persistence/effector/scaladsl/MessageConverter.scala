@@ -54,4 +54,30 @@ object MessageConverter {
     wrapDeleteSnapshots: Long => M & DeletedSnapshots[M],
   ): MessageConverter[S, E, M] =
     Default(wrapPersistedEvents, wrapPersistedState, wrapRecoveredState, wrapDeleteSnapshots)
+
+  private[effector] case class StandardPersistedEvent[E](events: Seq[E])
+    extends PersistedEvent[E, Any]
+
+  private[effector] case class StandardPersistedState[S](state: S) extends PersistedState[S, Any]
+
+  private[effector] case class StandardRecoveredState[S](state: S) extends RecoveredState[S, Any]
+
+  private[effector] case class StandardDeletedSnapshots(maxSequenceNumber: Long)
+    extends DeletedSnapshots[Any]
+
+  // デフォルトのMessageConverterを提供するメソッド
+  def default[S, E, M]: MessageConverter[S, E, M] = new MessageConverter[S, E, M] {
+    override def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M] =
+      StandardPersistedEvent(events).asInstanceOf[M & PersistedEvent[E, M]]
+
+    override def wrapPersistedSnapshot(state: S): M & PersistedState[S, M] =
+      StandardPersistedState(state).asInstanceOf[M & PersistedState[S, M]]
+
+    override def wrapRecoveredState(state: S): M & RecoveredState[S, M] =
+      StandardRecoveredState(state).asInstanceOf[M & RecoveredState[S, M]]
+
+    override def wrapDeleteSnapshots(maxSequenceNumber: Long): M & DeletedSnapshots[M] =
+      StandardDeletedSnapshots(maxSequenceNumber).asInstanceOf[M & DeletedSnapshots[M]]
+  }
+
 }

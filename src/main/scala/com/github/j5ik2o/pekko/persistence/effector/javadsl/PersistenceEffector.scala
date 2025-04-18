@@ -193,7 +193,7 @@ object PersistenceEffector {
     backoffConfig: Optional[BackoffConfig] = Optional.empty(),
     onReady: BiFunction[S, PersistenceEffector[S, E, M], Behavior[M]],
   ): Behavior[M] = {
-    val config = new PersistenceEffectorConfig[S, E, M](
+    val config = PersistenceEffectorConfig.create[S, E, M](
       persistenceId = persistenceId,
       initialState = initialState,
       applyEvent = applyEvent,
@@ -242,7 +242,7 @@ object PersistenceEffector {
     backoffConfig: Optional[BackoffConfig] = Optional.empty(),
     onReady: BiFunction[S, PersistenceEffector[S, E, M], Behavior[M]],
   ): Behavior[M] = {
-    val config = new PersistenceEffectorConfig[S, E, M](
+    val config = PersistenceEffectorConfig.create[S, E, M](
       persistenceId = persistenceId,
       initialState = initialState,
       applyEvent = applyEvent,
