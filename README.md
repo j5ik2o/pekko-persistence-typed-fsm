@@ -226,7 +226,11 @@ This library is particularly well-suited for:
 Add the following to your build.sbt:
 
 ```scala
-libraryDependencies += "com.github.j5ik2o" %% "pekko-persistence-effector" % "0.1.0-SNAPSHOT"
+resolvers += "GitHub Packages" at
+  "https://maven.pkg.github.com/j5ik2o/pekko-persistence-effector"
+libraryDependencies ++= Seq(
+  "com.github.j5ik2o" %% "pekko-persistence-effector" % "..."
+)
 ```
 
 ## License
