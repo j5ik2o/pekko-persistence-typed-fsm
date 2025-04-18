@@ -16,7 +16,7 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.jdk.CollectionConverters.*
 
-object PersistenceEffectorWrapper {
+private[effector] object PersistenceEffectorWrapper {
 
   def create[S, E, M](
     underlying: ScalaDPE[S, E, M],

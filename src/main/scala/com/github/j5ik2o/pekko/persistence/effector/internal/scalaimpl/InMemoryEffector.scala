@@ -11,7 +11,7 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, StashBuffer}
 /**
  * インメモリ版のPersistenceEffector実装
  */
-final class InMemoryEffector[S, E, M](
+private[effector] final class InMemoryEffector[S, E, M](
   ctx: ActorContext[M],
   stashBuffer: StashBuffer[M],
   config: PersistenceEffectorConfig[S, E, M],

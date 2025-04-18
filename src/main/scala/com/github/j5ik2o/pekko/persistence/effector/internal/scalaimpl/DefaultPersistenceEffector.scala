@@ -11,7 +11,7 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.compiletime.asMatchable
 
-final class DefaultPersistenceEffector[S, E, M](
+private[effector] final class DefaultPersistenceEffector[S, E, M](
   ctx: ActorContext[M],
   stashBuffer: StashBuffer[M],
   config: PersistenceEffectorConfig[S, E, M],

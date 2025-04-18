@@ -3,7 +3,7 @@ package com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl
 /**
  * インメモリのイベントとスナップショットを格納するためのシングルトンオブジェクト
  */
-object InMemoryEventStore {
+private[effector] object InMemoryEventStore {
 
   import scala.jdk.CollectionConverters.*
 
