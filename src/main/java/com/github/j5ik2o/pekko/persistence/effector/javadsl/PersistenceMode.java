@@ -5,5 +5,5 @@ public enum PersistenceMode {
   PERSISTENCE,
 
   /** インメモリモード（ディスクに保存しない） */
-  IN_MEMORY
+  EPHEMERAL
 }

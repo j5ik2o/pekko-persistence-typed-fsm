@@ -71,7 +71,7 @@ abstract class PersistenceEffectorTestBase
       val recoveredEvents = ArrayBuffer.empty[TestMessage]
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             recoveredEvents += TestMessage.StateRecovered(state)
             Behaviors.receiveMessage { _ =>
@@ -106,7 +106,7 @@ abstract class PersistenceEffectorTestBase
       val probe = createTestProbe[TestMessage]()
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             effector.persistEvent(event) { _ =>
               events += TestMessage.EventPersisted(Seq(event))
@@ -142,7 +142,7 @@ abstract class PersistenceEffectorTestBase
       val probe = createTestProbe[TestMessage]()
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             effector.persistEvents(initialEvents) { _ =>
               events += TestMessage.EventPersisted(initialEvents)
@@ -181,7 +181,7 @@ abstract class PersistenceEffectorTestBase
 
       // 1回目のアクターを実行してイベントを永続化
       val behavior1 = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config1) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config1) {
           case (state, effector) =>
             // 最初に1つ目のイベントを永続化
             effector.persistEvent(event1) { _ =>
@@ -220,7 +220,7 @@ abstract class PersistenceEffectorTestBase
 
       // 2回目のアクターを実行（同じID）
       val behavior2 = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config2) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config2) {
           case (state, effector) =>
             // 復元された状態を記録
             secondRunRecoveredState += state
@@ -274,7 +274,7 @@ abstract class PersistenceEffectorTestBase
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // persistEventWithStateを使用
             effector.persistEventWithSnapshot(event, newState, forceSnapshot = false) { _ =>
@@ -327,7 +327,7 @@ abstract class PersistenceEffectorTestBase
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // persistEventsWithStateを使用
             effector.persistEventsWithSnapshot(events, newState, forceSnapshot = false) { _ =>
@@ -378,7 +378,7 @@ abstract class PersistenceEffectorTestBase
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // 先にイベントを永続化
             effector.persistEvent(event) { _ =>
@@ -440,7 +440,7 @@ abstract class PersistenceEffectorTestBase
 
       // テスト用アクター
       val actor = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (initialEffectorState, effector) =>
             var currentState = initialEffectorState
 

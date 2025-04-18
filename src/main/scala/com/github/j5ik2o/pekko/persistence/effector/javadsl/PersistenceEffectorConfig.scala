@@ -22,7 +22,7 @@ final case class PersistenceEffectorConfig[S, E, M](
   def toScala: SPersistenceEffectorConfig[S, E, M] = {
     val scalaPersistenceMode = persistenceMode match {
       case PersistenceMode.PERSISTENCE => SPersistenceMode.Persisted
-      case PersistenceMode.IN_MEMORY => SPersistenceMode.InMemory
+      case PersistenceMode.EPHEMERAL => SPersistenceMode.Ephemeral
     }
 
     SPersistenceEffectorConfig(

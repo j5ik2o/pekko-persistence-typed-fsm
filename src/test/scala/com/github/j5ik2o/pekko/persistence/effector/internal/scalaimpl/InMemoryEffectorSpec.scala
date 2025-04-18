@@ -14,7 +14,7 @@ import java.util
  * InMemoryモードを使用したPersistenceEffectorのテスト
  */
 class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
-  override def persistenceMode: PersistenceMode = PersistenceMode.InMemory
+  override def persistenceMode: PersistenceMode = PersistenceMode.Ephemeral
 
   // スナップショットテストを有効化
   override def runSnapshotTests: Boolean = true
@@ -42,7 +42,7 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
       var updatedState: TestState = initialState
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // 型キャストで InMemoryEffector を取得
             val inMemoryEffector =
@@ -96,7 +96,7 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
         )
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // 初期状態の復元でapplyEventが呼ばれているためリセット
             applyEventCount = 0

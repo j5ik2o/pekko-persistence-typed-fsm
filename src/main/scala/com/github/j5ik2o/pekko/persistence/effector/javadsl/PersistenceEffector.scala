@@ -155,12 +155,11 @@ object PersistenceEffector {
   import com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistenceEffector as ScalaPersistenceEffector
   import org.apache.pekko.actor.typed.Behavior
   import org.apache.pekko.actor.typed.scaladsl.Behaviors
-  import scala.jdk.OptionConverters.*
   import java.util.{function, Optional}
-  import java.util.function.{BiFunction, Function}
+  import java.util.function.BiFunction
 
   /**
-   * パーシステンスモードでPersistenceEffectorを作成する
+   * 永続化モードでPersistenceEffectorを作成する
    *
    * @param persistenceId
    *   永続化ID
@@ -183,7 +182,7 @@ object PersistenceEffector {
    * @return
    *   Behavior
    */
-  def create[S, E, M](
+  def persisted[S, E, M](
     persistenceId: String,
     initialState: S,
     applyEvent: BiFunction[S, E, S],
@@ -205,7 +204,7 @@ object PersistenceEffector {
       retentionCriteria = retentionCriteria,
       backoffConfig = backoffConfig,
     )
-    createWithConfig(config, onReady)
+    build(config, onReady)
   }
 
   /**
@@ -232,7 +231,7 @@ object PersistenceEffector {
    * @return
    *   Behavior
    */
-  def createInMemory[S, E, M](
+  def ephemeral[S, E, M](
     persistenceId: String,
     initialState: S,
     applyEvent: BiFunction[S, E, S],
@@ -248,13 +247,13 @@ object PersistenceEffector {
       initialState = initialState,
       applyEvent = applyEvent,
       messageConverter = messageConverter,
-      persistenceMode = PersistenceMode.IN_MEMORY,
+      persistenceMode = PersistenceMode.EPHEMERAL,
       stashSize = stashSize,
       snapshotCriteria = snapshotCriteria,
       retentionCriteria = retentionCriteria,
       backoffConfig = backoffConfig,
     )
-    createWithConfig(config, onReady)
+    build(config, onReady)
   }
 
   /**
@@ -267,17 +266,34 @@ object PersistenceEffector {
    * @return
    *   Behavior
    */
-  def createWithConfig[S, E, M](
+  def fromConfig[S, E, M](
+    config: PersistenceEffectorConfig[S, E, M],
+    onReady: BiFunction[S, PersistenceEffector[S, E, M], Behavior[M]],
+  ): Behavior[M] =
+    build(config, onReady)
+
+  /**
+   * 設定に基づいてPersistenceEffectorを構築する
+   *
+   * @param config
+   *   設定
+   * @param onReady
+   *   準備完了時のコールバック
+   * @return
+   *   Behavior
+   */
+  private def build[S, E, M](
     config: PersistenceEffectorConfig[S, E, M],
     onReady: BiFunction[S, PersistenceEffector[S, E, M], Behavior[M]],
   ): Behavior[M] =
     Behaviors.setup { ctx =>
       // ScalaDSL版のPersistenceEffectorを呼び出す
-      ScalaPersistenceEffector.create(config.toScala) { case (state, scalaEffector) =>
+      ScalaPersistenceEffector.fromConfig(config.toScala) { case (state, scalaEffector) =>
         // JavaDSL用のPersistenceEffectorWrapperでラップ
         val javaEffector = PersistenceEffectorWrapper(scalaEffector)
         // onReadyコールバックを呼び出し
         onReady.apply(state, javaEffector)
       }(using ctx)
     }
+
 }

@@ -1,10 +1,10 @@
 package com.github.j5ik2o.pekko.persistence.effector.example.javaimpl;
 
 import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceEffector;
+import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceEffectorConfig;
 import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceMode;
 import com.github.j5ik2o.pekko.persistence.effector.javadsl.RetentionCriteria;
 import com.github.j5ik2o.pekko.persistence.effector.javadsl.SnapshotCriteria;
-import org.apache.pekko.actor.typed.ActorRef;
 import org.apache.pekko.actor.typed.Behavior;
 import org.apache.pekko.actor.typed.javadsl.ActorContext;
 import org.apache.pekko.actor.typed.javadsl.Behaviors;
@@ -118,60 +118,37 @@ public class BankAccountAggregate {
       // メッセージコンバーターを作成
       var messageConverter = new BankAccountCommand.Protocol().getJavaMessageConverter();
 
-      // 永続化モードに応じたPersistenceEffectorを作成
-      if (persistenceMode == PersistenceMode.IN_MEMORY) {
-        // インメモリモードの場合
-        ctx.getLog().debug("Using IN_MEMORY mode for {}", aggregateId);
-        return PersistenceEffector.createInMemory(
-          actorName(aggregateId),
-          new State.NotCreated(aggregateId),
-          State::applyEvent,
-          messageConverter,
-          32,
-          Optional.of(SnapshotCriteria.every(2)),
-          Optional.of(RetentionCriteria.ofSnapshotEvery(2)),
-          Optional.empty(),
-          (state, effector) -> {
-            ctx.getLog().debug("Handling state: {}", state);
+      // PersistenceEffectorConfigを作成
+      var config = new PersistenceEffectorConfig<>(
+        actorName(aggregateId),
+        new State.NotCreated(aggregateId),
+        State::applyEvent,
+        messageConverter,
+        persistenceMode,
+        32,
+        Optional.of(SnapshotCriteria.every(2)),
+        Optional.of(RetentionCriteria.ofSnapshotEvery(2)),
+        Optional.empty()
+      );
 
-            // 状態に応じたハンドラーを呼び出す
-            if (state instanceof State.NotCreated) {
-              return handleNotCreated((State.NotCreated) state, effector, ctx);
-            } else if (state instanceof State.Created) {
-              return handleCreated((State.Created) state, effector, ctx);
-            } else {
-              ctx.getLog().error("Unknown state: {}", state);
-              throw new IllegalStateException("Unknown state: " + state);
-            }
-          }
-        );
-      } else {
-        // 通常の永続化モードの場合
-        ctx.getLog().debug("Using PERSISTENCE mode for {}", aggregateId);
-        return PersistenceEffector.create(
-          actorName(aggregateId),
-          new State.NotCreated(aggregateId),
-          State::applyEvent,
-          messageConverter,
-          32,
-          Optional.of(SnapshotCriteria.every(2)),
-          Optional.of(RetentionCriteria.ofSnapshotEvery(2)),
-          Optional.empty(),
-          (state, effector) -> {
-            ctx.getLog().debug("Handling state: {}", state);
+      // fromConfigを使用してPersistenceEffectorを作成
+      ctx.getLog().debug("Using {} mode for {}", persistenceMode, aggregateId);
+      return PersistenceEffector.fromConfig(
+        config,
+        (state, effector) -> {
+          ctx.getLog().debug("Handling state: {}", state);
 
-            // 状態に応じたハンドラーを呼び出す
-            if (state instanceof State.NotCreated) {
-              return handleNotCreated((State.NotCreated) state, effector, ctx);
-            } else if (state instanceof State.Created) {
-              return handleCreated((State.Created) state, effector, ctx);
-            } else {
-              ctx.getLog().error("Unknown state: {}", state);
-              throw new IllegalStateException("Unknown state: " + state);
-            }
+          // 状態に応じたハンドラーを呼び出す
+          if (state instanceof State.NotCreated) {
+            return handleNotCreated((State.NotCreated) state, effector, ctx);
+          } else if (state instanceof State.Created) {
+            return handleCreated((State.Created) state, effector, ctx);
+          } else {
+            ctx.getLog().error("Unknown state: {}", state);
+            throw new IllegalStateException("Unknown state: " + state);
           }
-        );
-      }
+        }
+      );
     });
   }
 

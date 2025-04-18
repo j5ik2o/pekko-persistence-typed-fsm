@@ -54,14 +54,15 @@ object BankAccountAggregate {
         retentionCriteria = Some(RetentionCriteria.snapshotEvery(2)),
       )
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
-      PersistenceEffector.create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
-        config,
-      ) {
-        case (initialState: State.NotCreated, effector) =>
-          handleNotCreated(initialState, effector)
-        case (initialState: State.Created, effector) =>
-          handleCreated(initialState, effector)
-      }
+      PersistenceEffector
+        .fromConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
+          config,
+        ) {
+          case (initialState: State.NotCreated, effector) =>
+            handleNotCreated(initialState, effector)
+          case (initialState: State.Created, effector) =>
+            handleCreated(initialState, effector)
+        }
     }
   }
 

@@ -71,7 +71,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
 
       // アクターを起動
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // イベントを順に永続化する関数
             def persistNextEvent(
@@ -149,7 +149,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
 
       // 1回目のアクター実行
       val behavior1 = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // イベントを順に永続化する関数
             def persistNextEvent(
@@ -207,7 +207,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
 
       // 2回目のアクターを起動
       val behavior2 = spawn(Behaviors.setup[TestMessage] { context =>
-        PersistenceEffector.create[TestState, TestEvent, TestMessage](config) {
+        PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // 回復された状態を記録
             recoveredState += state

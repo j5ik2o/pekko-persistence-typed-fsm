@@ -7,7 +7,7 @@ import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceMode
  * InMemoryモードを使用したBankAccountAggregateのテスト
  */
 class InMemoryBankAccountAggregateSpec extends BankAccountAggregateTestBase {
-  override def persistenceMode: PersistenceMode = PersistenceMode.IN_MEMORY
+  override def persistenceMode: PersistenceMode = PersistenceMode.EPHEMERAL
 
   // テスト終了時にInMemoryStoreをクリア
   override def afterAll(): Unit = {

@@ -112,40 +112,33 @@ object PersistenceEffector {
   // リカバリー完了を内部的に扱うためのメッセージ
   private case class RecoveryCompletedInternal[S](state: S, sequenceNr: Long)
 
-  def create[S, E, M <: Matchable](
-    persistenceId: String,
-    initialState: S,
-    applyEvent: (S, E) => S,
-    messageConverter: MessageConverter[S, E, M],
-    stashSize: Int = Int.MaxValue,
-    snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
-    retentionCriteria: Option[RetentionCriteria] = None,
-    backoffConfig: Option[BackoffConfig] = None,
-  )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
-    context: ActorContext[M],
-  ): Behavior[M] =
-    create(
-      PersistenceEffectorConfig(
-        persistenceId = persistenceId,
-        initialState = initialState,
-        applyEvent = applyEvent,
-        messageConverter = messageConverter,
-        persistenceMode = PersistenceMode.Persisted,
-        stashSize = stashSize,
-        snapshotCriteria = snapshotCriteria,
-        retentionCriteria = retentionCriteria,
-        backoffConfig = backoffConfig,
-      ))(onReady)
-
-  def create[S, E, M](
-    config: PersistenceEffectorConfig[S, E, M],
-  )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
-    context: ActorContext[M],
-  ): Behavior[M] =
-    createWithMode(config, config.persistenceMode)(onReady)
-
-  // インメモリモード用のcreateメソッド
-  def createInMemory[S, E, M <: Matchable](
+  /**
+   * 永続化モードでPersistenceEffectorを作成する
+   *
+   * @param persistenceId
+   *   永続化ID
+   * @param initialState
+   *   初期状態
+   * @param applyEvent
+   *   イベントを適用する関数
+   * @param messageConverter
+   *   メッセージコンバーター
+   * @param stashSize
+   *   スタッシュサイズ
+   * @param snapshotCriteria
+   *   スナップショット基準
+   * @param retentionCriteria
+   *   保持基準
+   * @param backoffConfig
+   *   バックオフ設定
+   * @param onReady
+   *   準備完了時のコールバック
+   * @param context
+   *   アクターコンテキスト
+   * @return
+   *   アクターの振る舞い
+   */
+  def persisted[S, E, M <: Matchable](
     persistenceId: String,
     initialState: S,
     applyEvent: (S, E) => S,
@@ -157,30 +150,109 @@ object PersistenceEffector {
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] = {
-    // 設定を作成
     val config = PersistenceEffectorConfig(
       persistenceId = persistenceId,
       initialState = initialState,
       applyEvent = applyEvent,
       messageConverter = messageConverter,
-      persistenceMode = PersistenceMode.InMemory,
+      persistenceMode = PersistenceMode.Persisted,
       stashSize = stashSize,
       snapshotCriteria = snapshotCriteria,
       retentionCriteria = retentionCriteria,
       backoffConfig = backoffConfig,
     )
-
-    createWithMode(config, PersistenceMode.InMemory)(onReady)
+    build(config)(onReady)
   }
 
-  // モードを指定してEffectorを作成するメソッド
-  def createWithMode[S, E, M](
+  /**
+   * インメモリモードでPersistenceEffectorを作成する
+   *
+   * @param persistenceId
+   *   永続化ID
+   * @param initialState
+   *   初期状態
+   * @param applyEvent
+   *   イベントを適用する関数
+   * @param messageConverter
+   *   メッセージコンバーター
+   * @param stashSize
+   *   スタッシュサイズ
+   * @param snapshotCriteria
+   *   スナップショット基準
+   * @param retentionCriteria
+   *   保持基準
+   * @param backoffConfig
+   *   バックオフ設定
+   * @param onReady
+   *   準備完了時のコールバック
+   * @param context
+   *   アクターコンテキスト
+   * @return
+   *   アクターの振る舞い
+   */
+  def ephemeral[S, E, M <: Matchable](
+    persistenceId: String,
+    initialState: S,
+    applyEvent: (S, E) => S,
+    messageConverter: MessageConverter[S, E, M],
+    stashSize: Int = Int.MaxValue,
+    snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
+    retentionCriteria: Option[RetentionCriteria] = None,
+    backoffConfig: Option[BackoffConfig] = None,
+  )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
+    context: ActorContext[M],
+  ): Behavior[M] = {
+    val config = PersistenceEffectorConfig(
+      persistenceId = persistenceId,
+      initialState = initialState,
+      applyEvent = applyEvent,
+      messageConverter = messageConverter,
+      persistenceMode = PersistenceMode.Ephemeral,
+      stashSize = stashSize,
+      snapshotCriteria = snapshotCriteria,
+      retentionCriteria = retentionCriteria,
+      backoffConfig = backoffConfig,
+    )
+    build(config)(onReady)
+  }
+
+  /**
+   * 設定を直接指定してPersistenceEffectorを作成する
+   *
+   * @param config
+   *   設定
+   * @param onReady
+   *   準備完了時のコールバック
+   * @param context
+   *   アクターコンテキスト
+   * @return
+   *   アクターの振る舞い
+   */
+  def fromConfig[S, E, M](
     config: PersistenceEffectorConfig[S, E, M],
-    mode: PersistenceMode,
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] =
-    mode match {
+    build(config)(onReady)
+
+  /**
+   * 設定に基づいてPersistenceEffectorを構築する
+   *
+   * @param config
+   *   設定
+   * @param onReady
+   *   準備完了時のコールバック
+   * @param context
+   *   アクターコンテキスト
+   * @return
+   *   アクターの振る舞い
+   */
+  private def build[S, E, M](
+    config: PersistenceEffectorConfig[S, E, M],
+  )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
+    context: ActorContext[M],
+  ): Behavior[M] =
+    config.persistenceMode match {
       case PersistenceMode.Persisted =>
         // 既存の永続化実装
         import config.*
@@ -248,7 +320,7 @@ object PersistenceEffector {
 
         awaitRecovery()
 
-      case PersistenceMode.InMemory =>
+      case PersistenceMode.Ephemeral =>
         // インメモリ実装
         Behaviors.withStash(config.stashSize) { stashBuffer =>
           val effector = new InMemoryEffector[S, E, M](
@@ -282,4 +354,5 @@ object PersistenceEffector {
       )
       .toTyped
   }
+
 }
