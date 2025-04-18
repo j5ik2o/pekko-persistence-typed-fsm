@@ -1,8 +1,6 @@
 package com.github.j5ik2o.pekko.persistence.effector.internal.javaimpl
 
-import com.github.j5ik2o.pekko.persistence.effector.scaladsl.{
-  PersistenceEffector as ScalaDPE,
-}
+import com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistenceEffector as ScalaDPE
 import com.github.j5ik2o.pekko.persistence.effector.javadsl.PersistenceEffector
 import org.apache.pekko.actor.typed.Behavior
 
