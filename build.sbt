@@ -1,8 +1,7 @@
 import Dependencies.*
-import xerial.sbt.Sonatype.sonatypeCentralHost
 
-ThisBuild / organization := "io.github.j5ik2o"
-ThisBuild / organizationName := "io.github.j5ik2o"
+ThisBuild / organization := "com.github.j5ik2o"
+ThisBuild / organizationName := "com.github.j5ik2o"
 ThisBuild / scalaVersion := "3.6.4"
 ThisBuild / homepage := Some(url("https://github.com/j5ik2o/pekko-persistence-effector"))
 ThisBuild / licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.html"))
@@ -20,9 +19,18 @@ ThisBuild / scmInfo := Some(
     "scm:git@github.com:j5ik2o/pekko-persistence-effector.git",
   ),
 )
-ThisBuild / publishTo := sonatypePublishToBundle.value
-ThisBuild / sonatypeCredentialHost := sonatypeCentralHost
-ThisBuild / sonatypeTimeoutMillis := 60 * 60 * 1000
+
+ThisBuild / publishMavenStyle := true
+ThisBuild / publishTo := Some(
+  "GitHub Package Registry" at
+    "https://maven.pkg.github.com/j5ik2o/pekko-persistence-effector",
+)
+ThisBuild / credentials += Credentials(
+  "GitHub Package Registry",
+  "maven.pkg.github.com",
+  sys.env.getOrElse("GITHUB_ACTOR", ""),
+  sys.env.getOrElse("GITHUB_TOKEN", ""),
+)
 
 lazy val root = (project in file("."))
   .settings(
