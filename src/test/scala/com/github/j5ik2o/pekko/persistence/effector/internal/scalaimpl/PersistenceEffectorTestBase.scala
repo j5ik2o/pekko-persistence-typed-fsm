@@ -1,7 +1,7 @@
-package com.github.j5ik2o.pekko.persistence.effector.internal
+package com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl
 
-import com.github.j5ik2o.pekko.persistence.effector.{TestConfig, TestEvent, TestMessage, TestState}
 import com.github.j5ik2o.pekko.persistence.effector.scaladsl.*
+import com.github.j5ik2o.pekko.persistence.effector.{TestConfig, TestEvent, TestMessage, TestState}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.scaladsl.Behaviors

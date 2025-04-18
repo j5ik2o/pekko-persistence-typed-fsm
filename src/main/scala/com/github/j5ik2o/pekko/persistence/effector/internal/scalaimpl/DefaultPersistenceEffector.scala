@@ -1,6 +1,6 @@
-package com.github.j5ik2o.pekko.persistence.effector.internal
+package com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl
 
-import PersistenceStoreProtocol.*
+import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.PersistenceStoreProtocol.*
 import com.github.j5ik2o.pekko.persistence.effector.scaladsl.{
   PersistenceEffector,
   PersistenceEffectorConfig,
@@ -11,7 +11,7 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.compiletime.asMatchable
 
-private[effector] final class DefaultPersistenceEffector[S, E, M](
+final class DefaultPersistenceEffector[S, E, M](
   ctx: ActorContext[M],
   stashBuffer: StashBuffer[M],
   config: PersistenceEffectorConfig[S, E, M],

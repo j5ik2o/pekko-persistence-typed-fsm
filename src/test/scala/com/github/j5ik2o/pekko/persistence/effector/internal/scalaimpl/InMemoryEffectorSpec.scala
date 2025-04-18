@@ -1,8 +1,14 @@
-package com.github.j5ik2o.pekko.persistence.effector.internal
+package com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl
 
+import com.github.j5ik2o.pekko.persistence.effector.scaladsl.{
+  PersistenceEffector,
+  PersistenceEffectorConfig,
+  PersistenceMode,
+}
 import com.github.j5ik2o.pekko.persistence.effector.{TestEvent, TestMessage, TestState}
-import com.github.j5ik2o.pekko.persistence.effector.scaladsl.*
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
+
+import java.util
 
 /**
  * InMemoryモードを使用したPersistenceEffectorのテスト
@@ -16,7 +22,7 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
   // InMemoryモード特有のテスト
   s"Effector with ${persistenceMode} mode" should {
     "provide access to current state via getState" in {
-      val persistenceId = s"test-get-state-${java.util.UUID.randomUUID()}"
+      val persistenceId = s"test-get-state-${util.UUID.randomUUID()}"
       val initialState = TestState()
       val event = TestEvent.TestEventA("test-state-access")
 

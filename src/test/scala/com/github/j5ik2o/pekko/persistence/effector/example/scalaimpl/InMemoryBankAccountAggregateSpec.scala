@@ -1,6 +1,6 @@
-package com.github.j5ik2o.pekko.persistence.effector.example.scala
+package com.github.j5ik2o.pekko.persistence.effector.example.scalaimpl
 
-import com.github.j5ik2o.pekko.persistence.effector.internal.InMemoryEventStore
+import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.InMemoryEventStore
 import com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistenceMode
 
 /**

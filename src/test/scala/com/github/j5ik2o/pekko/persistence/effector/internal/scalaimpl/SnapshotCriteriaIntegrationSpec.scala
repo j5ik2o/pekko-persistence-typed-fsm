@@ -1,4 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.effector.internal
+package com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl
 
 import com.github.j5ik2o.pekko.persistence.effector.scaladsl.*
 import com.github.j5ik2o.pekko.persistence.effector.{TestEvent, TestMessage, TestState}

@@ -1,6 +1,6 @@
-package com.github.j5ik2o.pekko.persistence.effector.internal
+package com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl
 
-import PersistenceStoreProtocol.*
+import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.PersistenceStoreProtocol.*
 import com.github.j5ik2o.pekko.persistence.effector.scaladsl.BackoffConfig
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.{ActorLogging, Props, Stash}

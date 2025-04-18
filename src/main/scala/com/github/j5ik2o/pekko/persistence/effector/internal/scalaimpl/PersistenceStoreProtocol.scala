@@ -1,4 +1,4 @@
-package com.github.j5ik2o.pekko.persistence.effector.internal
+package com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl
 
 import org.apache.pekko.actor.typed.ActorRef
 

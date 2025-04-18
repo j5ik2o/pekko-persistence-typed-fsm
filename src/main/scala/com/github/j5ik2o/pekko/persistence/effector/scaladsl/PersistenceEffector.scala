@@ -1,12 +1,11 @@
 package com.github.j5ik2o.pekko.persistence.effector.scaladsl
 
-import com.github.j5ik2o.pekko.persistence.effector.internal.PersistenceStoreProtocol.*
-import com.github.j5ik2o.pekko.persistence.effector.internal.{
-  DefaultPersistenceEffector,
+import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.PersistenceStoreProtocol.*
+import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.DefaultPersistenceEffector
+import com.github.j5ik2o.pekko.persistence.effector.internal.scalaimpl.{
   InMemoryEffector,
   PersistenceStoreActor,
 }
-import com.github.j5ik2o.pekko.persistence.effector.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
