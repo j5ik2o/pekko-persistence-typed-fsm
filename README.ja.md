@@ -226,7 +226,11 @@ private def handleCreated(
 build.sbt に以下を追加してください：
 
 ```scala
-libraryDependencies += "com.github.j5ik2o" %% "pekko-persistence-effector" % "0.1.0-SNAPSHOT"
+resolvers += "GitHub Packages" at
+  "https://maven.pkg.github.com/j5ik2o/pekko-persistence-effector"
+libraryDependencies ++= Seq(
+  "com.github.j5ik2o" %% "pekko-persistence-effector" % "..."
+)
 ```
 
 ## ライセンス
