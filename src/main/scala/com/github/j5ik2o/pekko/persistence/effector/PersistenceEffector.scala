@@ -115,6 +115,7 @@ object PersistenceEffector {
     stashSize: Int = Int.MaxValue,
     snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
     retentionCriteria: Option[RetentionCriteria] = None,
+    backoffConfig: Option[BackoffConfig] = None,
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] =
@@ -128,6 +129,7 @@ object PersistenceEffector {
         stashSize = stashSize,
         snapshotCriteria = snapshotCriteria,
         retentionCriteria = retentionCriteria,
+        backoffConfig = backoffConfig,
       ))(onReady)
 
   def create[S, E, M](
@@ -146,6 +148,7 @@ object PersistenceEffector {
     stashSize: Int = Int.MaxValue,
     snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
     retentionCriteria: Option[RetentionCriteria] = None,
+    backoffConfig: Option[BackoffConfig] = None,
   )(onReady: PartialFunction[(S, PersistenceEffector[S, E, M]), Behavior[M]])(using
     context: ActorContext[M],
   ): Behavior[M] = {
@@ -159,6 +162,7 @@ object PersistenceEffector {
       stashSize = stashSize,
       snapshotCriteria = snapshotCriteria,
       retentionCriteria = retentionCriteria,
+      backoffConfig = backoffConfig,
     )
 
     createWithMode(config, PersistenceMode.InMemory)(onReady)
