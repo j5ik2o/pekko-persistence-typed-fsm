@@ -29,8 +29,8 @@ ThisBuild / publishTo := Some(
 ThisBuild / credentials += Credentials(
   "GitHub Package Registry",
   "maven.pkg.github.com",
-  sys.env.getOrElse("GITHUB_ACTOR", throw new IllegalAccessError("GitHub actor not found")),
-  sys.env.getOrElse("GITHUB_TOKEN", throw new IllegalAccessError("GitHub PAT not found")),
+  sys.env.getOrElse("GITHUB_ACTOR", ""),
+  sys.env.getOrElse("GITHUB_TOKEN", ""),
 )
 
 lazy val root = (project in file("."))
