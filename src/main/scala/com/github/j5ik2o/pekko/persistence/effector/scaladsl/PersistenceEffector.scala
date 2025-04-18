@@ -16,7 +16,7 @@ trait PersistenceEffector[S, E, M] {
   def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
 
   /**
-   * スナップショットを永続化する（後方互換性のため）
+   * スナップショットを永続化する
    *
    * @param snapshot
    *   永続化するスナップショット

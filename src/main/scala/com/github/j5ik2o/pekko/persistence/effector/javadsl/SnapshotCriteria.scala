@@ -16,7 +16,7 @@ object SnapshotCriteria {
   }
 
   private[effector] final case class JEventBased[S, E](
-    predicate: TriFunction[E, S, Long, Boolean]
+    predicate: TriFunction[E, S, Long, Boolean],
   ) extends SnapshotCriteria[S, E] {
     override def shouldTakeSnapshot(event: E, state: S, sequenceNumber: Long): Boolean =
       predicate.apply(event, state, sequenceNumber)
@@ -26,7 +26,7 @@ object SnapshotCriteria {
   }
 
   private[effector] final case class JCountBased[S, E](
-    every: Int
+    every: Int,
   ) extends SnapshotCriteria[S, E] {
     override def shouldTakeSnapshot(event: E, state: S, sequenceNumber: Long): Boolean =
       sequenceNumber % every == 0
@@ -37,7 +37,7 @@ object SnapshotCriteria {
 
   private[effector] final case class JCombined[S, E](
     criteria: java.util.List[SnapshotCriteria[S, E]],
-    requireAll: Boolean
+    requireAll: Boolean,
   ) extends SnapshotCriteria[S, E] {
     override def shouldTakeSnapshot(event: E, state: S, sequenceNumber: Long): Boolean = {
       val results = criteria.asScala.map(_.shouldTakeSnapshot(event, state, sequenceNumber))
@@ -47,7 +47,7 @@ object SnapshotCriteria {
     override def toScala: scaladsl.SnapshotCriteria[S, E] =
       scaladsl.SnapshotCriteria.Combined(
         criteria.asScala.map(_.toScala).toSeq,
-        requireAll
+        requireAll,
       )
   }
 
@@ -59,7 +59,9 @@ object SnapshotCriteria {
     JCountBased(every)
   }
 
-  def combined[S, E](criteria: java.util.List[SnapshotCriteria[S, E]], requireAll: Boolean): SnapshotCriteria[S, E] =
+  def combined[S, E](
+    criteria: java.util.List[SnapshotCriteria[S, E]],
+    requireAll: Boolean): SnapshotCriteria[S, E] =
     JCombined(criteria, requireAll)
 
   def always[S, E](): SnapshotCriteria[S, E] =
@@ -71,12 +73,13 @@ object SnapshotCriteria {
   def every[S, E](nth: Int): SnapshotCriteria[S, E] =
     countBased(nth)
 
-  def fromScala[S, E](criteria: scaladsl.SnapshotCriteria[S, E]): SnapshotCriteria[S, E] = criteria match {
-    case scaladsl.SnapshotCriteria.EventBased(pred) =>
-      eventBased((e: E, s: S, l: Long) => pred(e, s, l))
-    case scaladsl.SnapshotCriteria.CountBased(n) =>
-      countBased(n)
-    case scaladsl.SnapshotCriteria.Combined(c, r) =>
-      combined(c.map(fromScala[S, E]).asJava, r)
-  }
+  def fromScala[S, E](criteria: scaladsl.SnapshotCriteria[S, E]): SnapshotCriteria[S, E] =
+    criteria match {
+      case scaladsl.SnapshotCriteria.EventBased(pred) =>
+        eventBased((e: E, s: S, l: Long) => pred(e, s, l))
+      case scaladsl.SnapshotCriteria.CountBased(n) =>
+        countBased(n)
+      case scaladsl.SnapshotCriteria.Combined(c, r) =>
+        combined(c.map(fromScala[S, E]).asJava, r)
+    }
 }

@@ -1,9 +1,9 @@
-package com.github.j5ik2o.pekko.persistence.effector.scaladsl
+package com.github.j5ik2o.pekko.persistence.effector.javadsl
 
-sealed trait MessageWrapper[M] { self: M => }
+trait MessageWrapper[M]
 
 trait PersistedEvent[E, M] extends MessageWrapper[M] { self: M =>
-  def events: Seq[E]
+  def events: java.util.List[E]
 }
 
 trait PersistedState[S, M] extends MessageWrapper[M] { self: M =>
