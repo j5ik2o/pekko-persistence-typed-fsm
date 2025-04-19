@@ -33,24 +33,29 @@ abstract class PersistenceEffectorTestBase
   // スナップショットテストを実行するかどうか（デフォルトは実行する）
   def runSnapshotTests: Boolean = true
 
+  val isCustomConverter: Boolean = false
+
   val messageConverter: MessageConverter[TestState, TestEvent, TestMessage] =
-    new MessageConverter[TestState, TestEvent, TestMessage] {
-      override def wrapPersistedEvents(
-        events: Seq[TestEvent]): TestMessage & PersistedEvent[TestEvent, TestMessage] =
-        TestMessage.EventPersisted(events)
+    if (isCustomConverter) {
+      new MessageConverter[TestState, TestEvent, TestMessage] {
+        override def wrapPersistedEvents(
+          events: Seq[TestEvent]): TestMessage & PersistedEvent[TestEvent, TestMessage] =
+          TestMessage.EventPersisted(events)
 
-      override def wrapPersistedSnapshot(
-        state: TestState): TestMessage & PersistedState[TestState, TestMessage] =
-        TestMessage.SnapshotPersisted(state)
+        override def wrapPersistedSnapshot(
+          state: TestState): TestMessage & PersistedState[TestState, TestMessage] =
+          TestMessage.SnapshotPersisted(state)
 
-      override def wrapRecoveredState(
-        state: TestState): TestMessage & RecoveredState[TestState, TestMessage] =
-        TestMessage.StateRecovered(state)
+        override def wrapRecoveredState(
+          state: TestState): TestMessage & RecoveredState[TestState, TestMessage] =
+          TestMessage.StateRecovered(state)
 
-      override def wrapDeleteSnapshots(
-        maxSequenceNumber: Long): TestMessage & DeletedSnapshots[TestMessage] =
-        TestMessage.SnapshotsDeleted(maxSequenceNumber)
-    }
+        override def wrapDeleteSnapshots(
+          maxSequenceNumber: Long): TestMessage & DeletedSnapshots[TestMessage] =
+          TestMessage.SnapshotsDeleted(maxSequenceNumber)
+      }
+    } else
+      MessageConverter.defaultFunctions[TestState, TestEvent, TestMessage]
 
   // "Effector with <モード>" should という形式でテストを記述
   s"Effector with $persistenceMode mode" should {
