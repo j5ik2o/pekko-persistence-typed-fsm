@@ -14,7 +14,8 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
 
 /**
- * Base test class for PersistenceEffector. Specific mode (Persisted/InMemory) is specified in subclasses
+ * Base test class for PersistenceEffector. Specific mode (Persisted/InMemory) is specified in
+ * subclasses
  */
 abstract class PersistenceEffectorTestBase
   extends ScalaTestWithActorTestKit(TestConfig.config)

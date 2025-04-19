@@ -14,11 +14,16 @@ private[effector] object PersistenceEffectorWrapper {
   /**
    * Create a new PersistenceEffectorWrapper that wraps a Scala PersistenceEffector.
    *
-   * @param underlying The Scala PersistenceEffector to wrap
-   * @tparam S Type of state
-   * @tparam E Type of event
-   * @tparam M Type of message
-   * @return A Java-compatible PersistenceEffector
+   * @param underlying
+   *   The Scala PersistenceEffector to wrap
+   * @tparam S
+   *   Type of state
+   * @tparam E
+   *   Type of event
+   * @tparam M
+   *   Type of message
+   * @return
+   *   A Java-compatible PersistenceEffector
    */
   def create[S, E, M](
     underlying: ScalaDPE[S, E, M],
@@ -27,13 +32,17 @@ private[effector] object PersistenceEffectorWrapper {
 }
 
 /**
- * Wrapper class that adapts a Scala PersistenceEffector to the Java API.
- * This class converts between Scala and Java types and function interfaces.
+ * Wrapper class that adapts a Scala PersistenceEffector to the Java API. This class converts
+ * between Scala and Java types and function interfaces.
  *
- * @param underlying The Scala PersistenceEffector to wrap
- * @tparam S Type of state
- * @tparam E Type of event
- * @tparam M Type of message
+ * @param underlying
+ *   The Scala PersistenceEffector to wrap
+ * @tparam S
+ *   Type of state
+ * @tparam E
+ *   Type of event
+ * @tparam M
+ *   Type of message
  */
 final class PersistenceEffectorWrapper[S, E, M] private (
   underlying: ScalaDPE[S, E, M],
@@ -42,9 +51,12 @@ final class PersistenceEffectorWrapper[S, E, M] private (
   /**
    * Persist a single event.
    *
-   * @param event The event to persist
-   * @param onPersisted Callback function to execute after the event is persisted
-   * @return The behavior returned by the callback
+   * @param event
+   *   The event to persist
+   * @param onPersisted
+   *   Callback function to execute after the event is persisted
+   * @return
+   *   The behavior returned by the callback
    */
   override def persistEvent(
     event: E,
@@ -54,9 +66,12 @@ final class PersistenceEffectorWrapper[S, E, M] private (
   /**
    * Persist multiple events.
    *
-   * @param events The events to persist
-   * @param onPersisted Callback function to execute after the events are persisted
-   * @return The behavior returned by the callback
+   * @param events
+   *   The events to persist
+   * @param onPersisted
+   *   Callback function to execute after the events are persisted
+   * @return
+   *   The behavior returned by the callback
    */
   override def persistEvents(
     events: java.util.List[E],
@@ -68,10 +83,14 @@ final class PersistenceEffectorWrapper[S, E, M] private (
   /**
    * Persist a snapshot.
    *
-   * @param snapshot The snapshot to persist
-   * @param force Whether to force snapshot persistence regardless of criteria
-   * @param onPersisted Callback function to execute after the snapshot is persisted
-   * @return The behavior returned by the callback
+   * @param snapshot
+   *   The snapshot to persist
+   * @param force
+   *   Whether to force snapshot persistence regardless of criteria
+   * @param onPersisted
+   *   Callback function to execute after the snapshot is persisted
+   * @return
+   *   The behavior returned by the callback
    */
   override def persistSnapshot(
     snapshot: S,
@@ -82,11 +101,16 @@ final class PersistenceEffectorWrapper[S, E, M] private (
   /**
    * Persist an event and a snapshot.
    *
-   * @param event The event to persist
-   * @param snapshot The snapshot to persist
-   * @param forceSnapshot Whether to force snapshot persistence regardless of criteria
-   * @param onPersisted Callback function to execute after the event is persisted
-   * @return The behavior returned by the callback
+   * @param event
+   *   The event to persist
+   * @param snapshot
+   *   The snapshot to persist
+   * @param forceSnapshot
+   *   Whether to force snapshot persistence regardless of criteria
+   * @param onPersisted
+   *   Callback function to execute after the event is persisted
+   * @return
+   *   The behavior returned by the callback
    */
   override def persistEventWithSnapshot(
     event: E,
@@ -98,11 +122,16 @@ final class PersistenceEffectorWrapper[S, E, M] private (
   /**
    * Persist multiple events and a snapshot.
    *
-   * @param events The events to persist
-   * @param snapshot The snapshot to persist
-   * @param forceSnapshot Whether to force snapshot persistence regardless of criteria
-   * @param onPersisted Callback function to execute after the events are persisted
-   * @return The behavior returned by the callback
+   * @param events
+   *   The events to persist
+   * @param snapshot
+   *   The snapshot to persist
+   * @param forceSnapshot
+   *   Whether to force snapshot persistence regardless of criteria
+   * @param onPersisted
+   *   Callback function to execute after the events are persisted
+   * @return
+   *   The behavior returned by the callback
    */
   override def persistEventsWithSnapshot(
     events: java.util.List[E],

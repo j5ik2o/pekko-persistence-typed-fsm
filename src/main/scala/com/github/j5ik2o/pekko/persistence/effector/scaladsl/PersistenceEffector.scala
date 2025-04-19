@@ -12,38 +12,51 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import scala.compiletime.asMatchable
 
 /**
- * Trait defining the persistence operations for event sourcing.
- * This trait provides methods to persist events and snapshots, and to manage the lifecycle of persisted data.
+ * Trait defining the persistence operations for event sourcing. This trait provides methods to
+ * persist events and snapshots, and to manage the lifecycle of persisted data.
  *
- * @tparam S Type of state
- * @tparam E Type of event
- * @tparam M Type of message
+ * @tparam S
+ *   Type of state
+ * @tparam E
+ *   Type of event
+ * @tparam M
+ *   Type of message
  */
 trait PersistenceEffector[S, E, M] {
+
   /**
    * Persist a single event.
    *
-   * @param event Event to persist
-   * @param onPersisted Callback function to execute after the event is persisted
-   * @return The behavior returned by the callback
+   * @param event
+   *   Event to persist
+   * @param onPersisted
+   *   Callback function to execute after the event is persisted
+   * @return
+   *   The behavior returned by the callback
    */
   def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
-  
+
   /**
    * Persist multiple events.
    *
-   * @param events Events to persist
-   * @param onPersisted Callback function to execute after the events are persisted
-   * @return The behavior returned by the callback
+   * @param events
+   *   Events to persist
+   * @param onPersisted
+   *   Callback function to execute after the events are persisted
+   * @return
+   *   The behavior returned by the callback
    */
   def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
 
   /**
    * Persist a snapshot.
    *
-   * @param snapshot Snapshot to persist
-   * @param onPersisted Callback function to execute after the snapshot is persisted
-   * @return The behavior returned by the callback
+   * @param snapshot
+   *   Snapshot to persist
+   * @param onPersisted
+   *   Callback function to execute after the snapshot is persisted
+   * @return
+   *   The behavior returned by the callback
    */
   def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M] =
     persistSnapshot(snapshot, force = false)(onPersisted)
@@ -51,20 +64,29 @@ trait PersistenceEffector[S, E, M] {
   /**
    * Persist a snapshot with force option.
    *
-   * @param snapshot Snapshot to persist
-   * @param force If true, forces snapshot persistence regardless of snapshot criteria
-   * @param onPersisted Callback function to execute after the snapshot is persisted
-   * @return The behavior returned by the callback
+   * @param snapshot
+   *   Snapshot to persist
+   * @param force
+   *   If true, forces snapshot persistence regardless of snapshot criteria
+   * @param onPersisted
+   *   Callback function to execute after the snapshot is persisted
+   * @return
+   *   The behavior returned by the callback
    */
   def persistSnapshot(snapshot: S, force: Boolean)(onPersisted: S => Behavior[M]): Behavior[M]
 
   /**
-   * Persist an event and evaluate snapshot criteria with the current state (for backward compatibility).
+   * Persist an event and evaluate snapshot criteria with the current state (for backward
+   * compatibility).
    *
-   * @param event Event to persist
-   * @param snapshot Current state
-   * @param onPersisted Callback function to execute after the event is persisted
-   * @return The behavior returned by the callback
+   * @param event
+   *   Event to persist
+   * @param snapshot
+   *   Current state
+   * @param onPersisted
+   *   Callback function to execute after the event is persisted
+   * @return
+   *   The behavior returned by the callback
    */
   def persistEventWithSnapshot(event: E, snapshot: S)(onPersisted: E => Behavior[M]): Behavior[M] =
     persistEventWithSnapshot(event, snapshot, forceSnapshot = false)(onPersisted)
@@ -72,22 +94,32 @@ trait PersistenceEffector[S, E, M] {
   /**
    * Persist an event and evaluate snapshot criteria with the current state.
    *
-   * @param event Event to persist
-   * @param snapshot Current state
-   * @param forceSnapshot If true, forces snapshot persistence regardless of snapshot criteria
-   * @param onPersisted Callback function to execute after the event is persisted
-   * @return The behavior returned by the callback
+   * @param event
+   *   Event to persist
+   * @param snapshot
+   *   Current state
+   * @param forceSnapshot
+   *   If true, forces snapshot persistence regardless of snapshot criteria
+   * @param onPersisted
+   *   Callback function to execute after the event is persisted
+   * @return
+   *   The behavior returned by the callback
    */
   def persistEventWithSnapshot(event: E, snapshot: S, forceSnapshot: Boolean)(
     onPersisted: E => Behavior[M]): Behavior[M]
 
   /**
-   * Persist multiple events and evaluate snapshot criteria with the current state (for backward compatibility).
+   * Persist multiple events and evaluate snapshot criteria with the current state (for backward
+   * compatibility).
    *
-   * @param events Sequence of events to persist
-   * @param snapshot Current state
-   * @param onPersisted Callback function to execute after the events are persisted
-   * @return The behavior returned by the callback
+   * @param events
+   *   Sequence of events to persist
+   * @param snapshot
+   *   Current state
+   * @param onPersisted
+   *   Callback function to execute after the events are persisted
+   * @return
+   *   The behavior returned by the callback
    */
   def persistEventsWithSnapshot(events: Seq[E], snapshot: S)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M] =
@@ -96,11 +128,16 @@ trait PersistenceEffector[S, E, M] {
   /**
    * Persist multiple events and evaluate snapshot criteria with the current state.
    *
-   * @param events Sequence of events to persist
-   * @param snapshot Current state
-   * @param forceSnapshot If true, forces snapshot persistence regardless of snapshot criteria
-   * @param onPersisted Callback function to execute after the events are persisted
-   * @return The behavior returned by the callback
+   * @param events
+   *   Sequence of events to persist
+   * @param snapshot
+   *   Current state
+   * @param forceSnapshot
+   *   If true, forces snapshot persistence regardless of snapshot criteria
+   * @param onPersisted
+   *   Callback function to execute after the events are persisted
+   * @return
+   *   The behavior returned by the callback
    */
   def persistEventsWithSnapshot(events: Seq[E], snapshot: S, forceSnapshot: Boolean)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M]
@@ -113,17 +150,28 @@ object PersistenceEffector {
   /**
    * Create a PersistenceEffector in persisted mode.
    *
-   * @param persistenceId Persistence ID
-   * @param initialState Initial state
-   * @param applyEvent Function to apply events to state
-   * @param messageConverter Message converter
-   * @param stashSize Size of the stash buffer
-   * @param snapshotCriteria Snapshot criteria
-   * @param retentionCriteria Retention criteria
-   * @param backoffConfig Backoff configuration
-   * @param onReady Callback when the effector is ready
-   * @param context Actor context
-   * @return Actor behavior
+   * @param persistenceId
+   *   Persistence ID
+   * @param initialState
+   *   Initial state
+   * @param applyEvent
+   *   Function to apply events to state
+   * @param messageConverter
+   *   Message converter
+   * @param stashSize
+   *   Size of the stash buffer
+   * @param snapshotCriteria
+   *   Snapshot criteria
+   * @param retentionCriteria
+   *   Retention criteria
+   * @param backoffConfig
+   *   Backoff configuration
+   * @param onReady
+   *   Callback when the effector is ready
+   * @param context
+   *   Actor context
+   * @return
+   *   Actor behavior
    */
   def persisted[S, E, M <: Matchable](
     persistenceId: String,
@@ -154,17 +202,28 @@ object PersistenceEffector {
   /**
    * Create a PersistenceEffector in in-memory mode.
    *
-   * @param persistenceId Persistence ID
-   * @param initialState Initial state
-   * @param applyEvent Function to apply events to state
-   * @param messageConverter Message converter
-   * @param stashSize Size of the stash buffer
-   * @param snapshotCriteria Snapshot criteria
-   * @param retentionCriteria Retention criteria
-   * @param backoffConfig Backoff configuration
-   * @param onReady Callback when the effector is ready
-   * @param context Actor context
-   * @return Actor behavior
+   * @param persistenceId
+   *   Persistence ID
+   * @param initialState
+   *   Initial state
+   * @param applyEvent
+   *   Function to apply events to state
+   * @param messageConverter
+   *   Message converter
+   * @param stashSize
+   *   Size of the stash buffer
+   * @param snapshotCriteria
+   *   Snapshot criteria
+   * @param retentionCriteria
+   *   Retention criteria
+   * @param backoffConfig
+   *   Backoff configuration
+   * @param onReady
+   *   Callback when the effector is ready
+   * @param context
+   *   Actor context
+   * @return
+   *   Actor behavior
    */
   def ephemeral[S, E, M <: Matchable](
     persistenceId: String,
@@ -195,10 +254,14 @@ object PersistenceEffector {
   /**
    * Create a PersistenceEffector from a configuration.
    *
-   * @param config Configuration
-   * @param onReady Callback when the effector is ready
-   * @param context Actor context
-   * @return Actor behavior
+   * @param config
+   *   Configuration
+   * @param onReady
+   *   Callback when the effector is ready
+   * @param context
+   *   Actor context
+   * @return
+   *   Actor behavior
    */
   def fromConfig[S, E, M](
     config: PersistenceEffectorConfig[S, E, M],
@@ -210,10 +273,14 @@ object PersistenceEffector {
   /**
    * Build a PersistenceEffector based on configuration.
    *
-   * @param config Configuration
-   * @param onReady Callback when the effector is ready
-   * @param context Actor context
-   * @return Actor behavior
+   * @param config
+   *   Configuration
+   * @param onReady
+   *   Callback when the effector is ready
+   * @param context
+   *   Actor context
+   * @return
+   *   Actor behavior
    */
   private def build[S, E, M](
     config: PersistenceEffectorConfig[S, E, M],
@@ -279,7 +346,10 @@ object PersistenceEffector {
                   )
                   stashBuffer.unstashAll(onReady(state, effector))
                 case msg => // Stash other messages
-                  context.log.debug("Stashing message during recovery: {}", msg) // Use context directly
+                  context.log.debug(
+                    "Stashing message during recovery: {}",
+                    msg,
+                  ) // Use context directly
                   stashBuffer.stash(msg)
                   Behaviors.same
               }

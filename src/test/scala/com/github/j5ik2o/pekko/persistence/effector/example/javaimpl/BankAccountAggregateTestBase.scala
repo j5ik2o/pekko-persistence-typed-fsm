@@ -14,7 +14,8 @@ import java.util.UUID
 import _root_.scala.concurrent.duration.*
 
 /**
- * Base test class for BankAccountAggregate. Specific mode (Persisted/InMemory) is specified in subclasses
+ * Base test class for BankAccountAggregate. Specific mode (Persisted/InMemory) is specified in
+ * subclasses
  */
 abstract class BankAccountAggregateTestBase
   extends ScalaTestWithActorTestKit(TestConfig.config)
@@ -175,7 +176,8 @@ abstract class BankAccountAggregateTestBase
       createProbe.expectMessageType[CreateReply]
 
       // Attempt to deposit more than the limit
-      val depositAmount = Money.of(JavaBigDecimal.valueOf(150000), Money.JPY) // The limit is 100000 yen
+      val depositAmount =
+        Money.of(JavaBigDecimal.valueOf(150000), Money.JPY) // The limit is 100000 yen
       val depositProbe = createTestProbe[DepositCashReply]()
       bankAccountActor ! BankAccountCommand.DepositCash(accountId, depositAmount, depositProbe.ref)
 

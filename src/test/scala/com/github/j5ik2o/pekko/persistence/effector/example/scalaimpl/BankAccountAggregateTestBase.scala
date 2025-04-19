@@ -14,7 +14,8 @@ import java.util.UUID
 import _root_.scala.concurrent.duration.*
 
 /**
- * Base test class for BankAccountAggregate. Specific mode (Persisted/InMemory) is specified in subclasses
+ * Base test class for BankAccountAggregate. Specific mode (Persisted/InMemory) is specified in
+ * subclasses
  */
 abstract class BankAccountAggregateTestBase
   extends ScalaTestWithActorTestKit(TestConfig.config)

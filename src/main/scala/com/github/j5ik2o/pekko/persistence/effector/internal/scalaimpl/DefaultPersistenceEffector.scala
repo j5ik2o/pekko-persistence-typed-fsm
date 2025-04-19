@@ -250,7 +250,8 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
     val shouldSaveSnapshot = force || config.snapshotCriteria.exists { criteria =>
       // Evaluation for snapshot (use it directly since the state is already passed as a snapshot)
       // Use the snapshot itself as a virtual event to evaluate even when there is no event
-      val dummyEvent = snapshot.asInstanceOf[E] // Dummy event (no problem at runtime due to type erasure)
+      val dummyEvent =
+        snapshot.asInstanceOf[E] // Dummy event (no problem at runtime due to type erasure)
       val sequenceNumber = getCurrentSequenceNumber
       val result = criteria.shouldTakeSnapshot(dummyEvent, snapshot, sequenceNumber)
       ctx.log.debug("Snapshot criteria evaluation result: {}", result)

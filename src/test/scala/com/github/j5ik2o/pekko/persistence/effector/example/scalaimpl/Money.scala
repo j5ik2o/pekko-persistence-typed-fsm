@@ -50,10 +50,12 @@ class Money(private val amount: BigDecimal, private val currency: Currency)
   /**
    * Compare amounts with each other.
    *
-   * The one with relatively smaller amount is judged as "smaller". If the currency units are different, 
-   * [[java.lang.ClassCastException]] will be thrown, but if either amount is `0`, no exception will be thrown.
+   * The one with relatively smaller amount is judged as "smaller". If the currency units are
+   * different, [[java.lang.ClassCastException]] will be thrown, but if either amount is `0`, no
+   * exception will be thrown.
    *
-   * For example, `10 USD` and `0 JPY`, the latter is smaller. Also, `0 USD` and `0 JPY` are the same.
+   * For example, `10 USD` and `0 JPY`, the latter is smaller. Also, `0 USD` and `0 JPY` are the
+   * same.
    *
    * @param that
    *   Comparison target
@@ -82,7 +84,8 @@ class Money(private val amount: BigDecimal, private val currency: Currency)
   /**
    * Returns the `amount` field (quantity) of this object.
    *
-   * CAUTION: This method exposes elements that this object encapsulates. Handle with sufficient care.
+   * CAUTION: This method exposes elements that this object encapsulates. Handle with sufficient
+   * care.
    *
    * How best to handle access to the internals? It is needed for database mapping, UI presentation,
    * and perhaps a few other uses. Yet giving public access invites people to do the real work of
@@ -97,7 +100,8 @@ class Money(private val amount: BigDecimal, private val currency: Currency)
   /**
    * Returns the `currency` field (currency unit) of this object.
    *
-   * CAUTION: This method exposes elements that this object encapsulates. Handle with sufficient care.
+   * CAUTION: This method exposes elements that this object encapsulates. Handle with sufficient
+   * care.
    *
    * @return
    *   Currency unit
@@ -338,8 +342,8 @@ class Money(private val amount: BigDecimal, private val currency: Currency)
       .equals(BigDecimal(0))
 
   /**
-   * Returns the amount after adding the minimum unit amount to this amount, 
-   * i.e., an amount that is 1 step larger than this amount.
+   * Returns the amount after adding the minimum unit amount to this amount, i.e., an amount that is
+   * 1 step larger than this amount.
    *
    * @return
    *   An amount 1 step larger than this amount
@@ -443,15 +447,17 @@ object Money {
   /**
    * Returns the total amount of all amounts contained in [[scala.Iterable]].
    *
-   * The currency unit of the total amount will be the (common) currency unit of the elements of `monies`, 
-   * but if the `Collection` is empty, it returns an instance with an amount of 0 in the currency unit of the current default locale.
+   * The currency unit of the total amount will be the (common) currency unit of the elements of
+   * `monies`, but if the `Collection` is empty, it returns an instance with an amount of 0 in the
+   * currency unit of the current default locale.
    *
    * @param monies
    *   Collection of amounts
    * @return
    *   Total amount
    * @throws ClassCastException
-   *   If the argument contains currency units with different currency units. However, no exception is thrown for amounts of 0 because currency units are not considered.
+   *   If the argument contains currency units with different currency units. However, no exception
+   *   is thrown for amounts of 0 because currency units are not considered.
    */
   def sum(monies: Iterable[Money]): Money =
     if (monies.isEmpty) {

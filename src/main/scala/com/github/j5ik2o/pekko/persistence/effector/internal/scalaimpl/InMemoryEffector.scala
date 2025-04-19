@@ -9,16 +9,21 @@ import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, StashBuffer}
 
 /**
- * In-memory implementation of PersistenceEffector.
- * This implementation stores events and snapshots in memory, making it suitable for testing
- * and scenarios where persistence is not required.
+ * In-memory implementation of PersistenceEffector. This implementation stores events and snapshots
+ * in memory, making it suitable for testing and scenarios where persistence is not required.
  *
- * @param ctx Actor context for the actor using this effector
- * @param stashBuffer Stash buffer for storing messages during persistence operations
- * @param config Configuration for the persistence effector
- * @tparam S Type of state
- * @tparam E Type of event
- * @tparam M Type of message
+ * @param ctx
+ *   Actor context for the actor using this effector
+ * @param stashBuffer
+ *   Stash buffer for storing messages during persistence operations
+ * @param config
+ *   Configuration for the persistence effector
+ * @tparam S
+ *   Type of state
+ * @tparam E
+ *   Type of event
+ * @tparam M
+ *   Type of message
  */
 private[effector] final class InMemoryEffector[S, E, M](
   ctx: ActorContext[M],
@@ -137,7 +142,8 @@ private[effector] final class InMemoryEffector[S, E, M](
     // Determine whether to save based on force parameter or snapshot strategy
     val shouldSaveSnapshot = force || config.snapshotCriteria.exists { criteria =>
       // Evaluation for snapshot (using dummy event because there is no event)
-      val dummyEvent = snapshot.asInstanceOf[E] // Dummy event (no problem at runtime due to type erasure)
+      val dummyEvent =
+        snapshot.asInstanceOf[E] // Dummy event (no problem at runtime due to type erasure)
       val sequenceNumber = getCurrentSequenceNumber
       val result = criteria.shouldTakeSnapshot(dummyEvent, snapshot, sequenceNumber)
       ctx.log.debug("Snapshot criteria evaluation result: {}", result)
@@ -286,10 +292,10 @@ private[effector] final class InMemoryEffector[S, E, M](
   }
 
   /**
-   * Get the current state of the entity.
-   * This method is primarily used for testing and debugging.
+   * Get the current state of the entity. This method is primarily used for testing and debugging.
    *
-   * @return Current state of the entity
+   * @return
+   *   Current state of the entity
    */
   def getState: S = currentState
 }
