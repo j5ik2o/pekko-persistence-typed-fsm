@@ -156,35 +156,35 @@ public sealed interface BankAccountCommand {
         }
     }
 
-//    /**
-//     * メッセージプロトコル
-//     */
-//    class Protocol implements MessageProtocol<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> {
-//        private final com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> messageConverter;
-//
-//        /**
-//         * コンストラクタ
-//         */
-//        public Protocol() {
-//            this.messageConverter = com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter.create(
-//                    events -> new EventPersisted(events),
-//                    state -> new StatePersisted(state),
-//                    state -> new StateRecovered(state),
-//                    maxSequenceNumber -> new SnapshotShotsDeleted(maxSequenceNumber)
-//            );
-//        }
-//
-//        @Override
-//        public com.github.j5ik2o.pekko.persistence.effector.scaladsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> messageConverter() {
-//            // JavaDSL版のMessageConverterからScalaDSL版のMessageConverterを作成
-//            return messageConverter.toScala();
-//        }
-//
-//        // JavaDSL版のMessageConverterを取得するメソッドを追加
-//        public com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> getJavaMessageConverter() {
-//            return messageConverter;
-//        }
-//    }
+    /**
+     * メッセージプロトコル
+     */
+    class Protocol implements MessageProtocol<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> {
+        private final com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> messageConverter;
+
+        /**
+         * コンストラクタ
+         */
+        public Protocol() {
+            this.messageConverter = com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter.create(
+                    EventPersisted::new,
+                    StatePersisted::new,
+                    StateRecovered::new,
+                    SnapshotShotsDeleted::new
+            );
+        }
+
+        @Override
+        public com.github.j5ik2o.pekko.persistence.effector.scaladsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> messageConverter() {
+            // JavaDSL版のMessageConverterからScalaDSL版のMessageConverterを作成
+            return messageConverter.toScala();
+        }
+
+        // JavaDSL版のMessageConverterを取得するメソッドを追加
+        public com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> getJavaMessageConverter() {
+            return messageConverter;
+        }
+    }
 }
 
 /**

@@ -112,7 +112,7 @@ public class BankAccountAggregate {
       ctx.getLog().debug("Creating BankAccount actor: {}", actorName(aggregateId));
 
       // メッセージコンバーターを作成
-      // var messageConverter = new BankAccountCommand.Protocol().getJavaMessageConverter();
+      var messageConverter = new BankAccountCommand.Protocol().getJavaMessageConverter();
 
       // PersistenceEffectorConfigを作成
       PersistenceEffectorConfig<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> config = PersistenceEffectorConfig.create(
@@ -123,8 +123,8 @@ public class BankAccountAggregate {
         32,
         Optional.of(SnapshotCriteria.every(2)),
         Optional.of(RetentionCriteria.ofSnapshotEvery(2)),
-        Optional.empty()
-        // , messageConverter
+        Optional.empty(),
+              messageConverter
       );
 
       // fromConfigを使用してPersistenceEffectorを作成

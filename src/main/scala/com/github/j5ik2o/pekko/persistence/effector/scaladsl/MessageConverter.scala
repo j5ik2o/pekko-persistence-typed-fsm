@@ -66,7 +66,7 @@ object MessageConverter {
     extends DeletedSnapshots[Any]
 
   // デフォルトのMessageConverterを提供するメソッド
-  def default[S, E, M]: MessageConverter[S, E, M] = new MessageConverter[S, E, M] {
+  def defaultFunctions[S, E, M]: MessageConverter[S, E, M] = new MessageConverter[S, E, M] {
     override def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M] =
       StandardPersistedEvent(events).asInstanceOf[M & PersistedEvent[E, M]]
 

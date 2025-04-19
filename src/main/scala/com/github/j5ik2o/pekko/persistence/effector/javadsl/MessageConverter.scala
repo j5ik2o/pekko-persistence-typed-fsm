@@ -130,7 +130,7 @@ object MessageConverter {
   private[effector] class StandardJavaDeletedSnapshots(val maxSequenceNumber: Long)
     extends DeletedSnapshots[Any]
 
-  def defaultFunction[S, E, M]: MessageConverter[S, E, M] =
+  def defaultFunctions[S, E, M]: MessageConverter[S, E, M] =
     new MessageConverter[S, E, M] {
       override def wrapPersistedEvents(events: java.util.List[E]): M & PersistedEvent[E, M] =
         new StandardJavaPersistedEvent[E](events).asInstanceOf[M & PersistedEvent[E, M]]

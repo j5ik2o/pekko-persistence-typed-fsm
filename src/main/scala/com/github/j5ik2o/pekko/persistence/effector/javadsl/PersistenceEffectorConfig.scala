@@ -78,25 +78,4 @@ object PersistenceEffectorConfig {
       messageConverter = messageConverter,
     )
 
-  def create[S, E, M](
-    persistenceId: String,
-    initialState: S,
-    applyEvent: java.util.function.BiFunction[S, E, S],
-    persistenceMode: PersistenceMode,
-    stashSize: Int,
-    snapshotCriteria: Optional[SnapshotCriteria[S, E]],
-    retentionCriteria: Optional[RetentionCriteria],
-    backoffConfig: Optional[BackoffConfig],
-  ): PersistenceEffectorConfig[S, E, M] =
-    new PersistenceEffectorConfig[S, E, M](
-      persistenceId = persistenceId,
-      initialState = initialState,
-      applyEvent = applyEvent,
-      persistenceMode = persistenceMode,
-      stashSize = stashSize,
-      snapshotCriteria = snapshotCriteria,
-      retentionCriteria = retentionCriteria,
-      backoffConfig = backoffConfig,
-      messageConverter = MessageConverter.defaultFunction,
-    )
 }
