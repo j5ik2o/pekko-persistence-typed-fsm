@@ -11,21 +11,21 @@ import org.apache.pekko.actor.typed.ActorRef;
 import java.util.List;
 
 /**
- * 銀行口座のコマンドを表すシールドインターフェース
+ * Sealed interface representing bank account commands
  */
 public sealed interface BankAccountCommand {
     /**
-     * アグリゲートIDを取得する
+     * Get the aggregate ID
      *
-     * @return アグリゲートID
+     * @return Aggregate ID
      */
     BankAccountId getAggregateId();
 
     /**
-     * 残高取得コマンド
+     * Get balance command
      *
-     * @param aggregateId アグリゲートID
-     * @param replyTo 返信先
+     * @param aggregateId Aggregate ID
+     * @param replyTo Reply destination
      */
     record GetBalance(BankAccountId aggregateId, ActorRef<GetBalanceReply> replyTo) implements BankAccountCommand {
         @Override
@@ -35,10 +35,10 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * 停止コマンド
+     * Stop command
      *
-     * @param aggregateId アグリゲートID
-     * @param replyTo 返信先
+     * @param aggregateId Aggregate ID
+     * @param replyTo Reply destination
      */
     record Stop(BankAccountId aggregateId, ActorRef<StopReply> replyTo) implements BankAccountCommand {
         @Override
@@ -48,10 +48,10 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * 作成コマンド
+     * Create command
      *
-     * @param aggregateId アグリゲートID
-     * @param replyTo 返信先
+     * @param aggregateId Aggregate ID
+     * @param replyTo Reply destination
      */
     record Create(BankAccountId aggregateId, ActorRef<CreateReply> replyTo) implements BankAccountCommand {
         @Override
@@ -61,11 +61,11 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * 入金コマンド
+     * Deposit cash command
      *
-     * @param aggregateId アグリゲートID
-     * @param amount 金額
-     * @param replyTo 返信先
+     * @param aggregateId Aggregate ID
+     * @param amount Amount
+     * @param replyTo Reply destination
      */
     record DepositCash(BankAccountId aggregateId, Money amount, ActorRef<DepositCashReply> replyTo) implements BankAccountCommand {
         @Override
@@ -75,11 +75,11 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * 出金コマンド
+     * Withdraw cash command
      *
-     * @param aggregateId アグリゲートID
-     * @param amount 金額
-     * @param replyTo 返信先
+     * @param aggregateId Aggregate ID
+     * @param amount Amount
+     * @param replyTo Reply destination
      */
     record WithdrawCash(BankAccountId aggregateId, Money amount, ActorRef<WithdrawCashReply> replyTo) implements BankAccountCommand {
         @Override
@@ -89,9 +89,9 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * 状態復元コマンド
+     * State recovered command
      *
-     * @param state 状態
+     * @param state State
      */
     record StateRecovered(BankAccountAggregate.State state) implements BankAccountCommand, RecoveredState<BankAccountAggregate.State, BankAccountCommand> {
         @Override
@@ -106,9 +106,9 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * イベント永続化コマンド
+     * Event persisted command
      *
-     * @param events イベント
+     * @param events Events
      */
     record EventPersisted(List<BankAccountEvent> events) implements BankAccountCommand, PersistedEvent<BankAccountEvent, BankAccountCommand> {
         @Override
@@ -123,9 +123,9 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * 状態永続化コマンド
+     * State persisted command
      *
-     * @param state 状態
+     * @param state State
      */
     record StatePersisted(BankAccountAggregate.State state) implements BankAccountCommand, PersistedState<BankAccountAggregate.State, BankAccountCommand> {
         @Override
@@ -140,9 +140,9 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * スナップショット削除コマンド
+     * Snapshot shots deleted command
      *
-     * @param maxSequenceNumber 最大シーケンス番号
+     * @param maxSequenceNumber Maximum sequence number
      */
     record SnapshotShotsDeleted(long maxSequenceNumber) implements BankAccountCommand, DeletedSnapshots<BankAccountCommand> {
         @Override
@@ -157,30 +157,30 @@ public sealed interface BankAccountCommand {
     }
 
     /**
-     * メッセージプロトコル
+     * Message protocol
      */
     class Protocol implements MessageProtocol<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> {
         private final com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> messageConverter;
 
         /**
-         * コンストラクタ
+         * Constructor
          */
         public Protocol() {
             this.messageConverter = com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter.create(
-                    events -> new EventPersisted(events),
-                    state -> new StatePersisted(state),
-                    state -> new StateRecovered(state),
-                    maxSequenceNumber -> new SnapshotShotsDeleted(maxSequenceNumber)
+                    EventPersisted::new,
+                    StatePersisted::new,
+                    StateRecovered::new,
+                    SnapshotShotsDeleted::new
             );
         }
 
         @Override
         public com.github.j5ik2o.pekko.persistence.effector.scaladsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> messageConverter() {
-            // JavaDSL版のMessageConverterからScalaDSL版のMessageConverterを作成
+            // Create ScalaDSL MessageConverter from JavaDSL MessageConverter
             return messageConverter.toScala();
         }
 
-        // JavaDSL版のMessageConverterを取得するメソッドを追加
+        // Add method to get JavaDSL MessageConverter
         public com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> getJavaMessageConverter() {
             return messageConverter;
         }
@@ -188,21 +188,21 @@ public sealed interface BankAccountCommand {
 }
 
 /**
- * 停止応答
+ * Stop reply
  */
 enum StopReply {
     /**
-     * 成功
+     * Succeeded
      */
     SUCCEEDED;
 
     private BankAccountId aggregateId;
 
     /**
-     * 成功応答を作成する
+     * Create a success reply
      *
-     * @param aggregateId アグリゲートID
-     * @return 成功応答
+     * @param aggregateId Aggregate ID
+     * @return Success reply
      */
     public static StopReply succeeded(BankAccountId aggregateId) {
         StopReply reply = SUCCEEDED;
@@ -211,9 +211,9 @@ enum StopReply {
     }
 
     /**
-     * アグリゲートIDを取得する
+     * Get the aggregate ID
      *
-     * @return アグリゲートID
+     * @return Aggregate ID
      */
     public BankAccountId getAggregateId() {
         return aggregateId;
@@ -221,11 +221,11 @@ enum StopReply {
 }
 
 /**
- * 残高取得応答
+ * Get balance reply
  */
 enum GetBalanceReply {
     /**
-     * 成功
+     * Succeeded
      */
     SUCCEEDED;
 
@@ -233,11 +233,11 @@ enum GetBalanceReply {
     private Money balance;
 
     /**
-     * 成功応答を作成する
+     * Create a success reply
      *
-     * @param aggregateId アグリゲートID
-     * @param balance 残高
-     * @return 成功応答
+     * @param aggregateId Aggregate ID
+     * @param balance Balance
+     * @return Success reply
      */
     public static GetBalanceReply succeeded(BankAccountId aggregateId, Money balance) {
         GetBalanceReply reply = SUCCEEDED;
@@ -247,18 +247,18 @@ enum GetBalanceReply {
     }
 
     /**
-     * アグリゲートIDを取得する
+     * Get the aggregate ID
      *
-     * @return アグリゲートID
+     * @return Aggregate ID
      */
     public BankAccountId getAggregateId() {
         return aggregateId;
     }
 
     /**
-     * 残高を取得する
+     * Get the balance
      *
-     * @return 残高
+     * @return Balance
      */
     public Money getBalance() {
         return balance;
@@ -266,21 +266,21 @@ enum GetBalanceReply {
 }
 
 /**
- * 作成応答
+ * Create reply
  */
 enum CreateReply {
     /**
-     * 成功
+     * Succeeded
      */
     SUCCEEDED;
 
     private BankAccountId aggregateId;
 
     /**
-     * 成功応答を作成する
+     * Create a success reply
      *
-     * @param aggregateId アグリゲートID
-     * @return 成功応答
+     * @param aggregateId Aggregate ID
+     * @return Success reply
      */
     public static CreateReply succeeded(BankAccountId aggregateId) {
         CreateReply reply = SUCCEEDED;
@@ -289,9 +289,9 @@ enum CreateReply {
     }
 
     /**
-     * アグリゲートIDを取得する
+     * Get the aggregate ID
      *
-     * @return アグリゲートID
+     * @return Aggregate ID
      */
     public BankAccountId getAggregateId() {
         return aggregateId;
@@ -299,15 +299,15 @@ enum CreateReply {
 }
 
 /**
- * 入金応答
+ * Deposit cash reply
  */
 enum DepositCashReply {
     /**
-     * 成功
+     * Succeeded
      */
     SUCCEEDED,
     /**
-     * 失敗
+     * Failed
      */
     FAILED;
 
@@ -316,11 +316,11 @@ enum DepositCashReply {
     private BankAccountError error;
 
     /**
-     * 成功応答を作成する
+     * Create a success reply
      *
-     * @param aggregateId アグリゲートID
-     * @param amount 金額
-     * @return 成功応答
+     * @param aggregateId Aggregate ID
+     * @param amount Amount
+     * @return Success reply
      */
     public static DepositCashReply succeeded(BankAccountId aggregateId, Money amount) {
         DepositCashReply reply = SUCCEEDED;
@@ -330,11 +330,11 @@ enum DepositCashReply {
     }
 
     /**
-     * 失敗応答を作成する
+     * Create a failure reply
      *
-     * @param aggregateId アグリゲートID
-     * @param error エラー
-     * @return 失敗応答
+     * @param aggregateId Aggregate ID
+     * @param error Error
+     * @return Failure reply
      */
     public static DepositCashReply failed(BankAccountId aggregateId, BankAccountError error) {
         DepositCashReply reply = FAILED;
@@ -344,27 +344,27 @@ enum DepositCashReply {
     }
 
     /**
-     * アグリゲートIDを取得する
+     * Get the aggregate ID
      *
-     * @return アグリゲートID
+     * @return Aggregate ID
      */
     public BankAccountId getAggregateId() {
         return aggregateId;
     }
 
     /**
-     * 金額を取得する
+     * Get the amount
      *
-     * @return 金額
+     * @return Amount
      */
     public Money getAmount() {
         return amount;
     }
 
     /**
-     * エラーを取得する
+     * Get the error
      *
-     * @return エラー
+     * @return Error
      */
     public BankAccountError getError() {
         return error;
@@ -372,15 +372,15 @@ enum DepositCashReply {
 }
 
 /**
- * 出金応答
+ * Withdraw cash reply
  */
 enum WithdrawCashReply {
     /**
-     * 成功
+     * Succeeded
      */
     SUCCEEDED,
     /**
-     * 失敗
+     * Failed
      */
     FAILED;
 
@@ -389,11 +389,11 @@ enum WithdrawCashReply {
     private BankAccountError error;
 
     /**
-     * 成功応答を作成する
+     * Create a success reply
      *
-     * @param aggregateId アグリゲートID
-     * @param amount 金額
-     * @return 成功応答
+     * @param aggregateId Aggregate ID
+     * @param amount Amount
+     * @return Success reply
      */
     public static WithdrawCashReply succeeded(BankAccountId aggregateId, Money amount) {
         WithdrawCashReply reply = SUCCEEDED;
@@ -403,11 +403,11 @@ enum WithdrawCashReply {
     }
 
     /**
-     * 失敗応答を作成する
+     * Create a failure reply
      *
-     * @param aggregateId アグリゲートID
-     * @param error エラー
-     * @return 失敗応答
+     * @param aggregateId Aggregate ID
+     * @param error Error
+     * @return Failure reply
      */
     public static WithdrawCashReply failed(BankAccountId aggregateId, BankAccountError error) {
         WithdrawCashReply reply = FAILED;
@@ -417,27 +417,27 @@ enum WithdrawCashReply {
     }
 
     /**
-     * アグリゲートIDを取得する
+     * Get the aggregate ID
      *
-     * @return アグリゲートID
+     * @return Aggregate ID
      */
     public BankAccountId getAggregateId() {
         return aggregateId;
     }
 
     /**
-     * 金額を取得する
+     * Get the amount
      *
-     * @return 金額
+     * @return Amount
      */
     public Money getAmount() {
         return amount;
     }
 
     /**
-     * エラーを取得する
+     * Get the error
      *
-     * @return エラー
+     * @return Error
      */
     public BankAccountError getError() {
         return error;

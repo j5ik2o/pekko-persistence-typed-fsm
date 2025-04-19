@@ -14,7 +14,8 @@ import java.util.UUID
 import _root_.scala.concurrent.duration.*
 
 /**
- * BankAccountAggregateのテスト基底クラス 具体的なモード（Persisted/InMemory）はサブクラスで指定する
+ * Base test class for BankAccountAggregate. Specific mode (Persisted/InMemory) is specified in
+ * subclasses
  */
 abstract class BankAccountAggregateTestBase
   extends ScalaTestWithActorTestKit(TestConfig.config)
@@ -26,10 +27,10 @@ abstract class BankAccountAggregateTestBase
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 10.seconds, interval = 100.millis)
 
-  // サブクラスで実装するメソッド - テスト対象のPersistenceMode
+  // Method to be implemented in subclasses - PersistenceMode to be tested
   def persistenceMode: PersistenceMode
 
-  // BankAccountAggregateを生成するヘルパーメソッド
+  // Helper method to create BankAccountAggregate
   def createBankAccountAggregate(accountId: BankAccountId): Behavior[BankAccountCommand] =
     BankAccountAggregate(accountId, persistenceMode)
 
@@ -51,7 +52,7 @@ abstract class BankAccountAggregateTestBase
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
 
-      // 口座作成
+      // Create account
       val createProbe = createTestProbe[CreateReply]()
       bankAccountActor ! BankAccountCommand.Create(accountId, createProbe.ref)
       createProbe.expectMessageType[CreateReply.Succeeded]
@@ -59,7 +60,7 @@ abstract class BankAccountAggregateTestBase
       val depositProbe = createTestProbe[DepositCashReply]()
 
       for { _ <- 1 to 10 } {
-        // 預金
+        // Deposit
         val depositAmount = Money(10000, Money.JPY)
         bankAccountActor ! BankAccountCommand.DepositCash(
           accountId,
@@ -70,14 +71,14 @@ abstract class BankAccountAggregateTestBase
         depositResponse.aggregateId shouldBe accountId
         depositResponse.amount shouldBe depositAmount
       }
-      // 口座の停止
+      // Stop account
       val stopProbe = createTestProbe[StopReply]()
       bankAccountActor ! BankAccountCommand.Stop(accountId, stopProbe.ref)
       stopProbe.expectMessageType[StopReply.Succeeded]
 
       val bankAccountActor2 = spawn(createBankAccountAggregate(accountId))
 
-      // 残高確認
+      // Check balance
       val balanceProbe = createTestProbe[GetBalanceReply]()
       bankAccountActor2 ! BankAccountCommand.GetBalance(accountId, balanceProbe.ref)
 
@@ -90,18 +91,18 @@ abstract class BankAccountAggregateTestBase
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
 
-      // 口座作成
+      // Create account
       val createProbe = createTestProbe[CreateReply]()
       bankAccountActor ! BankAccountCommand.Create(accountId, createProbe.ref)
       createProbe.expectMessageType[CreateReply.Succeeded]
 
-      // 預金
+      // Deposit
       val depositAmount = Money(10000, Money.JPY)
       val depositProbe = createTestProbe[DepositCashReply]()
       bankAccountActor ! BankAccountCommand.DepositCash(accountId, depositAmount, depositProbe.ref)
       depositProbe.expectMessageType[DepositCashReply.Succeeded]
 
-      // 引き出し
+      // Withdraw
       val withdrawAmount = Money(3000, Money.JPY)
       val withdrawProbe = createTestProbe[WithdrawCashReply]()
       bankAccountActor ! BankAccountCommand.WithdrawCash(
@@ -113,7 +114,7 @@ abstract class BankAccountAggregateTestBase
       withdrawResponse.aggregateId shouldBe accountId
       withdrawResponse.amount shouldBe withdrawAmount
 
-      // 残高確認
+      // Check balance
       val balanceProbe = createTestProbe[GetBalanceReply]()
       bankAccountActor ! BankAccountCommand.GetBalance(accountId, balanceProbe.ref)
 
@@ -126,12 +127,12 @@ abstract class BankAccountAggregateTestBase
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
 
-      // 口座作成
+      // Create account
       val createProbe = createTestProbe[CreateReply]()
       bankAccountActor ! BankAccountCommand.Create(accountId, createProbe.ref)
       createProbe.expectMessageType[CreateReply.Succeeded]
 
-      // 初期残高確認
+      // Check initial balance
       val initialBalanceProbe = createTestProbe[GetBalanceReply]()
       bankAccountActor ! BankAccountCommand.GetBalance(accountId, initialBalanceProbe.ref)
 
@@ -144,12 +145,12 @@ abstract class BankAccountAggregateTestBase
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
 
-      // 口座作成
+      // Create account
       val createProbe = createTestProbe[CreateReply]()
       bankAccountActor ! BankAccountCommand.Create(accountId, createProbe.ref)
       createProbe.expectMessageType[CreateReply.Succeeded]
 
-      // 預金額以上の引き出し試行
+      // Attempt to withdraw more than deposit amount
       val withdrawAmount = Money(1000, Money.JPY)
       val withdrawProbe = createTestProbe[WithdrawCashReply]()
       bankAccountActor ! BankAccountCommand.WithdrawCash(
@@ -167,13 +168,13 @@ abstract class BankAccountAggregateTestBase
 
       val bankAccountActor = spawn(createBankAccountAggregate(accountId))
 
-      // 口座作成
+      // Create account
       val createProbe = createTestProbe[CreateReply]()
       bankAccountActor ! BankAccountCommand.Create(accountId, createProbe.ref)
       createProbe.expectMessageType[CreateReply.Succeeded]
 
-      // 上限を超える預金試行
-      val depositAmount = Money(150000, Money.JPY) // 上限は100000円
+      // Attempt to deposit exceeding limit
+      val depositAmount = Money(150000, Money.JPY) // Limit is 100000 yen
       val depositProbe = createTestProbe[DepositCashReply]()
       bankAccountActor ! BankAccountCommand.DepositCash(accountId, depositAmount, depositProbe.ref)
 
@@ -185,21 +186,21 @@ abstract class BankAccountAggregateTestBase
     "maintain state after stop and restart with multiple actions" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
-      // 最初のアクターを作成して状態を構築
+      // Create first actor and build state
       val bankAccountActor1 = spawn(createBankAccountAggregate(accountId))
 
-      // 口座作成
+      // Create account
       val createProbe = createTestProbe[CreateReply]()
       bankAccountActor1 ! BankAccountCommand.Create(accountId, createProbe.ref)
       createProbe.expectMessageType[CreateReply.Succeeded]
 
-      // 預金
+      // Deposit
       val depositAmount = Money(50000, Money.JPY)
       val depositProbe = createTestProbe[DepositCashReply]()
       bankAccountActor1 ! BankAccountCommand.DepositCash(accountId, depositAmount, depositProbe.ref)
       depositProbe.expectMessageType[DepositCashReply.Succeeded]
 
-      // もう一度預金
+      // Deposit again
       val depositAmount2 = Money(20000, Money.JPY)
       val depositProbe2 = createTestProbe[DepositCashReply]()
       bankAccountActor1 ! BankAccountCommand.DepositCash(
@@ -208,15 +209,15 @@ abstract class BankAccountAggregateTestBase
         depositProbe2.ref)
       depositProbe2.expectMessageType[DepositCashReply.Succeeded]
 
-      // スナップショットを作成するために明示的に停止
+      // Explicitly stop to create snapshot
       val stopProbe = createTestProbe[StopReply]()
       bankAccountActor1 ! BankAccountCommand.Stop(accountId, stopProbe.ref)
       stopProbe.expectMessageType[StopReply.Succeeded]
 
-      // 2番目のアクターを作成 - この時点でPersistenceStoreActorのreceiveRecoverが呼ばれる
+      // Create second actor - at this point receiveRecover of PersistenceStoreActor is called
       val bankAccountActor2 = spawn(createBankAccountAggregate(accountId))
 
-      // 残高確認 - 前のアクターの状態が復元されていることを確認
+      // Check balance - verify that the state of the previous actor has been restored
       val expectedBalance = Money(70000, Money.JPY) // 50000 + 20000
       val balanceProbe = createTestProbe[GetBalanceReply]()
       bankAccountActor2 ! BankAccountCommand.GetBalance(accountId, balanceProbe.ref)
@@ -224,7 +225,7 @@ abstract class BankAccountAggregateTestBase
       val balanceResponse = balanceProbe.expectMessageType[GetBalanceReply.Succeeded]
       balanceResponse.balance shouldBe expectedBalance
 
-      // アクター再起動後も正常に操作できることを確認
+      // Verify that operations can be performed normally after actor restart
       val withdrawAmount = Money(10000, Money.JPY)
       val withdrawProbe = createTestProbe[WithdrawCashReply]()
       bankAccountActor2 ! BankAccountCommand.WithdrawCash(
@@ -235,7 +236,7 @@ abstract class BankAccountAggregateTestBase
       val withdrawResponse = withdrawProbe.expectMessageType[WithdrawCashReply.Succeeded]
       withdrawResponse.amount shouldBe withdrawAmount
 
-      // 最終残高確認
+      // Final balance check
       val finalBalanceProbe = createTestProbe[GetBalanceReply]()
       bankAccountActor2 ! BankAccountCommand.GetBalance(accountId, finalBalanceProbe.ref)
 
@@ -246,29 +247,29 @@ abstract class BankAccountAggregateTestBase
     "maintain state after stop and restart" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
-      // 最初のアクターを作成して状態を構築
+      // Create first actor and build state
       val bankAccountActor1 = spawn(createBankAccountAggregate(accountId))
 
-      // 口座作成
+      // Create account
       val createProbe = createTestProbe[CreateReply]()
       bankAccountActor1 ! BankAccountCommand.Create(accountId, createProbe.ref)
       createProbe.expectMessageType[CreateReply.Succeeded]
 
-      // 預金
+      // Deposit
       val depositAmount = Money(50000, Money.JPY)
       val depositProbe = createTestProbe[DepositCashReply]()
       bankAccountActor1 ! BankAccountCommand.DepositCash(accountId, depositAmount, depositProbe.ref)
       depositProbe.expectMessageType[DepositCashReply.Succeeded]
 
-      // スナップショットを作成するために明示的に停止
+      // Explicitly stop to create snapshot
       val stopProbe = createTestProbe[StopReply]()
       bankAccountActor1 ! BankAccountCommand.Stop(accountId, stopProbe.ref)
       stopProbe.expectMessageType[StopReply.Succeeded]
 
-      // アクターを再起動（この時点でreceiveRecoverが呼ばれる）
+      // Restart actor (receiveRecover is called at this point)
       val bankAccountActor2 = spawn(createBankAccountAggregate(accountId))
 
-      // 残高確認 - 前のアクターの状態が復元されていることを確認
+      // Check balance - verify that the state of the previous actor has been restored
       val balanceProbe = createTestProbe[GetBalanceReply]()
       bankAccountActor2 ! BankAccountCommand.GetBalance(accountId, balanceProbe.ref)
 
@@ -279,33 +280,33 @@ abstract class BankAccountAggregateTestBase
     "restore initial state after stop and restart" in {
       val accountId = BankAccountId(UUID.randomUUID())
 
-      // 最初のアクターを作成して初期状態を構築
+      // Create first actor and build initial state
       val bankAccountActor1 = spawn(createBankAccountAggregate(accountId))
 
-      // 口座作成
+      // Create account
       val createProbe = createTestProbe[CreateReply]()
       bankAccountActor1 ! BankAccountCommand.Create(accountId, createProbe.ref)
       createProbe.expectMessageType[CreateReply.Succeeded]
 
-      // アクターを停止
+      // Stop actor
       val stopProbe = createTestProbe[StopReply]()
       bankAccountActor1 ! BankAccountCommand.Stop(accountId, stopProbe.ref)
       stopProbe.expectMessageType[StopReply.Succeeded]
 
-      // アクターを再起動（この時点でreceiveRecoverが呼ばれる必要がある）
+      // Restart actor (receiveRecover needs to be called at this point)
       val bankAccountActor2 = spawn(createBankAccountAggregate(accountId))
 
-      // 残高確認 - 初期状態が正しく復元されていることを確認
+      // Check balance - verify that the initial state has been correctly restored
       val balanceProbe = createTestProbe[GetBalanceReply]()
       bankAccountActor2 ! BankAccountCommand.GetBalance(accountId, balanceProbe.ref)
 
       val balanceResponse = balanceProbe.expectMessageType[GetBalanceReply.Succeeded]
-      // 口座作成のみで入金はしていないので、残高は0円のはず
+      // Since only account creation was done without deposit, balance should be 0 yen
       balanceResponse.balance shouldBe Money(0, Money.JPY)
 
-      // コメント: receiveRecoverが正しく呼ばれていれば、状態が復元されます。
-      // もし呼ばれていなければ、このテストは失敗します。
+      // Comment: If receiveRecover is called correctly, the state will be restored.
+      // If it is not called, this test will fail.
     }
   }
-  // 追加のモード特有のテストケースはサブクラスで追加
+  // Additional mode-specific test cases can be added in subclasses
 }

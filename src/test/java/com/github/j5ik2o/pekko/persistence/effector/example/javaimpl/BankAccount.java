@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * 銀行口座を表すクラス
+ * Class representing a bank account
  */
 public class BankAccount implements Serializable {
     private final BankAccountId bankAccountId;
@@ -13,11 +13,11 @@ public class BankAccount implements Serializable {
     private final Money balance;
 
     /**
-     * コンストラクタ
+     * Constructor
      *
-     * @param bankAccountId 銀行口座ID
-     * @param limit 限度額
-     * @param balance 残高
+     * @param bankAccountId Bank account ID
+     * @param limit Limit amount
+     * @param balance Balance
      */
     public BankAccount(BankAccountId bankAccountId, Money limit, Money balance) {
         this.bankAccountId = bankAccountId;
@@ -26,22 +26,22 @@ public class BankAccount implements Serializable {
     }
 
     /**
-     * 銀行口座IDを指定して銀行口座を作成する
+     * Create a bank account with the specified bank account ID
      *
-     * @param bankAccountId 銀行口座ID
-     * @return 銀行口座
+     * @param bankAccountId Bank account ID
+     * @return Bank account
      */
     public static BankAccount apply(BankAccountId bankAccountId) {
         return new BankAccount(bankAccountId, Money.yens(100000), Money.zero(Money.JPY));
     }
 
     /**
-     * 銀行口座を作成する
+     * Create a bank account
      *
-     * @param bankAccountId 銀行口座ID
-     * @param limit 限度額
-     * @param balance 残高
-     * @return 結果
+     * @param bankAccountId Bank account ID
+     * @param limit Limit amount
+     * @param balance Balance
+     * @return Result
      */
     public static Result<BankAccount, BankAccountEvent> create(
             BankAccountId bankAccountId,
@@ -54,47 +54,47 @@ public class BankAccount implements Serializable {
     }
 
     /**
-     * 銀行口座IDを指定して銀行口座を作成する
+     * Create a bank account with the specified bank account ID
      *
-     * @param bankAccountId 銀行口座ID
-     * @return 結果
+     * @param bankAccountId Bank account ID
+     * @return Result
      */
     public static Result<BankAccount, BankAccountEvent> create(BankAccountId bankAccountId) {
         return create(bankAccountId, Money.yens(100000), Money.zero(Money.JPY));
     }
 
     /**
-     * 銀行口座IDを取得する
+     * Get the bank account ID
      *
-     * @return 銀行口座ID
+     * @return Bank account ID
      */
     public BankAccountId getBankAccountId() {
         return bankAccountId;
     }
 
     /**
-     * 限度額を取得する
+     * Get the limit amount
      *
-     * @return 限度額
+     * @return Limit amount
      */
     public Money getLimit() {
         return limit;
     }
 
     /**
-     * 残高を取得する
+     * Get the balance
      *
-     * @return 残高
+     * @return Balance
      */
     public Money getBalance() {
         return balance;
     }
 
     /**
-     * 入金する
+     * Deposit cash
      *
-     * @param amount 金額
-     * @return 結果
+     * @param amount Amount
+     * @return Result
      */
     public Either<BankAccountError, Result<BankAccount, BankAccountEvent>> add(Money amount) {
         if (limit.isLessThan(balance.plus(amount))) {
@@ -110,10 +110,10 @@ public class BankAccount implements Serializable {
     }
 
     /**
-     * 出金する
+     * Withdraw cash
      *
-     * @param amount 金額
-     * @return 結果
+     * @param amount Amount
+     * @return Result
      */
     public Either<BankAccountError, Result<BankAccount, BankAccountEvent>> subtract(Money amount) {
         if (Money.zero(Money.JPY).isGreaterThan(balance.minus(amount))) {
@@ -129,10 +129,10 @@ public class BankAccount implements Serializable {
     }
 
     /**
-     * Either型
+     * Either type
      *
-     * @param <L> 左辺の型
-     * @param <R> 右辺の型
+     * @param <L> Left type
+     * @param <R> Right type
      */
     public static class Either<L, R> {
         private final Optional<L> left;

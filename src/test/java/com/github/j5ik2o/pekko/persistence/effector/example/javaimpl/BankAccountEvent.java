@@ -4,28 +4,28 @@ import java.io.Serializable;
 import java.time.Instant;
 
 /**
- * 銀行口座のイベントを表すシールドインターフェース
+ * Sealed interface representing bank account events
  */
 public sealed interface BankAccountEvent extends Serializable {
     /**
-     * アグリゲートIDを取得する
+     * Get the aggregate ID
      *
-     * @return アグリゲートID
+     * @return Aggregate ID
      */
     BankAccountId getAggregateId();
 
     /**
-     * 発生日時を取得する
+     * Get the occurrence time
      *
-     * @return 発生日時
+     * @return Occurrence time
      */
     Instant getOccurredAt();
 
     /**
-     * 作成イベント
+     * Created event
      *
-     * @param aggregateId アグリゲートID
-     * @param occurredAt 発生日時
+     * @param aggregateId Aggregate ID
+     * @param occurredAt Occurrence time
      */
     record Created(BankAccountId aggregateId, Instant occurredAt) implements BankAccountEvent {
         @Override
@@ -40,11 +40,11 @@ public sealed interface BankAccountEvent extends Serializable {
     }
 
     /**
-     * 入金イベント
+     * Cash deposited event
      *
-     * @param aggregateId アグリゲートID
-     * @param amount 金額
-     * @param occurredAt 発生日時
+     * @param aggregateId Aggregate ID
+     * @param amount Amount
+     * @param occurredAt Occurrence time
      */
     record CashDeposited(BankAccountId aggregateId, Money amount, Instant occurredAt) implements BankAccountEvent {
         @Override
@@ -59,11 +59,11 @@ public sealed interface BankAccountEvent extends Serializable {
     }
 
     /**
-     * 出金イベント
+     * Cash withdrew event
      *
-     * @param aggregateId アグリゲートID
-     * @param amount 金額
-     * @param occurredAt 発生日時
+     * @param aggregateId Aggregate ID
+     * @param amount Amount
+     * @param occurredAt Occurrence time
      */
     record CashWithdrew(BankAccountId aggregateId, Money amount, Instant occurredAt) implements BankAccountEvent {
         @Override

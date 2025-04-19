@@ -45,3 +45,4 @@ metals.sbt
 ### Scala ###
 .bsp/
 .bloop/
+.qodo

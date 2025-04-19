@@ -5,13 +5,13 @@ import java.util.UUID;
 import java.util.Objects;
 
 /**
- * 銀行口座IDを表すクラス
+ * Class representing a bank account ID
  */
 public class BankAccountId implements Serializable {
     private final UUID value;
 
     /**
-     * コンストラクタ
+     * Constructor
      *
      * @param value UUID
      */
@@ -20,7 +20,7 @@ public class BankAccountId implements Serializable {
     }
 
     /**
-     * UUIDを取得する
+     * Get the UUID
      *
      * @return UUID
      */
@@ -29,18 +29,18 @@ public class BankAccountId implements Serializable {
     }
 
     /**
-     * アグリゲート型名を取得する
+     * Get the aggregate type name
      *
-     * @return アグリゲート型名
+     * @return Aggregate type name
      */
     public String getAggregateTypeName() {
         return "BankAccount";
     }
 
     /**
-     * 文字列表現を取得する
+     * Get string representation
      *
-     * @return 文字列表現
+     * @return String representation
      */
     public String asString() {
         return value.toString();

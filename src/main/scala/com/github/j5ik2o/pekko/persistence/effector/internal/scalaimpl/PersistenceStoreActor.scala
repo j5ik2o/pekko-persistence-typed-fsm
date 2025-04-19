@@ -58,7 +58,7 @@ private[effector] final class PersistenceStoreActor[S, E, M](
         log.debug("receiveRecover: RecoveryCompleted")
         recoveryActorRef ! RecoveryDone(
           recoveryState.getOrElse(throw new IllegalStateException("State is not set")),
-          lastSequenceNr, // lastSequenceNr を含める
+          lastSequenceNr, // Include lastSequenceNr
         )
         recoveryState = None
       case event =>

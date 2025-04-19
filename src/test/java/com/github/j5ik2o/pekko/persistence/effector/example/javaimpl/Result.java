@@ -3,10 +3,10 @@ package com.github.j5ik2o.pekko.persistence.effector.example.javaimpl;
 import java.util.Objects;
 
 /**
- * 結果を表すクラス
+ * Class representing a result
  *
- * @param <S> 状態の型
- * @param <E> イベントの型
+ * @param <S> State type
+ * @param <E> Event type
  */
 public class Result<S, E> {
     private final S state;
