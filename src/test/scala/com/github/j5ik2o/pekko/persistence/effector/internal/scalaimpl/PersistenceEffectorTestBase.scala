@@ -302,18 +302,20 @@ abstract class PersistenceEffectorTestBase
         PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
             // persistEventWithStateを使用
-            effector.persistEventWithSnapshot(event, newState, forceSnapshot = true) { persistedEvent =>
-              events += TestMessage.EventPersisted(Seq(event))
+            effector.persistEventWithSnapshot(event, newState, forceSnapshot = true) {
+              persistedEvent =>
+                events += TestMessage.EventPersisted(Seq(event))
 
-              // スナップショットが保存されたことを確認
-              // InMemoryEffectorの場合、スナップショットは即時保存される
-              if (persistenceMode == PersistenceMode.Ephemeral) {
-                val inMemoryEffector = effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
-                val savedState = inMemoryEffector.getState
-                probe.ref ! savedState
-              }
+                // スナップショットが保存されたことを確認
+                // InMemoryEffectorの場合、スナップショットは即時保存される
+                if (persistenceMode == PersistenceMode.Ephemeral) {
+                  val inMemoryEffector =
+                    effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
+                  val savedState = inMemoryEffector.getState
+                  probe.ref ! savedState
+                }
 
-              Behaviors.stopped
+                Behaviors.stopped
             }
         }(using context)
       })
@@ -371,7 +373,8 @@ abstract class PersistenceEffectorTestBase
               // スナップショットが保存されたことを確認
               // InMemoryEffectorの場合、スナップショットは即時保存される
               if (persistenceMode == PersistenceMode.Ephemeral) {
-                val inMemoryEffector = effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
+                val inMemoryEffector =
+                  effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
                 val savedState = inMemoryEffector.getState
                 probe.ref ! savedState
               }
@@ -434,7 +437,8 @@ abstract class PersistenceEffectorTestBase
                 // スナップショットが保存されたことを確認
                 // InMemoryEffectorの場合、スナップショットは即時保存される
                 if (persistenceMode == PersistenceMode.Ephemeral) {
-                  val inMemoryEffector = effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
+                  val inMemoryEffector =
+                    effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
                   val savedState = inMemoryEffector.getState
                   probe.ref ! savedState
                 }
@@ -542,7 +546,8 @@ abstract class PersistenceEffectorTestBase
 
                         // InMemoryEffectorの場合、最終状態を確認
                         if (persistenceMode == PersistenceMode.Ephemeral) {
-                          val inMemoryEffector = effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
+                          val inMemoryEffector = effector
+                            .asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
                           stateProbe.ref ! inMemoryEffector.getState
 
                           // RetentionCriteriaの設定により、シーケンス番号2のスナップショットが削除されているはず
@@ -572,7 +577,13 @@ abstract class PersistenceEffectorTestBase
       // InMemoryEffectorの場合のみ最終状態の確認
       if (persistenceMode == PersistenceMode.Ephemeral) {
         val finalState = stateProbe.receiveMessage(3.seconds)
-        finalState.values should contain.allOf("event1", "event2", "event3", "event4", "event5", "event6")
+        finalState.values should contain.allOf(
+          "event1",
+          "event2",
+          "event3",
+          "event4",
+          "event5",
+          "event6")
         finalState.values.size shouldBe 6
 
         // 削除されたスナップショットのシーケンス番号を確認

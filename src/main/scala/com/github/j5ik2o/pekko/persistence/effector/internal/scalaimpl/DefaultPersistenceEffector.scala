@@ -161,9 +161,7 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
       waitForMessage(
         unwrapDeleteSnapshots,
         "Delete snapshots succeeded",
-        _ => {
-          onDeleted
-        },
+        _ => onDeleted,
       )
     } else {
       ctx.log.debug("No snapshots to delete based on retention policy")
@@ -215,13 +213,12 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
     waitForMessage(
       unwrapPersistedSnapshot,
       "Persisted snapshot",
-      snapshot => {
+      snapshot =>
         // RetentionCriteriaが設定されている場合は古いスナップショットを削除
         config.retentionCriteria match {
           case Some(retention) => deleteOldSnapshots(retention, onCompleted)
           case None => onCompleted
-        }
-      },
+        },
     )
   }
 

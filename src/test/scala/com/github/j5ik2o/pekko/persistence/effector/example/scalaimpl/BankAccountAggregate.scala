@@ -42,19 +42,14 @@ object BankAccountAggregate {
     aggregateId: BankAccountId,
     persistenceMode: PersistenceMode = PersistenceMode.Persisted,
   ): Behavior[BankAccountCommand] = {
-    val config =
-      PersistenceEffectorConfig
-        .create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand.Message](
-          persistenceId = actorName(aggregateId),
-          initialState = State.NotCreated(aggregateId),
-          applyEvent = (state, event) => state.applyEvent(event),
-          persistenceMode = persistenceMode,
-          stashSize = 32,
-          snapshotCriteria = Some(SnapshotCriteria.every(2)),
-          retentionCriteria = Some(RetentionCriteria.snapshotEvery(2)),
-          backoffConfig = None,
-          messageConverter = BankAccountCommand.messageConverter,
-        )
+    val config = PersistenceEffectorConfig
+      .create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand.Message](
+        persistenceId = actorName(aggregateId),
+        initialState = State.NotCreated(aggregateId),
+        applyEvent = (state, event) => state.applyEvent(event))
+      .withPersistenceMode(persistenceMode)
+      .withSnapshotCriteria(SnapshotCriteria.every(2))
+      .withRetentionCriteria(RetentionCriteria.snapshotEvery(2))
     Behaviors.setup[BankAccountCommand] { implicit ctx =>
       PersistenceEffector
         .fromConfig[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
