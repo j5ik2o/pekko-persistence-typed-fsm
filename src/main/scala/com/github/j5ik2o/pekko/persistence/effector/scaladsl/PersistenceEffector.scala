@@ -11,132 +11,119 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.compiletime.asMatchable
 
+/**
+ * Trait defining the persistence operations for event sourcing.
+ * This trait provides methods to persist events and snapshots, and to manage the lifecycle of persisted data.
+ *
+ * @tparam S Type of state
+ * @tparam E Type of event
+ * @tparam M Type of message
+ */
 trait PersistenceEffector[S, E, M] {
+  /**
+   * Persist a single event.
+   *
+   * @param event Event to persist
+   * @param onPersisted Callback function to execute after the event is persisted
+   * @return The behavior returned by the callback
+   */
   def persistEvent(event: E)(onPersisted: E => Behavior[M]): Behavior[M]
+  
+  /**
+   * Persist multiple events.
+   *
+   * @param events Events to persist
+   * @param onPersisted Callback function to execute after the events are persisted
+   * @return The behavior returned by the callback
+   */
   def persistEvents(events: Seq[E])(onPersisted: Seq[E] => Behavior[M]): Behavior[M]
 
   /**
-   * スナップショットを永続化する
+   * Persist a snapshot.
    *
-   * @param snapshot
-   *   永続化するスナップショット
-   * @param onPersisted
-   *   スナップショットが永続化された後に呼び出されるコールバック
-   * @return
-   *   新しいBehavior
+   * @param snapshot Snapshot to persist
+   * @param onPersisted Callback function to execute after the snapshot is persisted
+   * @return The behavior returned by the callback
    */
   def persistSnapshot(snapshot: S)(onPersisted: S => Behavior[M]): Behavior[M] =
     persistSnapshot(snapshot, force = false)(onPersisted)
 
   /**
-   * スナップショットを永続化する
+   * Persist a snapshot with force option.
    *
-   * @param snapshot
-   *   永続化するスナップショット
-   * @param force
-   *   trueの場合、スナップショット戦略を無視して強制的に保存する
-   * @param onPersisted
-   *   スナップショットが永続化された後に呼び出されるコールバック
-   * @return
-   *   新しいBehavior
+   * @param snapshot Snapshot to persist
+   * @param force If true, forces snapshot persistence regardless of snapshot criteria
+   * @param onPersisted Callback function to execute after the snapshot is persisted
+   * @return The behavior returned by the callback
    */
   def persistSnapshot(snapshot: S, force: Boolean)(onPersisted: S => Behavior[M]): Behavior[M]
 
   /**
-   * イベントを永続化し、現在の状態を指定してスナップショット戦略を評価する（後方互換性のため）
+   * Persist an event and evaluate snapshot criteria with the current state (for backward compatibility).
    *
-   * @param event
-   *   イベント
-   * @param snapshot
-   *   現在の状態
-   * @param onPersisted
-   *   イベントが永続化された後に呼び出されるコールバック
-   * @return
-   *   新しいBehavior
+   * @param event Event to persist
+   * @param snapshot Current state
+   * @param onPersisted Callback function to execute after the event is persisted
+   * @return The behavior returned by the callback
    */
   def persistEventWithSnapshot(event: E, snapshot: S)(onPersisted: E => Behavior[M]): Behavior[M] =
     persistEventWithSnapshot(event, snapshot, forceSnapshot = false)(onPersisted)
 
   /**
-   * イベントを永続化し、現在の状態を指定してスナップショット戦略を評価する
+   * Persist an event and evaluate snapshot criteria with the current state.
    *
-   * @param event
-   *   イベント
-   * @param snapshot
-   *   現在の状態
-   * @param forceSnapshot
-   *   trueの場合、スナップショット戦略を無視して強制的にスナップショットを保存する
-   * @param onPersisted
-   *   イベントが永続化された後に呼び出されるコールバック
-   * @return
-   *   新しいBehavior
+   * @param event Event to persist
+   * @param snapshot Current state
+   * @param forceSnapshot If true, forces snapshot persistence regardless of snapshot criteria
+   * @param onPersisted Callback function to execute after the event is persisted
+   * @return The behavior returned by the callback
    */
   def persistEventWithSnapshot(event: E, snapshot: S, forceSnapshot: Boolean)(
     onPersisted: E => Behavior[M]): Behavior[M]
 
   /**
-   * 複数のイベントを永続化し、現在の状態を指定してスナップショット戦略を評価する（後方互換性のため）
+   * Persist multiple events and evaluate snapshot criteria with the current state (for backward compatibility).
    *
-   * @param events
-   *   イベントのシーケンス
-   * @param snapshot
-   *   現在の状態
-   * @param onPersisted
-   *   イベントが永続化された後に呼び出されるコールバック
-   * @return
-   *   新しいBehavior
+   * @param events Sequence of events to persist
+   * @param snapshot Current state
+   * @param onPersisted Callback function to execute after the events are persisted
+   * @return The behavior returned by the callback
    */
   def persistEventsWithSnapshot(events: Seq[E], snapshot: S)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M] =
     persistEventsWithSnapshot(events, snapshot, forceSnapshot = false)(onPersisted)
 
   /**
-   * 複数のイベントを永続化し、現在の状態を指定してスナップショット戦略を評価する
+   * Persist multiple events and evaluate snapshot criteria with the current state.
    *
-   * @param events
-   *   イベントのシーケンス
-   * @param snapshot
-   *   現在の状態
-   * @param forceSnapshot
-   *   trueの場合、スナップショット戦略を無視して強制的にスナップショットを保存する
-   * @param onPersisted
-   *   イベントが永続化された後に呼び出されるコールバック
-   * @return
-   *   新しいBehavior
+   * @param events Sequence of events to persist
+   * @param snapshot Current state
+   * @param forceSnapshot If true, forces snapshot persistence regardless of snapshot criteria
+   * @param onPersisted Callback function to execute after the events are persisted
+   * @return The behavior returned by the callback
    */
   def persistEventsWithSnapshot(events: Seq[E], snapshot: S, forceSnapshot: Boolean)(
     onPersisted: Seq[E] => Behavior[M]): Behavior[M]
 }
 
 object PersistenceEffector {
-  // リカバリー完了を内部的に扱うためのメッセージ
+  // Message for handling recovery completion internally
   private case class RecoveryCompletedInternal[S](state: S, sequenceNr: Long)
 
   /**
-   * 永続化モードでPersistenceEffectorを作成する
+   * Create a PersistenceEffector in persisted mode.
    *
-   * @param persistenceId
-   *   永続化ID
-   * @param initialState
-   *   初期状態
-   * @param applyEvent
-   *   イベントを適用する関数
-   * @param messageConverter
-   *   メッセージコンバーター
-   * @param stashSize
-   *   スタッシュサイズ
-   * @param snapshotCriteria
-   *   スナップショット基準
-   * @param retentionCriteria
-   *   保持基準
-   * @param backoffConfig
-   *   バックオフ設定
-   * @param onReady
-   *   準備完了時のコールバック
-   * @param context
-   *   アクターコンテキスト
-   * @return
-   *   アクターの振る舞い
+   * @param persistenceId Persistence ID
+   * @param initialState Initial state
+   * @param applyEvent Function to apply events to state
+   * @param messageConverter Message converter
+   * @param stashSize Size of the stash buffer
+   * @param snapshotCriteria Snapshot criteria
+   * @param retentionCriteria Retention criteria
+   * @param backoffConfig Backoff configuration
+   * @param onReady Callback when the effector is ready
+   * @param context Actor context
+   * @return Actor behavior
    */
   def persisted[S, E, M <: Matchable](
     persistenceId: String,
@@ -165,30 +152,19 @@ object PersistenceEffector {
   }
 
   /**
-   * インメモリモードでPersistenceEffectorを作成する
+   * Create a PersistenceEffector in in-memory mode.
    *
-   * @param persistenceId
-   *   永続化ID
-   * @param initialState
-   *   初期状態
-   * @param applyEvent
-   *   イベントを適用する関数
-   * @param messageConverter
-   *   メッセージコンバーター
-   * @param stashSize
-   *   スタッシュサイズ
-   * @param snapshotCriteria
-   *   スナップショット基準
-   * @param retentionCriteria
-   *   保持基準
-   * @param backoffConfig
-   *   バックオフ設定
-   * @param onReady
-   *   準備完了時のコールバック
-   * @param context
-   *   アクターコンテキスト
-   * @return
-   *   アクターの振る舞い
+   * @param persistenceId Persistence ID
+   * @param initialState Initial state
+   * @param applyEvent Function to apply events to state
+   * @param messageConverter Message converter
+   * @param stashSize Size of the stash buffer
+   * @param snapshotCriteria Snapshot criteria
+   * @param retentionCriteria Retention criteria
+   * @param backoffConfig Backoff configuration
+   * @param onReady Callback when the effector is ready
+   * @param context Actor context
+   * @return Actor behavior
    */
   def ephemeral[S, E, M <: Matchable](
     persistenceId: String,
@@ -217,16 +193,12 @@ object PersistenceEffector {
   }
 
   /**
-   * 設定を直接指定してPersistenceEffectorを作成する
+   * Create a PersistenceEffector from a configuration.
    *
-   * @param config
-   *   設定
-   * @param onReady
-   *   準備完了時のコールバック
-   * @param context
-   *   アクターコンテキスト
-   * @return
-   *   アクターの振る舞い
+   * @param config Configuration
+   * @param onReady Callback when the effector is ready
+   * @param context Actor context
+   * @return Actor behavior
    */
   def fromConfig[S, E, M](
     config: PersistenceEffectorConfig[S, E, M],
@@ -236,16 +208,12 @@ object PersistenceEffector {
     build(config)(onReady)
 
   /**
-   * 設定に基づいてPersistenceEffectorを構築する
+   * Build a PersistenceEffector based on configuration.
    *
-   * @param config
-   *   設定
-   * @param onReady
-   *   準備完了時のコールバック
-   * @param context
-   *   アクターコンテキスト
-   * @return
-   *   アクターの振る舞い
+   * @param config Configuration
+   * @param onReady Callback when the effector is ready
+   * @param context Actor context
+   * @return Actor behavior
    */
   private def build[S, E, M](
     config: PersistenceEffectorConfig[S, E, M],
@@ -254,12 +222,12 @@ object PersistenceEffector {
   ): Behavior[M] =
     config.persistenceMode match {
       case PersistenceMode.Persisted =>
-        // 既存の永続化実装
+        // Existing persistence implementation
         import config.*
-        // recoveryAdapter を修正: RecoveryDone から RecoveryCompletedInternal へ変換
+        // Fix recoveryAdapter: Convert from RecoveryDone to RecoveryCompletedInternal
         val recoveryAdapter = context.messageAdapter[RecoveryDone[S]] { rd =>
-          // state と sequenceNr の両方をラップする
-          // M 型にキャストする必要があるため asInstanceOf を使用
+          // Wrap both state and sequenceNr
+          // Using asInstanceOf because we need to cast to M type
           RecoveryCompletedInternal(rd.state, rd.sequenceNr).asInstanceOf[M]
         }
 
@@ -273,14 +241,14 @@ object PersistenceEffector {
         )
 
         val adapter = context.messageAdapter[PersistenceReply[S, E]] {
-          // イベント保存
+          // Event persistence
           case PersistSingleEventSucceeded(event) => wrapPersistedEvents(Seq(event))
           case PersistMultipleEventsSucceeded(events) => wrapPersistedEvents(events)
-          // スナップショット保存
+          // Snapshot persistence
           case PersistSnapshotSucceeded(snapshot) => wrapPersistedSnapshot(snapshot)
           case PersistSnapshotFailed(snapshot, cause) =>
             throw new IllegalStateException("Failed to persist snapshot", cause)
-          // スナップショット削除
+          // Snapshot deletion
           case DeleteSnapshotsSucceeded(maxSequenceNumber) => wrapDeleteSnapshots(maxSequenceNumber)
           case DeleteSnapshotsFailed(maxSequenceNumber, cause) =>
             throw new IllegalStateException("Failed to delete snapshots", cause)
@@ -288,30 +256,30 @@ object PersistenceEffector {
 
         def awaitRecovery(): Behavior[M] =
           Behaviors.withStash(config.stashSize) { stashBuffer =>
-            // receiveMessagePartial を使用し、型安全性を向上
+            // Use receiveMessagePartial to improve type safety
             Behaviors.receiveMessagePartial { msg =>
-              // RecoveryCompletedInternal 型で直接マッチング (@unchecked が必要)
+              // Direct matching with RecoveryCompletedInternal type (requires @unchecked)
               msg.asMatchable match {
                 case msg: RecoveryCompletedInternal[?] =>
                   val state = msg.asInstanceOf[RecoveryCompletedInternal[S]].state
                   val sequenceNr =
-                    msg.asInstanceOf[RecoveryCompletedInternal[S]].sequenceNr // sequenceNr を抽出
+                    msg.asInstanceOf[RecoveryCompletedInternal[S]].sequenceNr // Extract sequenceNr
                   context.log.debug(
                     "Recovery completed. State = {}, SequenceNr = {}",
                     state,
                     sequenceNr,
-                  ) // context を直接使用
+                  ) // Use context directly
                   val effector = new DefaultPersistenceEffector[S, E, M](
-                    context, // context を直接使用
+                    context, // Use context directly
                     stashBuffer,
                     config,
                     persistenceRef,
                     adapter,
-                    sequenceNr, // sequenceNr を DefaultPersistenceEffector に渡す
+                    sequenceNr, // Pass sequenceNr to DefaultPersistenceEffector
                   )
                   stashBuffer.unstashAll(onReady(state, effector))
-                case msg => // 他のメッセージはスタッシュ
-                  context.log.debug("Stashing message during recovery: {}", msg) // context を直接使用
+                case msg => // Stash other messages
+                  context.log.debug("Stashing message during recovery: {}", msg) // Use context directly
                   stashBuffer.stash(msg)
                   Behaviors.same
               }
@@ -321,14 +289,14 @@ object PersistenceEffector {
         awaitRecovery()
 
       case PersistenceMode.Ephemeral =>
-        // インメモリ実装
+        // In-memory implementation
         Behaviors.withStash(config.stashSize) { stashBuffer =>
           val effector = new InMemoryEffector[S, E, M](
             context,
             stashBuffer,
             config,
           )
-          // インメモリなので初期状態を直接使用
+          // Use initial state directly because it's in-memory
           onReady(effector.getState, effector)
         }
     }

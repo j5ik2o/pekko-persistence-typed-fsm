@@ -9,7 +9,16 @@ import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, StashBuffer}
 
 /**
- * In-memory implementation of PersistenceEffector
+ * In-memory implementation of PersistenceEffector.
+ * This implementation stores events and snapshots in memory, making it suitable for testing
+ * and scenarios where persistence is not required.
+ *
+ * @param ctx Actor context for the actor using this effector
+ * @param stashBuffer Stash buffer for storing messages during persistence operations
+ * @param config Configuration for the persistence effector
+ * @tparam S Type of state
+ * @tparam E Type of event
+ * @tparam M Type of message
  */
 private[effector] final class InMemoryEffector[S, E, M](
   ctx: ActorContext[M],
@@ -276,6 +285,11 @@ private[effector] final class InMemoryEffector[S, E, M](
     }
   }
 
-  // Accessor method - for testing and getting state
+  /**
+   * Get the current state of the entity.
+   * This method is primarily used for testing and debugging.
+   *
+   * @return Current state of the entity
+   */
   def getState: S = currentState
 }

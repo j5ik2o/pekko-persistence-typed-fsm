@@ -175,7 +175,7 @@ abstract class BankAccountAggregateTestBase
       createProbe.expectMessageType[CreateReply]
 
       // Attempt to deposit more than the limit
-      val depositAmount = Money.of(JavaBigDecimal.valueOf(150000), Money.JPY) // 上限は100000円
+      val depositAmount = Money.of(JavaBigDecimal.valueOf(150000), Money.JPY) // The limit is 100000 yen
       val depositProbe = createTestProbe[DepositCashReply]()
       bankAccountActor ! BankAccountCommand.DepositCash(accountId, depositAmount, depositProbe.ref)
 
