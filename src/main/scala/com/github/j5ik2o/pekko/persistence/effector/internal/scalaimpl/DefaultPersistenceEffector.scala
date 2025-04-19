@@ -162,8 +162,6 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
         unwrapDeleteSnapshots,
         "Delete snapshots succeeded",
         _ => {
-          // 削除メッセージをユーザーアクターに送信
-          ctx.self ! messageConverter.wrapDeleteSnapshots(maxSequenceNumberToDelete)
           onDeleted
         },
       )
@@ -218,9 +216,6 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
       unwrapPersistedSnapshot,
       "Persisted snapshot",
       snapshot => {
-        // スナップショット保存成功メッセージをユーザーアクターに送信
-        ctx.self ! messageConverter.wrapPersistedSnapshot(state)
-
         // RetentionCriteriaが設定されている場合は古いスナップショットを削除
         config.retentionCriteria match {
           case Some(retention) => deleteOldSnapshots(retention, onCompleted)

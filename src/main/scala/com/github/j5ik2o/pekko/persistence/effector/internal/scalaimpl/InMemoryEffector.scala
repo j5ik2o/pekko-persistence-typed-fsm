@@ -143,9 +143,6 @@ private[effector] final class InMemoryEffector[S, E, M](
       // スナップショットは完全な状態を表すので、これは正しい動作
       currentState = snapshot
 
-      // スナップショット保存成功メッセージをユーザーアクターに送信
-      ctx.self ! messageConverter.wrapPersistedSnapshot(snapshot)
-
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
@@ -159,8 +156,6 @@ private[effector] final class InMemoryEffector[S, E, M](
           // 実際のInMemoryEventStoreには古いスナップショットを削除するメソッドがないため、
           // ここではシミュレーションとしてログ出力のみ行う
 
-          // 削除成功メッセージをユーザーアクターに送信
-          ctx.self ! messageConverter.wrapDeleteSnapshots(maxSeqNrToDelete)
         }
       }
 
@@ -204,9 +199,6 @@ private[effector] final class InMemoryEffector[S, E, M](
       // 状態を更新
       currentState = snapshot
 
-      // スナップショット保存成功メッセージをユーザーアクターに送信
-      ctx.self ! messageConverter.wrapPersistedSnapshot(snapshot)
-
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
@@ -217,8 +209,6 @@ private[effector] final class InMemoryEffector[S, E, M](
         // 実際の削除処理（ここではログに記録するだけ）
         if (maxSeqNrToDelete > 0) {
           ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
-          // 削除成功メッセージをユーザーアクターに送信
-          ctx.self ! messageConverter.wrapDeleteSnapshots(maxSeqNrToDelete)
         }
       }
     }
@@ -261,9 +251,6 @@ private[effector] final class InMemoryEffector[S, E, M](
       // 状態を更新
       currentState = snapshot
 
-      // スナップショット保存成功メッセージをユーザーアクターに送信
-      ctx.self ! messageConverter.wrapPersistedSnapshot(snapshot)
-
       // 保持ポリシーの適用（設定されている場合）
       config.retentionCriteria.foreach { retention =>
         ctx.log.debug("Applying retention policy: {}", retention)
@@ -274,8 +261,6 @@ private[effector] final class InMemoryEffector[S, E, M](
         // 実際の削除処理（ここではログに記録するだけ）
         if (maxSeqNrToDelete > 0) {
           ctx.log.debug("Would delete snapshots up to sequence number: {}", maxSeqNrToDelete)
-          // 削除成功メッセージをユーザーアクターに送信
-          ctx.self ! messageConverter.wrapDeleteSnapshots(maxSeqNrToDelete)
         }
       }
     }
