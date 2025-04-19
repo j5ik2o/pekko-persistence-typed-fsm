@@ -39,9 +39,9 @@ trait MessageConverter[S, E, M] {
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedEvent[E, M] = {
         val javaEvents = events.asJava
         val result = self.wrapPersistedEvents(javaEvents)
-        // JavaDSL版のPersistedEventをScalaDSL版に変換するアダプターを作成
+        // Create adapter to convert JavaDSL version of PersistedEvent to ScalaDSL version
         val adapter = new MessageWrapperAdapter.JavaPersistedEventAdapter[E, M](result)
-        // 元のメッセージとアダプターを合成して返す
+        // Return the original message combined with the adapter
         result.asInstanceOf[M &
           com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedEvent[E, M]]
       }
@@ -52,9 +52,9 @@ trait MessageConverter[S, E, M] {
       override def wrapPersistedSnapshot(state: S): M &
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M] = {
         val result = self.wrapPersistedSnapshot(state)
-        // JavaDSL版のPersistedStateをScalaDSL版に変換するアダプターを作成
+        // Create adapter to convert JavaDSL version of PersistedState to ScalaDSL version
         val adapter = new MessageWrapperAdapter.JavaPersistedStateAdapter[S, M](result)
-        // 元のメッセージとアダプターを合成して返す
+        // Return the original message combined with the adapter
         result.asInstanceOf[M &
           com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M]]
       }
@@ -65,9 +65,9 @@ trait MessageConverter[S, E, M] {
       override def wrapRecoveredState(state: S): M &
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M] = {
         val result = self.wrapRecoveredState(state)
-        // JavaDSL版のRecoveredStateをScalaDSL版に変換するアダプターを作成
+        // Create adapter to convert JavaDSL version of RecoveredState to ScalaDSL version
         val adapter = new MessageWrapperAdapter.JavaRecoveredStateAdapter[S, M](result)
-        // 元のメッセージとアダプターを合成して返す
+        // Return the original message combined with the adapter
         result.asInstanceOf[M &
           com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M]]
       }
@@ -79,9 +79,9 @@ trait MessageConverter[S, E, M] {
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M] = {
         val javaLong = maxSequenceNumber.asInstanceOf[java.lang.Long]
         val result = self.wrapDeleteSnapshots(javaLong)
-        // JavaDSL版のDeletedSnapshotsをScalaDSL版に変換するアダプターを作成
+        // Create adapter to convert JavaDSL version of DeletedSnapshots to ScalaDSL version
         val adapter = new MessageWrapperAdapter.JavaDeletedSnapshotsAdapter[M](result)
-        // 元のメッセージとアダプターを合成して返す
+        // Return the original message combined with the adapter
         result.asInstanceOf[M &
           com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M]]
       }
@@ -119,7 +119,7 @@ object MessageConverter {
   ): MessageConverter[S, E, M] =
     Default(wrapPersistedEvents, wrapPersistedState, wrapRecoveredState, wrapDeleteSnapshots)
 
-  // 標準的なメッセージラッパークラス（内部パッケージに移動することも検討）
+  // Standard message wrapper class (consider moving to internal package)
   private[effector] class StandardJavaPersistedEvent[E](val events: java.util.List[E])
     extends PersistedEvent[E, Any]
 

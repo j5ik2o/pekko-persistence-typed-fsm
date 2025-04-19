@@ -11,15 +11,15 @@ import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import java.util
 
 /**
- * InMemoryモードを使用したPersistenceEffectorのテスト
+ * Test for PersistenceEffector using InMemory mode
  */
 class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
   override def persistenceMode: PersistenceMode = PersistenceMode.Ephemeral
 
-  // スナップショットテストを有効化
+  // Enable snapshot tests
   override def runSnapshotTests: Boolean = true
 
-  // InMemoryモード特有のテスト
+  // Tests specific to InMemory mode
   s"Effector with ${persistenceMode} mode" should {
     "provide access to current state via getState" in {
       val persistenceId = s"test-get-state-${util.UUID.randomUUID()}"
@@ -39,37 +39,37 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
           messageConverter = messageConverter,
         )
 
-      // InMemoryEffectorを取得するためのテスト用参照
+      // Test reference to get InMemoryEffector
       var effectorRef: Option[InMemoryEffector[TestState, TestEvent, TestMessage]] = None
-      // 状態を保持
+      // Hold state
       var updatedState: TestState = initialState
 
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
         PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
-            // 型キャストで InMemoryEffector を取得
+            // Get InMemoryEffector by type casting
             val inMemoryEffector =
               effector.asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
             effectorRef = Some(inMemoryEffector)
 
-            // 手動で状態を更新（コマンドハンドラが行う処理を模倣）
+            // Manually update state (mimicking what a command handler would do)
             updatedState = initialState.applyEvent(event)
 
-            // イベントを永続化
+            // Persist event
             effector.persistEvent(event) { _ =>
-              // 初期Behaviorとしてsameは使えないので、受信処理を定義
+              // Define receive processing since same cannot be used as initial Behavior
               Behaviors.receiveMessage(_ => Behaviors.same)
             }
         }(using context)
       })
 
       eventually {
-        // InMemoryEffectorのgetStateメソッドで状態が取得できることを確認
+        // Verify that state can be retrieved with InMemoryEffector's getState method
         effectorRef.isDefined shouldBe true
 
-        // currentStateフィールドへのアクセスはできるが、
-        // applyEventをpersistEvent内で呼ばなくなったため、
-        // 手動で更新した状態と比較する
+        // Can access currentState field, but
+        // because applyEvent is no longer called within persistEvent,
+        // compare with manually updated state
         updatedState.values should contain("test-state-access")
         updatedState.values.size shouldBe 1
       }
@@ -79,10 +79,10 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
       val persistenceId = s"test-no-double-apply-${java.util.UUID.randomUUID()}"
       val initialState = TestState()
 
-      // applyEventの呼び出し回数をカウントするための変数
+      // Variable to count the number of applyEvent calls
       var applyEventCount = 0
 
-      // 呼び出し回数をカウントするapplyEvent関数
+      // applyEvent function that counts calls
       val countingApplyEvent = (state: TestState, event: TestEvent) => {
         applyEventCount += 1
         state.applyEvent(event)
@@ -92,7 +92,7 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
         PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
           initialState = initialState,
-          applyEvent = countingApplyEvent, // カウンター付きの関数を使用
+          applyEvent = countingApplyEvent, // Use function with counter
           stashSize = Int.MaxValue,
           persistenceMode = persistenceMode,
           snapshotCriteria = None,
@@ -104,31 +104,31 @@ class InMemoryEffectorSpec extends PersistenceEffectorTestBase {
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
         PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
-            // 初期状態の復元でapplyEventが呼ばれているためリセット
+            // Reset because applyEvent is called for initial state restoration
             applyEventCount = 0
 
-            // 手動で状態を更新（通常これはドメインロジック内で行われる）
+            // Manually update state (normally done within domain logic)
             val newState = countingApplyEvent(state, TestEvent.TestEventA("test-no-double"))
 
-            // イベントを永続化（ここではapplyEventが呼ばれるべきではない）
+            // Persist event (applyEvent should not be called here)
             effector
               .asInstanceOf[InMemoryEffector[TestState, TestEvent, TestMessage]]
               .persistEvent(TestEvent.TestEventA("test-no-double")) { _ =>
-                // 初期Behaviorとしてsameは使えないので、受信処理を定義
+                // Define receive processing since same cannot be used as initial Behavior
                 Behaviors.receiveMessage(_ => Behaviors.same)
               }
         }(using context)
       })
 
-      // イベント適用に十分な時間を確保
+      // Allow enough time for event application
       Thread.sleep(500)
 
-      // applyEventが1回だけ呼ばれることを確認（手動更新時のみ）
+      // Verify that applyEvent is called only once (only during manual update)
       applyEventCount shouldBe 1
     }
   }
 
-  // テスト終了時にInMemoryStoreをクリア
+  // Clear InMemoryStore at the end of the test
   override def afterAll(): Unit = {
     InMemoryEventStore.clear()
     super.afterAll()

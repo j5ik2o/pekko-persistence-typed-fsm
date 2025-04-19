@@ -5,12 +5,12 @@ import com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistenceMode
 import java.io.File
 
 /**
- * Persistedモードを使用したBankAccountAggregateのテスト
+ * Test for BankAccountAggregate using Persisted mode
  */
 class BankAccountAggregateSpec extends BankAccountAggregateTestBase {
   override def persistenceMode: PersistenceMode = PersistenceMode.Persisted
 
-  // テスト前にLevelDBの保存ディレクトリを確実に作成
+  // Ensure LevelDB storage directory is created before testing
   override def beforeAll(): Unit = {
     val journalDir = new File("target/journal")
     val snapshotDir = new File("target/snapshot")
@@ -26,7 +26,7 @@ class BankAccountAggregateSpec extends BankAccountAggregateTestBase {
     super.beforeAll()
   }
 
-  // テスト後にディレクトリをクリーンアップ
+  // Clean up directory after testing
   override def afterAll(): Unit =
     super.afterAll()
 

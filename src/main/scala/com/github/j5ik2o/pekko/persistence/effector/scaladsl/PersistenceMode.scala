@@ -1,13 +1,13 @@
 package com.github.j5ik2o.pekko.persistence.effector.scaladsl
 
 /**
- * 永続化モードを表す列挙型
+ * Enumeration representing persistence mode
  */
 enum PersistenceMode {
 
-  /** 通常の永続化モード（ディスクに保存） */
+  /** Normal persistence mode (saved to disk) */
   case Persisted
 
-  /** インメモリモード（ディスクに保存しない） */
+  /** In-memory mode (not saved to disk) */
   case Ephemeral
 }

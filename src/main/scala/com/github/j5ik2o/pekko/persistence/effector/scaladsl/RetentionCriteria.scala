@@ -1,7 +1,7 @@
 package com.github.j5ik2o.pekko.persistence.effector.scaladsl
 
 /**
- * スナップショットの保持ポリシーを定義するクラス
+ * Class defining snapshot retention policy
  */
 final case class RetentionCriteria private (
   snapshotEvery: Option[Int] = scala.None,
@@ -11,17 +11,17 @@ final case class RetentionCriteria private (
 object RetentionCriteria {
 
   /**
-   * デフォルトの保持ポリシー（設定なし）
+   * Default retention policy (no settings)
    */
   val Empty: RetentionCriteria = RetentionCriteria()
 
   /**
-   * N回のイベントごとにスナップショットを取得し、最新のN個のスナップショットを保持する
+   * Take a snapshot every N events and keep the latest N snapshots
    *
    * @param numberOfEvents
-   *   イベント数
+   *   Number of events
    * @param keepNSnapshots
-   *   保持するスナップショット数
+   *   Number of snapshots to keep
    * @return
    *   RetentionCriteria
    */

@@ -21,12 +21,12 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
 ) extends PersistenceEffector[S, E, M] {
   import config.*
 
-  // 現在のシーケンス番号をPersistenceIdごとに管理
-  // 初期値を initialSequenceNr で設定
+  // Manage current sequence number for each PersistenceId
+  // Set initial value with initialSequenceNr
   private val sequenceNumbers =
     scala.collection.mutable.Map[String, Long](persistenceId -> initialSequenceNr)
 
-  // getOrElse のデフォルト値を initialSequenceNr に変更 (ただし、通常はマップに存在するはず)
+  // Change the default value of getOrElse to initialSequenceNr (however, it should normally exist in the map)
   private def getCurrentSequenceNumber: Long =
     sequenceNumbers.getOrElse(persistenceId, initialSequenceNr)
 
@@ -38,23 +38,23 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
   }
 
   /**
-   * RetentionCriteriaに基づいて、削除すべきスナップショットの最大シーケンス番号を計算する
+   * Calculate the maximum sequence number of snapshots to be deleted based on RetentionCriteria
    *
    * @param currentSequenceNumber
-   *   現在のシーケンス番号
+   *   Current sequence number
    * @param retention
-   *   保持ポリシー
+   *   Retention policy
    * @return
-   *   削除すべきスナップショットの最大シーケンス番号（0の場合は削除するスナップショットがない）
+   *   Maximum sequence number of snapshots to be deleted (0 if there are no snapshots to delete)
    */
   private def calculateMaxSequenceNumberToDelete(
     currentSequenceNumber: Long,
     retention: RetentionCriteria,
   ): Long =
-    // snapshotEveryとkeepNSnapshotsの両方が設定されている場合のみ計算
+    // Calculate only if both snapshotEvery and keepNSnapshots are set
     (retention.snapshotEvery, retention.keepNSnapshots) match {
       case (Some(snapshotEvery), Some(keepNSnapshots)) =>
-        // 計算値をログに出力
+        // Output calculated values to log
         ctx.log.debug(
           "Calculating maxSequenceNumberToDelete: currentSequenceNumber={}, snapshotEvery={}, keepNSnapshots={}",
           currentSequenceNumber,
@@ -62,26 +62,26 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
           keepNSnapshots,
         )
 
-        // 最新のスナップショットのシーケンス番号を計算
+        // Calculate the sequence number of the latest snapshot
         val latestSnapshotSeqNr = currentSequenceNumber - (currentSequenceNumber % snapshotEvery)
         ctx.log.debug("Calculated latestSnapshotSeqNr: {}", latestSnapshotSeqNr)
 
         if (latestSnapshotSeqNr < snapshotEvery) {
-          // 最初のスナップショットすら作成されていない場合
+          // If even the first snapshot has not been created
           ctx.log.debug("latestSnapshotSeqNr < snapshotEvery, returning 0")
           0L
         } else {
-          // 保持するスナップショットの最も古いシーケンス番号
+          // The oldest sequence number of snapshots to keep
           val oldestKeptSnapshot =
             latestSnapshotSeqNr - (snapshotEvery.toLong * (keepNSnapshots - 1))
           ctx.log.debug("Calculated oldestKeptSnapshot: {}", oldestKeptSnapshot)
 
           if (oldestKeptSnapshot <= 0) {
-            // 保持するスナップショットがすべて存在しない場合
+            // If all snapshots to be kept do not exist
             ctx.log.debug("oldestKeptSnapshot <= 0, returning 0")
             0L
           } else {
-            // 削除対象となる最大シーケンス番号（oldestKeptSnapshotの直前のスナップショット）
+            // Maximum sequence number to be deleted (snapshot just before oldestKeptSnapshot)
             val maxSequenceNumberToDelete = oldestKeptSnapshot - snapshotEvery
             ctx.log.debug("Calculated maxSequenceNumberToDelete: {}", maxSequenceNumberToDelete)
 
@@ -95,26 +95,24 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
           }
         }
       case _ =>
-        // どちらかの設定が欠けている場合は削除しない
+        // Do not delete if either setting is missing
         ctx.log.debug("snapshotEvery or keepNSnapshots is None, returning 0")
         0L
     }
 
   /**
-   * 指定されたメッセージタイプを待機する汎用的なメソッド
+   * Generic method to wait for a specified message type
    *
    * @param messageMatcher
-   *   メッセージを検出する関数
-   * @param extractResult
-   *   メッセージから結果を抽出する関数
+   *   Function to detect messages
    * @param logMessage
-   *   成功時のログメッセージ
+   *   Log message on success
    * @param onSuccess
-   *   成功時のコールバック
+   *   Callback on success
    * @tparam T
-   *   抽出される結果の型
+   *   Type of result to be extracted
    * @return
-   *   メッセージ待機の振る舞い
+   *   Message waiting behavior
    */
   private def waitForMessage[T](
     messageMatcher: M => Option[T],
@@ -136,14 +134,14 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
     }
 
   /**
-   * RetentionCriteriaに基づいて古いスナップショットを削除
+   * Delete old snapshots based on RetentionCriteria
    *
    * @param retention
-   *   保持ポリシー
+   *   Retention policy
    * @param onDeleted
-   *   削除完了後の動作
+   *   Behavior after deletion is complete
    * @return
-   *   待機動作
+   *   Waiting behavior
    */
   private def deleteOldSnapshots(
     retention: RetentionCriteria,
@@ -170,18 +168,18 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
   }
 
   /**
-   * スナップショットを取得するかどうかを評価する
+   * Evaluate whether to take a snapshot
    *
    * @param event
-   *   イベント
+   *   Event
    * @param state
-   *   状態
+   *   State
    * @param sequenceNumber
-   *   シーケンス番号
+   *   Sequence number
    * @param force
-   *   強制フラグ
+   *   Force flag
    * @return
-   *   スナップショットを取得すべきかどうか
+   *   Whether a snapshot should be taken
    */
   private def shouldTakeSnapshot(
     event: E,
@@ -195,16 +193,14 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
     }
 
   /**
-   * スナップショット保存を処理する
+   * Handle snapshot saving
    *
    * @param state
-   *   保存する状態
+   *   State to save
    * @param onCompleted
-   *   スナップショット処理完了後のコールバック
-   * @tparam T
-   *   コールバックの戻り値の型
+   *   Callback after snapshot processing is complete
    * @return
-   *   待機ビヘイビア
+   *   Waiting behavior
    */
   private def handleSnapshotSave[T](state: S, onCompleted: => Behavior[M]): Behavior[M] = {
     ctx.log.debug("Taking snapshot for state: {}", state)
@@ -214,7 +210,7 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
       unwrapPersistedSnapshot,
       "Persisted snapshot",
       snapshot =>
-        // RetentionCriteriaが設定されている場合は古いスナップショットを削除
+        // Delete old snapshots if RetentionCriteria is set
         config.retentionCriteria match {
           case Some(retention) => deleteOldSnapshots(retention, onCompleted)
           case None => onCompleted
@@ -250,11 +246,11 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
     onPersisted: S => Behavior[M]): Behavior[M] = {
     ctx.log.debug("Persisting snapshot: {}", snapshot)
 
-    // forceパラメータまたはスナップショット戦略に基づいて保存するかどうかを判断
+    // Determine whether to save based on force parameter or snapshot strategy
     val shouldSaveSnapshot = force || config.snapshotCriteria.exists { criteria =>
-      // スナップショットに対する評価（すでに状態がスナップショットとして渡されているため、それを直接使用）
-      // イベントがない場合でも評価するため、仮想イベントとしてスナップショット自体を使用
-      val dummyEvent = snapshot.asInstanceOf[E] // ダミーのイベント（型消去されるため、実行時には問題ない）
+      // Evaluation for snapshot (use it directly since the state is already passed as a snapshot)
+      // Use the snapshot itself as a virtual event to evaluate even when there is no event
+      val dummyEvent = snapshot.asInstanceOf[E] // Dummy event (no problem at runtime due to type erasure)
       val sequenceNumber = getCurrentSequenceNumber
       val result = criteria.shouldTakeSnapshot(dummyEvent, snapshot, sequenceNumber)
       ctx.log.debug("Snapshot criteria evaluation result: {}", result)
@@ -301,8 +297,8 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
       unwrapPersistedEvents,
       "Persisted events",
       persistedEvents => {
-        // スナップショット戦略の評価またはforce=trueの場合に自動スナップショット取得
-        // 最後のイベントとシーケンス番号だけで評価
+        // Automatic snapshot acquisition when evaluating snapshot strategy or force=true
+        // Evaluate with only the last event and sequence number
         val shouldSaveSnapshot =
           forceSnapshot || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
             val lastEvent = events.last

@@ -46,5 +46,5 @@ private[effector] object PersistenceStoreProtocol {
   final case class DeleteSnapshotsFailed[S, E](maxSequenceNumber: Long, cause: Throwable)
     extends DeleteSnapshotsReply[S, E]
 
-  final case class RecoveryDone[S](state: S, sequenceNr: Long) // シーケンス番号を追加
+  final case class RecoveryDone[S](state: S, sequenceNr: Long) // Added sequence number
 }

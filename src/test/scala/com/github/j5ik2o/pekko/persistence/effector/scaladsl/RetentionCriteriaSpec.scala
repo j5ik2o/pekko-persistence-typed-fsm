@@ -4,79 +4,79 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 /**
- * RetentionCriteriaの単体テスト
+ * Unit test for RetentionCriteria
  */
 class RetentionCriteriaSpec extends AnyWordSpec with Matchers {
 
   "RetentionCriteria" should {
     "calculate correct max sequence number to delete" in {
-      // 計算ロジックのテスト
-      // N = 2個を保持
-      // 毎回10個目ごとにスナップショット
-      // シーケンス番号が30の場合に古いスナップショットを削除する場合
+      // Test calculation logic
+      // Keep N = 2
+      // Snapshot every 10 events
+      // When deleting old snapshots at sequence number 30
 
       val snapshotEvery = 10
       val keepNSnapshots = 2
       val currentSeqNr = 30
 
-      // 2個保持なので、シーケンス番号10と20のスナップショットが残り
-      // それより古いものは削除対象になる
-      // 計算式: (30 - 10 * (2 - 1)) - 10 = 10
-      // 10以下のスナップショットが削除対象
+      // Since we keep 2, snapshots at sequence numbers 10 and 20 remain
+      // Older ones become deletion targets
+      // Calculation: (30 - 10 * (2 - 1)) - 10 = 10
+      // Snapshots with sequence number 10 or less are deletion targets
 
-      // RetentionCriteriaを作成
+      // Create RetentionCriteria
       val retentionCriteria = RetentionCriteria.snapshotEvery(snapshotEvery, keepNSnapshots)
 
-      // DefaultPersistenceEffectorのcalculateMaxSequenceNumberToDeleteロジックを再現
+      // Reproduce calculateMaxSequenceNumberToDelete logic from DefaultPersistenceEffector
       def calculate(currentSeqNr: Long, criteria: RetentionCriteria): Long =
         (criteria.snapshotEvery, criteria.keepNSnapshots) match {
           case (Some(snapshotEvery), Some(keepNSnapshots)) =>
-            // 最新のスナップショットのシーケンス番号を計算
+            // Calculate sequence number of the latest snapshot
             val latestSnapshotSeqNr = currentSeqNr - (currentSeqNr % snapshotEvery)
 
             if (latestSnapshotSeqNr < snapshotEvery) {
-              // 最初のスナップショットすら作成されていない場合
+              // If even the first snapshot has not been created
               0L
             } else {
-              // 保持するスナップショットの最も古いシーケンス番号
+              // The oldest sequence number of snapshots to keep
               val oldestKeptSnapshot =
                 latestSnapshotSeqNr - (snapshotEvery.toLong * (keepNSnapshots - 1))
 
               if (oldestKeptSnapshot <= 0) {
-                // 保持するスナップショットがすべて存在しない場合
+                // If all snapshots to be kept do not exist
                 0L
               } else {
-                // 削除対象となる最大シーケンス番号（oldestKeptSnapshotの直前のスナップショット）
+                // Maximum sequence number to be deleted (snapshot just before oldestKeptSnapshot)
                 val maxSequenceNumberToDelete = oldestKeptSnapshot - snapshotEvery
 
                 if (maxSequenceNumberToDelete <= 0) 0L else maxSequenceNumberToDelete
               }
             }
           case _ =>
-            // どちらかの設定が欠けている場合は削除しない
+            // Do not delete if either setting is missing
             0L
         }
 
-      // テスト実行
+      // Run test
       val result = calculate(currentSeqNr, retentionCriteria)
 
-      // 検証 - 10以下のスナップショットが削除対象
+      // Verification - snapshots with sequence number 10 or less are deletion targets
       result shouldBe 10L
 
-      // 別のケース - シーケンス番号50
+      // Another case - sequence number 50
       val result2 = calculate(50, retentionCriteria)
-      // 50の場合、最新は50、保持するのは40と50、30以下が削除対象
+      // For 50, the latest is 50, keep 40 and 50, 30 or less are deletion targets
       result2 shouldBe 30L
 
-      // エッジケース - シーケンス番号が小さすぎる場合
+      // Edge case - when sequence number is too small
       val result3 = calculate(5, retentionCriteria)
-      // 最初のスナップショットすらない場合、削除対象はなし
+      // If there isn't even a first snapshot, no deletion targets
       result3 shouldBe 0L
 
-      // エッジケース - 保持数が1の場合
+      // Edge case - when retention count is 1
       val retainOnlyCriteria = RetentionCriteria.snapshotEvery(10, 1)
       val result4 = calculate(30, retainOnlyCriteria)
-      // 最新の1つだけ保持するので、20以下が削除対象
+      // Since only the latest one is kept, 20 or less are deletion targets
       result4 shouldBe 20L
     }
 

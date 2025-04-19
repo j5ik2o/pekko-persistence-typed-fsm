@@ -5,15 +5,15 @@ import com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistenceMode
 import java.io.File
 
 /**
- * Persistedモードを使用したPersistenceEffectorのテスト
+ * Test for PersistenceEffector using Persisted mode
  */
 class PersistedEffectorSpec extends PersistenceEffectorTestBase {
   override def persistenceMode: PersistenceMode = PersistenceMode.Persisted
 
-  // スナップショットテストを実行する
+  // Run snapshot tests
   override def runSnapshotTests: Boolean = true
 
-  // テスト前にLevelDBの保存ディレクトリを確実に作成
+  // Ensure LevelDB storage directory is created before testing
   override def beforeAll(): Unit = {
     val journalDir = new File("target/journal")
     val snapshotDir = new File("target/snapshot")
@@ -29,7 +29,7 @@ class PersistedEffectorSpec extends PersistenceEffectorTestBase {
     super.beforeAll()
   }
 
-  // テスト後にディレクトリをクリーンアップ
+  // Clean up directory after testing
   override def afterAll(): Unit =
     super.afterAll()
 }

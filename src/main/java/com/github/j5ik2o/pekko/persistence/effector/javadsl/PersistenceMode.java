@@ -1,9 +1,9 @@
 package com.github.j5ik2o.pekko.persistence.effector.javadsl;
 
 public enum PersistenceMode {
-  /** 通常の永続化モード（ディスクに保存） */
+  /** Normal persistence mode (saved to disk) */
   PERSISTENCE,
 
-  /** インメモリモード（ディスクに保存しない） */
+  /** In-memory mode (not saved to disk) */
   EPHEMERAL
 }

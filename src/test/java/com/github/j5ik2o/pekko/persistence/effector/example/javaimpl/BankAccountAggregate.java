@@ -8,42 +8,42 @@ import org.apache.pekko.actor.typed.javadsl.Behaviors;
 import java.io.Serializable;
 
 /**
- * 銀行口座のアグリゲート
+ * Bank Account Aggregate
  */
 public class BankAccountAggregate {
     /**
-     * アクター名を取得する
+     * Get actor name
      *
-     * @param aggregateId アグリゲートID
-     * @return アクター名
+     * @param aggregateId Aggregate ID
+     * @return Actor name
      */
     public static String actorName(BankAccountId aggregateId) {
         return aggregateId.getAggregateTypeName() + "-" + aggregateId.asString();
     }
 
     /**
-     * 銀行口座の状態を表すシールドインターフェース
+     * Sealed interface representing the state of a bank account
      */
     public sealed interface State {
         /**
-         * アグリゲートIDを取得する
+         * Get the aggregate ID
          *
-         * @return アグリゲートID
+         * @return Aggregate ID
          */
         BankAccountId getAggregateId();
 
         /**
-         * イベントを適用する
+         * Apply an event
          *
-         * @param event イベント
-         * @return 新しい状態
+         * @param event Event
+         * @return New state
          */
         State applyEvent(BankAccountEvent event);
 
         /**
-         * 未作成状態
+         * Not created state
          *
-         * @param aggregateId アグリゲートID
+         * @param aggregateId Aggregate ID
          */
         record NotCreated(BankAccountId aggregateId) implements State, Serializable {
             @Override
@@ -62,10 +62,10 @@ public class BankAccountAggregate {
         }
 
         /**
-         * 作成済み状態
+         * Created state
          *
-         * @param aggregateId アグリゲートID
-         * @param bankAccount 銀行口座
+         * @param aggregateId Aggregate ID
+         * @param bankAccount Bank account
          */
         record Created(BankAccountId aggregateId, BankAccount bankAccount) implements State, Serializable {
             @Override
@@ -97,11 +97,11 @@ public class BankAccountAggregate {
     }
 
     /**
-     * 銀行口座のアクターを作成する
+     * Create a bank account actor
      *
-     * @param aggregateId     アグリゲートID
-     * @param persistenceMode 永続化モード
-     * @return アクターの振る舞い
+     * @param aggregateId     Aggregate ID
+     * @param persistenceMode Persistence mode
+     * @return Actor behavior
      */
     public static Behavior<BankAccountCommand> create(
             BankAccountId aggregateId,
@@ -110,10 +110,10 @@ public class BankAccountAggregate {
         return Behaviors.setup(ctx -> {
             ctx.getLog().debug("Creating BankAccount actor: {}", actorName(aggregateId));
 
-            // メッセージコンバーターを作成
+            // Create message converter
             var messageConverter = new BankAccountCommand.Protocol().getJavaMessageConverter();
 
-            // PersistenceEffectorConfigを作成
+            // Create PersistenceEffectorConfig
             var config = PersistenceEffectorConfig.<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand>create(
                             actorName(aggregateId),
                             new State.NotCreated(aggregateId),
@@ -123,14 +123,14 @@ public class BankAccountAggregate {
                     .withRetentionCriteria(RetentionCriteria.ofSnapshotEvery(2))
                     .withMessageConverter(messageConverter);
 
-            // fromConfigを使用してPersistenceEffectorを作成
+            // Create PersistenceEffector using fromConfig
             ctx.getLog().debug("Using {} mode for {}", persistenceMode, aggregateId);
             return PersistenceEffector.fromConfig(
                     config,
                     (state, effector) -> {
                         ctx.getLog().debug("Handling state: {}", state);
 
-                        // 状態に応じたハンドラーを呼び出す
+                        // Call handler based on state
                         if (state instanceof State.NotCreated) {
                             return handleNotCreated((State.NotCreated) state, effector, ctx);
                         } else if (state instanceof State.Created) {
@@ -145,12 +145,12 @@ public class BankAccountAggregate {
     }
 
     /**
-     * 未作成状態を処理する
+     * Handle not created state
      *
-     * @param state    状態
-     * @param effector エフェクター
-     * @param ctx      アクターコンテキスト
-     * @return アクターの振る舞い
+     * @param state    State
+     * @param effector Effector
+     * @param ctx      Actor context
+     * @return Actor behavior
      */
     private static Behavior<BankAccountCommand> handleNotCreated(
             State.NotCreated state,
@@ -158,17 +158,17 @@ public class BankAccountAggregate {
             ActorContext<BankAccountCommand> ctx) {
         ctx.getLog().debug("Handling NotCreated state for aggregate: {}", state.getAggregateId());
 
-        // 基本的なビヘイビアを定義
+        // Define basic behavior
         return Behaviors.receive(BankAccountCommand.class)
                 .onMessage(BankAccountCommand.Create.class, cmd -> {
                     ctx.getLog().debug("Received Create command: {}", cmd);
                     var result = BankAccount.create(cmd.aggregateId());
                     ctx.getLog().debug("Created BankAccount persisting event: {}", result.getEvent());
 
-                    // イベントを永続化する前に応答を送信
+                    // Send response before persisting event
                     cmd.replyTo().tell(CreateReply.succeeded(cmd.aggregateId()));
 
-                    // イベントを永続化
+                    // Persist event
                     return effector.persistEvent(result.getEvent(), event -> {
                         ctx.getLog().debug("Event persisted callback");
                         var created = new State.Created(state.aggregateId(), result.getState());
@@ -183,12 +183,12 @@ public class BankAccountAggregate {
     }
 
     /**
-     * 作成済み状態を処理する
+     * Handle created state
      *
-     * @param state    状態
-     * @param effector エフェクター
-     * @param ctx      アクターコンテキスト
-     * @return アクターの振る舞い
+     * @param state    State
+     * @param effector Effector
+     * @param ctx      Actor context
+     * @return Actor behavior
      */
     private static Behavior<BankAccountCommand> handleCreated(
             State.Created state,
@@ -197,7 +197,7 @@ public class BankAccountAggregate {
         ctx.getLog().debug("Handling Created state for aggregate: {}, balance: {}",
                 state.getAggregateId(), state.bankAccount().getBalance());
 
-        // 基本的なビヘイビアを先に定義
+        // Define basic behavior first
         var behavior = Behaviors.receive(BankAccountCommand.class)
                 .onMessage(BankAccountCommand.Stop.class, cmd -> {
                     ctx.getLog().debug("Received Stop command: {}", cmd);
@@ -224,7 +224,7 @@ public class BankAccountAggregate {
                         var r = result.getRight();
                         ctx.getLog().debug("Cash deposited, persisting event: {}", r.getEvent());
 
-                        // 応答を先に送信
+                        // Send response first
                         cmd.replyTo().tell(DepositCashReply.succeeded(cmd.aggregateId(), cmd.amount()));
 
                         return effector.persistEvent(r.getEvent(), event -> {
@@ -245,7 +245,7 @@ public class BankAccountAggregate {
                         var r = result.getRight();
                         ctx.getLog().debug("Cash withdrawn, persisting event: {}", r.getEvent());
 
-                        // 応答を先に送信
+                        // Send response first
                         cmd.replyTo().tell(WithdrawCashReply.succeeded(cmd.aggregateId(), cmd.amount()));
 
                         return effector.persistEvent(r.getEvent(), event -> {
@@ -280,7 +280,7 @@ public class BankAccountAggregate {
                 })
                 .build();
 
-        // スナップショットを永続化（ビヘイビアを先に定義した後）
+        // Persist snapshot (after defining behavior)
         return effector.persistSnapshot(state, snapshot -> {
             ctx.getLog().debug("Snapshot persisted for state: {}", snapshot);
             return behavior;

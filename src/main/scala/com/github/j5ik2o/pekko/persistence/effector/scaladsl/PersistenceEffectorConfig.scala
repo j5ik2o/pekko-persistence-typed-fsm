@@ -14,7 +14,7 @@ trait PersistenceEffectorConfig[S, E, M] {
   def backoffConfig: Option[BackoffConfig]
   def messageConverter: MessageConverter[S, E, M]
 
-  // メッセージコンバーター関連のメソッド
+  // Message converter related methods
   def wrapPersistedEvents: Seq[E] => M
   def wrapPersistedSnapshot: S => M
   def wrapRecoveredState: S => M

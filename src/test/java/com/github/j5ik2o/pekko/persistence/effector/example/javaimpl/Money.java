@@ -8,9 +8,9 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- * 金額を表すクラス。
+ * Class representing money.
  *
- * ある一定の「量」と「通貨単位」から成るクラスである。
+ * A class consisting of a certain "amount" and "currency unit".
  */
 public class Money implements Comparable<Money>, Serializable {
     private final BigDecimal amount;

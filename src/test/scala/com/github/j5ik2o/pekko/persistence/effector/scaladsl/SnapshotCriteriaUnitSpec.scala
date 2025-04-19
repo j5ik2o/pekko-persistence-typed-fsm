@@ -7,16 +7,16 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.adhocExtensions
 
 /**
- * SnapshotCriteriaの単体テスト
+ * Unit test for SnapshotCriteria
  */
 class SnapshotCriteriaUnitSpec extends AnyWordSpec with Matchers {
 
   "SnapshotCriteria" should {
-    // 単純な単体テスト: SnapshotCriteriaの各実装を直接テスト
+    // Simple unit test: directly test each implementation of SnapshotCriteria
     "correctly evaluate count-based snapshot criteria" in {
       val countBasedCriteria = SnapshotCriteria.every[TestState, TestEvent](3)
 
-      // シーケンス番号が3の倍数のイベントでスナップショットを取るか検証
+      // Verify taking snapshots for events with sequence numbers that are multiples of 3
       countBasedCriteria
         .shouldTakeSnapshot(TestEvent.TestEventA("test"), TestState(), 1)
         .shouldBe(false)
@@ -38,7 +38,7 @@ class SnapshotCriteriaUnitSpec extends AnyWordSpec with Matchers {
       val eventTypeCriteria =
         SnapshotCriteria.onEventType[TestState, TestEvent](classOf[TestEvent.TestEventB])
 
-      // TestEventBタイプのイベントでのみスナップショットを取るか検証
+      // Verify taking snapshots only for TestEventB type events
       eventTypeCriteria
         .shouldTakeSnapshot(TestEvent.TestEventA("test"), TestState(), 1)
         .shouldBe(false)
@@ -51,19 +51,19 @@ class SnapshotCriteriaUnitSpec extends AnyWordSpec with Matchers {
           SnapshotCriteria.every[TestState, TestEvent](3),
           SnapshotCriteria.onEventType[TestState, TestEvent](classOf[TestEvent.TestEventB]),
         ),
-        requireAll = false, // OR条件
+        requireAll = false, // OR condition
       )
 
-      // OR条件の検証: 3の倍数のシーケンス番号 OR TestEventBタイプ
+      // OR condition verification: sequence number multiple of 3 OR TestEventB type
       combinedOrCriteria
         .shouldTakeSnapshot(TestEvent.TestEventA("test"), TestState(), 1)
         .shouldBe(false)
       combinedOrCriteria
         .shouldTakeSnapshot(TestEvent.TestEventB(42), TestState(), 2)
-        .shouldBe(true) // イベントタイプが合致
+        .shouldBe(true) // Event type matches
       combinedOrCriteria
         .shouldTakeSnapshot(TestEvent.TestEventA("test"), TestState(), 3)
-        .shouldBe(true) // シーケンス番号が合致
+        .shouldBe(true) // Sequence number matches
       combinedOrCriteria
         .shouldTakeSnapshot(TestEvent.TestEventA("test"), TestState(), 4)
         .shouldBe(false)
@@ -75,25 +75,25 @@ class SnapshotCriteriaUnitSpec extends AnyWordSpec with Matchers {
           SnapshotCriteria.every[TestState, TestEvent](2),
           SnapshotCriteria.onEventType[TestState, TestEvent](classOf[TestEvent.TestEventB]),
         ),
-        requireAll = true, // AND条件
+        requireAll = true, // AND condition
       )
 
-      // AND条件の検証: 2の倍数のシーケンス番号 AND TestEventBタイプ
+      // AND condition verification: sequence number multiple of 2 AND TestEventB type
       combinedAndCriteria
         .shouldTakeSnapshot(TestEvent.TestEventA("test"), TestState(), 1)
         .shouldBe(false)
       combinedAndCriteria
         .shouldTakeSnapshot(TestEvent.TestEventA("test"), TestState(), 2)
-        .shouldBe(false) // シーケンス番号だけ合致
+        .shouldBe(false) // Only sequence number matches
       combinedAndCriteria
         .shouldTakeSnapshot(TestEvent.TestEventB(42), TestState(), 3)
-        .shouldBe(false) // イベントタイプだけ合致
+        .shouldBe(false) // Only event type matches
       combinedAndCriteria
         .shouldTakeSnapshot(TestEvent.TestEventB(42), TestState(), 2)
-        .shouldBe(true) // 両方合致
+        .shouldBe(true) // Both match
       combinedAndCriteria
         .shouldTakeSnapshot(TestEvent.TestEventB(42), TestState(), 4)
-        .shouldBe(true) // 両方合致
+        .shouldBe(true) // Both match
     }
   }
 }

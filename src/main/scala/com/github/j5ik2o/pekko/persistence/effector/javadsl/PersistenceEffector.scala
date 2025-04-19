@@ -159,26 +159,26 @@ object PersistenceEffector {
   import java.util.function.BiFunction
 
   /**
-   * 永続化モードでPersistenceEffectorを作成する
+   * Create PersistenceEffector in persistence mode
    *
    * @param persistenceId
-   *   永続化ID
+   *   Persistence ID
    * @param initialState
-   *   初期状態
+   *   Initial state
    * @param applyEvent
-   *   イベント適用関数
+   *   Event application function
    * @param messageConverter
-   *   メッセージコンバーター
+   *   Message converter
    * @param stashSize
-   *   スタッシュサイズ
+   *   Stash size
    * @param snapshotCriteria
-   *   スナップショット基準
+   *   Snapshot criteria
    * @param retentionCriteria
-   *   保持基準
+   *   Retention criteria
    * @param backoffConfig
-   *   バックオフ設定
+   *   Backoff configuration
    * @param onReady
-   *   準備完了時のコールバック
+   *   Callback when ready
    * @return
    *   Behavior
    */
@@ -208,26 +208,26 @@ object PersistenceEffector {
   }
 
   /**
-   * インメモリモードでPersistenceEffectorを作成する
+   * Create PersistenceEffector in in-memory mode
    *
    * @param persistenceId
-   *   永続化ID
+   *   Persistence ID
    * @param initialState
-   *   初期状態
+   *   Initial state
    * @param applyEvent
-   *   イベント適用関数
+   *   Event application function
    * @param messageConverter
-   *   メッセージコンバーター
+   *   Message converter
    * @param stashSize
-   *   スタッシュサイズ
+   *   Stash size
    * @param snapshotCriteria
-   *   スナップショット基準
+   *   Snapshot criteria
    * @param retentionCriteria
-   *   保持基準
+   *   Retention criteria
    * @param backoffConfig
-   *   バックオフ設定
+   *   Backoff configuration
    * @param onReady
-   *   準備完了時のコールバック
+   *   Callback when ready
    * @return
    *   Behavior
    */
@@ -257,12 +257,12 @@ object PersistenceEffector {
   }
 
   /**
-   * 設定を指定してPersistenceEffectorを作成する
+   * Create PersistenceEffector with specified configuration
    *
    * @param config
-   *   設定
+   *   Configuration
    * @param onReady
-   *   準備完了時のコールバック
+   *   Callback when ready
    * @return
    *   Behavior
    */
@@ -273,12 +273,12 @@ object PersistenceEffector {
     build(config, onReady)
 
   /**
-   * 設定に基づいてPersistenceEffectorを構築する
+   * Build PersistenceEffector based on configuration
    *
    * @param config
-   *   設定
+   *   Configuration
    * @param onReady
-   *   準備完了時のコールバック
+   *   Callback when ready
    * @return
    *   Behavior
    */
@@ -287,11 +287,11 @@ object PersistenceEffector {
     onReady: BiFunction[S, PersistenceEffector[S, E, M], Behavior[M]],
   ): Behavior[M] =
     Behaviors.setup { ctx =>
-      // ScalaDSL版のPersistenceEffectorを呼び出す
+      // Call ScalaDSL version of PersistenceEffector
       ScalaPersistenceEffector.fromConfig(config.toScala) { case (state, scalaEffector) =>
-        // JavaDSL用のPersistenceEffectorWrapperでラップ
+        // Wrap with PersistenceEffectorWrapper for JavaDSL
         val javaEffector = PersistenceEffectorWrapper.create(scalaEffector)
-        // onReadyコールバックを呼び出し
+        // Call onReady callback
         onReady.apply(state, javaEffector)
       }(using ctx)
     }

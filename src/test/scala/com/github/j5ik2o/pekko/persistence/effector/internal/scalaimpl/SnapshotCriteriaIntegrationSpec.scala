@@ -10,26 +10,26 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.*
 
 /**
- * SnapshotCriteriaの統合テスト
+ * Integration test for SnapshotCriteria
  */
 class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
-  // 永続化モードはPersistedを使用
+  // Use Persisted mode for persistence
   override def persistenceMode: PersistenceMode = PersistenceMode.Persisted
 
-  // 現在のテスト環境ではスナップショットテストを無効にする
+  // Enable snapshot tests in the current test environment
   override def runSnapshotTests: Boolean = true
 
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 10.seconds, interval = 500.millis)
 
-  // スナップショットテスト用のコンテキスト
+  // Context for snapshot testing
   case class SnapshotTestContext(
-    // 永続化されたイベント
+    // Persisted events
     events: ArrayBuffer[TestMessage.EventPersisted] = ArrayBuffer.empty,
-    // 永続化されたスナップショット
+    // Persisted snapshots
     snapshots: ArrayBuffer[TestMessage.SnapshotPersisted] = ArrayBuffer.empty,
   ) {
-    // メッセージを処理してテストコンテキストに追加するメソッド
+    // Method to process messages and add to test context
     def processMessage(msg: TestMessage): Unit =
       msg match {
         case e: TestMessage.EventPersisted =>
@@ -45,10 +45,10 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
       val persistenceId = s"test-snapshot-count-${java.util.UUID.randomUUID()}"
       val initialState = TestState()
 
-      // テスト用のコンテキスト
+      // Test context
       val testContext = SnapshotTestContext()
 
-      // CountBasedのスナップショット戦略を設定（2イベントごと）
+      // Set CountBased snapshot strategy (every 2 events)
       val config =
         PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
@@ -62,7 +62,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
           messageConverter = messageConverter,
         )
 
-      // テスト用データ
+      // Test data
       val events = Seq(
         TestEvent.TestEventA("event1"),
         TestEvent.TestEventA("event2"),
@@ -71,52 +71,52 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
         TestEvent.TestEventA("event5"),
       )
 
-      // アクターを起動
+      // Start actor
       val behavior = spawn(Behaviors.setup[TestMessage] { context =>
         PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
-            // イベントを順に永続化する関数
+            // Function to persist events in sequence
             def persistNextEvent(
               remainingEvents: Seq[TestEvent],
               currentState: TestState,
             ): Behavior[TestMessage] =
               if (remainingEvents.isEmpty) {
-                // イベント処理後の状態をログに出力
+                // Log state after event processing
                 context.log.debug("All events processed. Final state: {}", currentState)
 
-                // テスト用スナップショットを明示的に追加（アクターの状態確認用）
+                // Explicitly add test snapshot (for actor state verification)
                 testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
 
-                // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
+                // The next behavior could be Behaviors.same, but in case a message comes
                 Behaviors.receiveMessage(_ => Behaviors.same)
               } else {
                 val event = remainingEvents.head
                 val nextEvents = remainingEvents.tail
 
-                // イベントを永続化
+                // Persist event
                 context.log.debug("Persisting event: {}, currentState: {}", event, currentState)
                 effector.persistEventWithSnapshot(event, currentState) { e =>
                   testContext.events += TestMessage.EventPersisted(Seq(e))
                   val newState = currentState.applyEvent(e)
                   context.log.debug("Event persisted, checking for snapshots...")
-                  Thread.sleep(100) // スナップショットが処理されるのを待つ
+                  Thread.sleep(100) // Wait for snapshot processing
                   persistNextEvent(nextEvents, newState)
                 }
               }
 
-            // 最初のイベントから永続化を開始
+            // Start persisting from the first event
             persistNextEvent(events, state)
         }(using context)
       })
 
-      // スナップショットが取得されることを検証
+      // Verify that snapshots are taken
       eventually {
-        // 5つのイベントが永続化されることを確認
+        // Verify that 5 events are persisted
         testContext.events.size.shouldBe(5)
 
-        // 明示的に追加したスナップショットの検証
+        // Verification of explicitly added snapshots
         testContext.snapshots.foreach { snapshot =>
-          // 状態が適切にキャプチャされていることを確認
+          // Verify that the state is properly captured
           snapshot.state.values.nonEmpty shouldBe true
         }
       }
@@ -126,10 +126,10 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
       val persistenceId = s"test-snapshot-restore-${java.util.UUID.randomUUID()}"
       val initialState = TestState()
 
-      // テスト用のコンテキスト
+      // Test context
       val testContext = SnapshotTestContext()
 
-      // CountBasedのスナップショット戦略を設定（2イベントごと）
+      // Set CountBased snapshot strategy (every 2 events)
       val config =
         PersistenceEffectorConfig.create[TestState, TestEvent, TestMessage](
           persistenceId = persistenceId,
@@ -143,45 +143,45 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
           messageConverter = messageConverter,
         )
 
-      // テスト用データ
+      // Test data
       val events = Seq(
         TestEvent.TestEventA("event1"),
-        TestEvent.TestEventA("event2"), // 2イベント目でスナップショット
+        TestEvent.TestEventA("event2"), // Snapshot at 2nd event
         TestEvent.TestEventA("event3"),
-        TestEvent.TestEventA("event4"), // 4イベント目でスナップショット
+        TestEvent.TestEventA("event4"), // Snapshot at 4th event
       )
 
-      // 1回目のアクター実行
+      // First actor execution
       val behavior1 = spawn(Behaviors.setup[TestMessage] { context =>
         PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
-            // イベントを順に永続化する関数
+            // Function to persist events in sequence
             def persistNextEvent(
               remainingEvents: Seq[TestEvent],
               currentState: TestState,
             ): Behavior[TestMessage] =
               if (remainingEvents.isEmpty) {
-                // イベント処理後の状態をログに出力
+                // Log state after event processing
                 context.log.debug("All events processed. Final state: {}", currentState)
 
-                // テスト用スナップショットを明示的に追加（アクターの状態確認用）
+                // Explicitly add test snapshot (for actor state verification)
                 testContext.snapshots += TestMessage.SnapshotPersisted(currentState)
 
-                // 次の振る舞いはBehaviors.sameでも良いが、万一メッセージが来た場合のために
+                // The next behavior could be Behaviors.same, but in case a message comes
                 Behaviors.receiveMessage(_ => Behaviors.same)
               } else {
                 val event = remainingEvents.head
                 val nextEvents = remainingEvents.tail
 
-                // イベントを永続化
+                // Persist event with snapshot
                 effector.persistEventWithSnapshot(event, currentState) { e =>
                   testContext.events += TestMessage.EventPersisted(Seq(e))
                   val newState = currentState.applyEvent(e)
 
-                  // スナップショットの条件に合うかチェック
+                  // Check if it meets snapshot criteria
                   val seqNum = testContext.events.size
                   if (seqNum % 2 == 0) {
-                    // テスト用に明示的にスナップショットを追加
+                    // Explicitly add snapshot for testing
                     testContext.snapshots += TestMessage.SnapshotPersisted(newState)
                   }
 
@@ -189,42 +189,42 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
                 }
               }
 
-            // 最初のイベントから永続化を開始
+            // Start persisting from the first event
             persistNextEvent(events, state)
         }(using context)
       })
 
-      // 1回目のアクターが処理を完了するまで待機
+      // Wait for the first actor to complete processing
       eventually {
-        // 4つのイベントが永続化されることを確認
+        // Verify that 4 events are persisted
         testContext.events.size.shouldBe(4)
 
-        // スナップショットが取得されていることを確認
+        // Verify that snapshots are taken
         testContext.snapshots.nonEmpty shouldBe true
       }
 
-      // 1回目のアクターを停止
+      // Stop the first actor
       testKit.stop(behavior1)
 
-      // 2回目のアクター実行で回復される状態を検証
+      // Verify state recovered in second actor execution
       val recoveredState = ArrayBuffer.empty[TestState]
 
-      // 2回目のアクターを起動
+      // Start the second actor
       val behavior2 = spawn(Behaviors.setup[TestMessage] { context =>
         PersistenceEffector.fromConfig[TestState, TestEvent, TestMessage](config) {
           case (state, effector) =>
-            // 回復された状態を記録
+            // Record recovered state
             recoveredState += state
             Behaviors.receiveMessage(_ => Behaviors.same)
         }(using context)
       })
 
-      // スナップショットからの状態回復を検証
+      // Verify state recovery from snapshot
       eventually {
-        // 回復された状態があることを確認
+        // Verify that there is a recovered state
         recoveredState.nonEmpty shouldBe true
 
-        // 回復された状態がイベントの履歴を反映していることを確認
+        // Verify that the recovered state reflects the event history
         val state = recoveredState.head
         state.values.nonEmpty shouldBe true
         state.values.exists(v => v.contains("event")) shouldBe true
