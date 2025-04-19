@@ -31,15 +31,17 @@ abstract class PersistenceEffectorTestBase
   /**
    * Method to be implemented in subclasses to specify the PersistenceMode to be tested.
    *
-   * @return PersistenceMode to use for tests
+   * @return
+   *   PersistenceMode to use for tests
    */
   def persistenceMode: PersistenceMode
 
   /**
-   * Whether to run snapshot tests.
-   * Subclasses can override this to disable snapshot tests if needed.
+   * Whether to run snapshot tests. Subclasses can override this to disable snapshot tests if
+   * needed.
    *
-   * @return true to run snapshot tests, false to skip them
+   * @return
+   *   true to run snapshot tests, false to skip them
    */
   def runSnapshotTests: Boolean = true
 
@@ -488,7 +490,7 @@ abstract class PersistenceEffectorTestBase
         stashSize = Int.MaxValue,
         persistenceMode = persistenceMode,
         snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
-        retentionCriteria = Some(RetentionCriteria.snapshotEvery(2, 2)),
+        retentionCriteria = Some(RetentionCriteria.snapshotEvery(2)),
         backoffConfig = None,
         messageConverter = messageConverter,
       )
