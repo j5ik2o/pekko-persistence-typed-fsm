@@ -4,16 +4,17 @@ package com.github.j5ik2o.pekko.persistence.effector.scaladsl
  * Class defining snapshot retention policy
  */
 final case class RetentionCriteria private (
-  snapshotEvery: Option[Int] = scala.None,
-  keepNSnapshots: Option[Int] = scala.None,
+  snapshotEvery: Option[Int] = None,
+  keepNSnapshots: Option[Int] = None,
 )
 
 object RetentionCriteria {
 
   /**
-   * Default retention policy (no settings)
+   * Default retention criteria with no specific settings. When this is used, no automatic snapshot
+   * retention policy will be applied.
    */
-  val Empty: RetentionCriteria = RetentionCriteria()
+  final val Default: RetentionCriteria = RetentionCriteria()
 
   /**
    * Take a snapshot every N events and keep the latest N snapshots

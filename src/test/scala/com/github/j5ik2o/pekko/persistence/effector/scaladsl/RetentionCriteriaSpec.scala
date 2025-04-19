@@ -61,35 +61,35 @@ class RetentionCriteriaSpec extends AnyWordSpec with Matchers {
       val result = calculate(currentSeqNr, retentionCriteria)
 
       // Verification - snapshots with sequence number 10 or less are deletion targets
-      result shouldBe 10L
+      result.shouldBe(10L)
 
       // Another case - sequence number 50
       val result2 = calculate(50, retentionCriteria)
       // For 50, the latest is 50, keep 40 and 50, 30 or less are deletion targets
-      result2 shouldBe 30L
+      result2.shouldBe(30L)
 
       // Edge case - when sequence number is too small
       val result3 = calculate(5, retentionCriteria)
       // If there isn't even a first snapshot, no deletion targets
-      result3 shouldBe 0L
+      result3.shouldBe(0L)
 
       // Edge case - when retention count is 1
       val retainOnlyCriteria = RetentionCriteria.snapshotEvery(10, 1)
       val result4 = calculate(30, retainOnlyCriteria)
       // Since only the latest one is kept, 20 or less are deletion targets
-      result4 shouldBe 20L
+      result4.shouldBe(20L)
     }
 
     "use retentionCriteria.snapshotEvery factory method" in {
       val criteria = RetentionCriteria.snapshotEvery(10, 2)
-      criteria.snapshotEvery shouldBe Some(10)
-      criteria.keepNSnapshots shouldBe Some(2)
+      criteria.snapshotEvery.shouldBe(Some(10))
+      criteria.keepNSnapshots.shouldBe(Some(2))
     }
 
-    "have Empty object with no retention settings" in {
-      val empty = RetentionCriteria.Empty
-      empty.snapshotEvery shouldBe None
-      empty.keepNSnapshots shouldBe None
+    "have Default object with no retention settings" in {
+      val criteria = RetentionCriteria.Default
+      criteria.snapshotEvery.shouldBe(None)
+      criteria.keepNSnapshots.shouldBe(None)
     }
 
     "throw exception on invalid parameters" in {
