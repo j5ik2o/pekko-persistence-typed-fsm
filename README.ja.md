@@ -112,9 +112,9 @@ pekko-persistence-effectorを使用した銀行口座集約の完全な実装例
 // 1. Scala 3の機能を活用したドメインモデル、コマンド、イベント、応答の定義
 
 // ドメインモデル
-case class BankAccountId(value: String)
-case class Money(amount: BigDecimal)
-case class BankAccount(id: BankAccountId, balance: Money = Money(0)) {
+final case class BankAccountId(value: String)
+final case class Money(amount: BigDecimal)
+final case class BankAccount(id: BankAccountId, balance: Money = Money(0)) {
   def deposit(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] = {
     if (amount.amount <= 0) {
       Left(BankAccountError.InvalidAmount)

@@ -112,9 +112,9 @@ Here's a complete example showing how to implement a bank account aggregate usin
 // 1. Define domain model, commands, events, and replies using Scala 3 features
 
 // Domain model
-case class BankAccountId(value: String)
-case class Money(amount: BigDecimal)
-case class BankAccount(id: BankAccountId, balance: Money = Money(0)) {
+final case class BankAccountId(value: String)
+final case class Money(amount: BigDecimal)
+final case class BankAccount(id: BankAccountId, balance: Money = Money(0)) {
   def deposit(amount: Money): Either[BankAccountError, (BankAccount, BankAccountEvent)] = {
     if (amount.amount <= 0) {
       Left(BankAccountError.InvalidAmount)
