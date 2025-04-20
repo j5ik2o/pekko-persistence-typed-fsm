@@ -23,7 +23,7 @@ class SnapshotCriteriaIntegrationSpec extends PersistenceEffectorTestBase {
     PatienceConfig(timeout = 10.seconds, interval = 500.millis)
 
   // Context for snapshot testing
-  case class SnapshotTestContext(
+  final case class SnapshotTestContext(
     // Persisted events
     events: ArrayBuffer[TestMessage.EventPersisted] = ArrayBuffer.empty,
     // Persisted snapshots

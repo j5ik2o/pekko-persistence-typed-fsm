@@ -21,7 +21,7 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
 ) extends PersistenceEffector[S, E, M] {
   import config.*
 
-  // Manage current sequence number for each PersistenceId
+  // Manage the current sequence number for each PersistenceId
   // Set initial value with initialSequenceNr
   private val sequenceNumbers =
     scala.collection.mutable.Map[String, Long](persistenceId -> initialSequenceNr)
@@ -299,7 +299,7 @@ private[effector] final class DefaultPersistenceEffector[S, E, M](
       "Persisted events",
       persistedEvents => {
         // Automatic snapshot acquisition when evaluating snapshot strategy or force=true
-        // Evaluate with only the last event and sequence number
+        // Evaluates with only the last event and sequence number
         val shouldSaveSnapshot =
           forceSnapshot || (events.nonEmpty && config.snapshotCriteria.exists { criteria =>
             val lastEvent = events.last

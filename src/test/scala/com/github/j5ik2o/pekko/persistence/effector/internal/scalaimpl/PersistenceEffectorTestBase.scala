@@ -28,10 +28,21 @@ abstract class PersistenceEffectorTestBase
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 10.seconds, interval = 100.millis)
 
-  // Method to be implemented in subclasses - PersistenceMode to be tested
+  /**
+   * Method to be implemented in subclasses to specify the PersistenceMode to be tested.
+   *
+   * @return
+   *   PersistenceMode to use for tests
+   */
   def persistenceMode: PersistenceMode
 
-  // Whether to run snapshot tests (default is to run)
+  /**
+   * Whether to run snapshot tests. Subclasses can override this to disable snapshot tests if
+   * needed.
+   *
+   * @return
+   *   true to run snapshot tests, false to skip them
+   */
   def runSnapshotTests: Boolean = true
 
   val isCustomConverter: Boolean = false
@@ -479,7 +490,7 @@ abstract class PersistenceEffectorTestBase
         stashSize = Int.MaxValue,
         persistenceMode = persistenceMode,
         snapshotCriteria = Some(SnapshotCriteria.every[TestState, TestEvent](2)),
-        retentionCriteria = Some(RetentionCriteria.snapshotEvery(2, 2)),
+        retentionCriteria = Some(RetentionCriteria.snapshotEvery(2)),
         backoffConfig = None,
         messageConverter = messageConverter,
       )

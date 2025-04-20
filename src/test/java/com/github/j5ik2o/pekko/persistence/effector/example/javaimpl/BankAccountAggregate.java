@@ -110,9 +110,6 @@ public class BankAccountAggregate {
         return Behaviors.setup(ctx -> {
             ctx.getLog().debug("Creating BankAccount actor: {}", actorName(aggregateId));
 
-            // Create message converter
-            var messageConverter = new BankAccountCommand.Protocol().getJavaMessageConverter();
-
             // Create PersistenceEffectorConfig
             var config = PersistenceEffectorConfig.<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand>create(
                             actorName(aggregateId),
@@ -120,8 +117,7 @@ public class BankAccountAggregate {
                             State::applyEvent
                     ).withPersistenceMode(persistenceMode)
                     .withSnapshotCriteria(SnapshotCriteria.every(2))
-                    .withRetentionCriteria(RetentionCriteria.ofSnapshotEvery(2))
-                    .withMessageConverter(messageConverter);
+                    .withRetentionCriteria(RetentionCriteria.ofSnapshotEvery(2));
 
             // Create PersistenceEffector using fromConfig
             ctx.getLog().debug("Using {} mode for {}", persistenceMode, aggregateId);

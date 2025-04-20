@@ -27,14 +27,26 @@ abstract class BankAccountAggregateTestBase
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = 10.seconds, interval = 100.millis)
 
-  // Method to be implemented in subclasses - PersistenceMode to be tested
+  /**
+   * Method to be implemented in subclasses to specify the PersistenceMode to be tested.
+   *
+   * @return
+   *   PersistenceMode to use for tests
+   */
   def persistenceMode: PersistenceMode
 
-  // Helper method to create BankAccountAggregate
+  /**
+   * Helper method to create a BankAccountAggregate with the specified persistence mode.
+   *
+   * @param accountId
+   *   Bank account ID
+   * @return
+   *   Behavior for the BankAccountAggregate actor
+   */
   def createBankAccountAggregate(accountId: BankAccountId): Behavior[BankAccountCommand] =
     BankAccountAggregate.create(accountId, persistenceMode)
 
-  s"BankAccountAggregate with ${persistenceMode} mode" should {
+  s"BankAccountAggregate with $persistenceMode mode" should {
     "create a new bank account successfully" in {
       val accountId = BankAccountId(UUID.randomUUID())
 

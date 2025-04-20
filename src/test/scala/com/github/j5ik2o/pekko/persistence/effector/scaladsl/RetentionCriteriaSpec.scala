@@ -11,7 +11,7 @@ class RetentionCriteriaSpec extends AnyWordSpec with Matchers {
   "RetentionCriteria" should {
     "calculate correct max sequence number to delete" in {
       // Test calculation logic
-      // Keep N = 2
+      // Keeps N = 2
       // Snapshot every 10 events
       // When deleting old snapshots at sequence number 30
 
@@ -86,10 +86,10 @@ class RetentionCriteriaSpec extends AnyWordSpec with Matchers {
       criteria.keepNSnapshots shouldBe Some(2)
     }
 
-    "have Empty object with no retention settings" in {
-      val empty = RetentionCriteria.Empty
-      empty.snapshotEvery shouldBe None
-      empty.keepNSnapshots shouldBe None
+    "have Default object with no retention settings" in {
+      val criteria = RetentionCriteria.Default
+      criteria.snapshotEvery shouldBe None
+      criteria.keepNSnapshots shouldBe None
     }
 
     "throw exception on invalid parameters" in {

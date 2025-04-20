@@ -156,35 +156,6 @@ public sealed interface BankAccountCommand {
         }
     }
 
-    /**
-     * Message protocol
-     */
-    class Protocol implements MessageProtocol<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> {
-        private final com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> messageConverter;
-
-        /**
-         * Constructor
-         */
-        public Protocol() {
-            this.messageConverter = com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter.create(
-                    EventPersisted::new,
-                    StatePersisted::new,
-                    StateRecovered::new,
-                    SnapshotShotsDeleted::new
-            );
-        }
-
-        @Override
-        public com.github.j5ik2o.pekko.persistence.effector.scaladsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> messageConverter() {
-            // Create ScalaDSL MessageConverter from JavaDSL MessageConverter
-            return messageConverter.toScala();
-        }
-
-        // Add method to get JavaDSL MessageConverter
-        public com.github.j5ik2o.pekko.persistence.effector.javadsl.MessageConverter<BankAccountAggregate.State, BankAccountEvent, BankAccountCommand> getJavaMessageConverter() {
-            return messageConverter;
-        }
-    }
 }
 
 /**

@@ -9,8 +9,33 @@ import org.apache.pekko.persistence.*
 
 import scala.compiletime.asMatchable
 
+/**
+ * Companion object for PersistenceStoreActor.
+ */
 private[effector] object PersistenceStoreActor {
 
+  /**
+   * Create Props for a PersistenceStoreActor.
+   *
+   * @param persistenceId
+   *   Persistence ID for the actor
+   * @param initialState
+   *   Initial state
+   * @param applyEvent
+   *   Function to apply events to state
+   * @param recoveryActorRef
+   *   Actor reference to notify when recovery is complete
+   * @param backoffConfig
+   *   Optional backoff configuration for supervisor
+   * @tparam S
+   *   Type of state
+   * @tparam E
+   *   Type of event
+   * @tparam M
+   *   Type of message
+   * @return
+   *   Props for creating a PersistenceStoreActor
+   */
   def props[S, E, M](
     persistenceId: String,
     initialState: S,
@@ -31,7 +56,7 @@ private[effector] object PersistenceStoreActor {
             randomFactor,
           ),
         )
-      case None =>
+      case _ =>
         childProps
     }
   }
