@@ -68,23 +68,22 @@ public interface PersistenceEffector<State, Event, Message> {
 
 ### PersistenceEffectorConfig
 
-A case class (Scala) / class (Java) that defines the configuration for PersistenceEffector.
+A trait (Scala) / class (Java) that defines the configuration for PersistenceEffector.
 
 ```scala
 // Scala DSL
-final case class PersistenceEffectorConfig[S, E, M](
-  persistenceId: String,
-  initialState: S,
-  applyEvent: (S, E) => S,
-  messageConverter: MessageConverter[S, E, M],
-  persistenceMode: PersistenceMode,
-  stashSize: Int,
-  snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
-  retentionCriteria: Option[RetentionCriteria] = None,
-  backoffConfig: Option[BackoffConfig] = None, // For PersistenceStoreActor restart
-  persistTimeout: FiniteDuration = 30.seconds, // Timeout for each persist attempt
-  maxRetries: Int = 3 // Max retries for persist operations
-)
+trait PersistenceEffectorConfig[S, E, M] {
+  def persistenceId: String
+  def initialState: S
+  def applyEvent: (S, E) => S
+  def persistenceMode: PersistenceMode
+  def stashSize: Int
+  def snapshotCriteria: Option[SnapshotCriteria[S, E]]
+  def retentionCriteria: Option[RetentionCriteria]
+  def backoffConfig: Option[BackoffConfig] // For PersistenceStoreActor restart
+  def messageConverter: MessageConverter[S, E, M]
+  // ... and other methods
+}
 ```
 
 ```java
@@ -93,40 +92,13 @@ public class PersistenceEffectorConfig<State, Event, Message> {
     private final String persistenceId;
     private final State initialState;
     private final BiFunction<State, Event, State> applyEvent;
-    private final MessageConverter<State, Event, Message> messageConverter;
     private final PersistenceMode persistenceMode;
     private final int stashSize;
     private final Optional<SnapshotCriteria<State, Event>> snapshotCriteria;
     private final Optional<RetentionCriteria> retentionCriteria;
     private final Optional<BackoffConfig> backoffConfig; // For PersistenceStoreActor restart
-    private final Duration persistTimeout; // Timeout for each persist attempt
-    private final int maxRetries; // Max retries for persist operations
+    private final MessageConverter<State, Event, Message> messageConverter;
     // Constructor and builder...
-}
-```
-
-### MessageConverter
-
-A trait (Scala) / interface (Java) that defines the conversions between state (S), event (E), and message (M).
-
-```scala
-// Scala DSL
-trait MessageConverter[S, E, M <: Matchable] {
-  def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
-  def wrapPersistedState(state: S): M & PersistedState[S, M]
-  def wrapRecoveredState(state: S): M & RecoveredState[S, M]
-  def wrapPersistFailedAfterRetries(command: Any, cause: Throwable): M & PersistFailedAfterRetries[M]
-  // ...
-}
-```
-```java
-// Java DSL
-public interface MessageConverter<State, Event, Message> {
-    Message wrapPersistedEvents(List<Event> events);
-    Message wrapPersistedState(State state);
-    Message wrapRecoveredState(State state);
-    Message wrapPersistFailedAfterRetries(Object command, Throwable cause);
-    // Unwrappers...
 }
 ```
 
@@ -170,31 +142,6 @@ enum BankAccountCommand {
   case Deposit(id: BankAccountId, amount: Money, replyTo: ActorRef[DepositReply])
   case Withdraw(id: BankAccountId, amount: Money, replyTo: ActorRef[WithdrawReply])
   case GetBalance(id: BankAccountId, replyTo: ActorRef[GetBalanceReply])
-  
-  // Internal messages for PersistenceEffector communication
-  private case WrappedPersistEvent(event: BankAccountEvent)
-  private case WrappedRecoveredState(state: BankAccountAggregate.State)
-  private case WrappedPersistFailed(command: Any, cause: Throwable)
-}
-
-// MessageConverter implementation
-object BankAccountCommand {
-  val messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] = 
-    new MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] {
-      override def wrapPersistedEvents(events: Seq[BankAccountEvent]): BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand] = {
-        BankAccountCommand.WrappedPersistEvent(events.head).asInstanceOf[BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand]]
-      }
-        
-      override def wrapRecoveredState(state: BankAccountAggregate.State): BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand] = {
-        BankAccountCommand.WrappedRecoveredState(state).asInstanceOf[BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand]]
-      }
-        
-      override def wrapPersistFailedAfterRetries(command: Any, cause: Throwable): BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand] = {
-        BankAccountCommand.WrappedPersistFailed(command, cause).asInstanceOf[BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand]]
-      }
-        
-      // Other required methods...
-    }
 }
 
 // Events
@@ -265,11 +212,8 @@ object BankAccountAggregate {
         persistenceId = s"bank-account-${id.value}",
         initialState = State.NotCreated(id),
         applyEvent = (state, event) => state.applyEvent(event),
-        messageConverter = BankAccountCommand.messageConverter,
         persistenceMode = PersistenceMode.Persisted, // Or InMemory for development
-        stashSize = 100,
-        persistTimeout = 5.seconds,
-        maxRetries = 3
+        stashSize = 100
       )
       
       // Create PersistenceEffector
@@ -331,7 +275,6 @@ object BankAccountAggregate {
         Behaviors.same
     }
   }
-}
 }
 ```
 

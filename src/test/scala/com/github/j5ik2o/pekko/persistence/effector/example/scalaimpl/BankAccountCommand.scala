@@ -43,14 +43,8 @@ enum BankAccountCommand {
   }
 }
 
-object BankAccountCommand extends MessageProtocol[BankAccountAggregate.State, BankAccountEvent] {
-  override type Message = BankAccountCommand
-  def messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, Message] =
-    MessageConverter(
-      EventPersisted.apply,
-      StatePersisted.apply,
-      StateRecovered.apply,
-      SnapshotShotsDeleted.apply)
+object BankAccountCommand {
+  type Message = BankAccountCommand
 }
 
 enum StopReply {

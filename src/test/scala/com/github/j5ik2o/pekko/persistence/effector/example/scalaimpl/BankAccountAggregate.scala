@@ -43,7 +43,7 @@ object BankAccountAggregate {
     persistenceMode: PersistenceMode = PersistenceMode.Persisted,
   ): Behavior[BankAccountCommand] = {
     val config = PersistenceEffectorConfig
-      .create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand.Message](
+      .create[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand](
         persistenceId = actorName(aggregateId),
         initialState = State.NotCreated(aggregateId),
         applyEvent = (state, event) => state.applyEvent(event))

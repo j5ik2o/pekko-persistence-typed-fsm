@@ -68,23 +68,22 @@ public interface PersistenceEffector<State, Event, Message> {
 
 ### PersistenceEffectorConfig
 
-PersistenceEffector の設定を定義するケースクラス (Scala) / クラス (Java) です。
+PersistenceEffector の設定を定義するトレイト (Scala) / クラス (Java) です。
 
 ```scala
 // Scala DSL
-final case class PersistenceEffectorConfig[S, E, M](
-  persistenceId: String,
-  initialState: S,
-  applyEvent: (S, E) => S,
-  messageConverter: MessageConverter[S, E, M],
-  persistenceMode: PersistenceMode,
-  stashSize: Int,
-  snapshotCriteria: Option[SnapshotCriteria[S, E]] = None,
-  retentionCriteria: Option[RetentionCriteria] = None,
-  backoffConfig: Option[BackoffConfig] = None, // PersistenceStoreActor 再起動用
-  persistTimeout: FiniteDuration = 30.seconds, // 各永続化試行のタイムアウト
-  maxRetries: Int = 3 // 永続化操作の最大リトライ回数
-)
+trait PersistenceEffectorConfig[S, E, M] {
+  def persistenceId: String
+  def initialState: S
+  def applyEvent: (S, E) => S
+  def persistenceMode: PersistenceMode
+  def stashSize: Int
+  def snapshotCriteria: Option[SnapshotCriteria[S, E]]
+  def retentionCriteria: Option[RetentionCriteria]
+  def backoffConfig: Option[BackoffConfig] // PersistenceStoreActor 再起動用
+  def messageConverter: MessageConverter[S, E, M]
+  // ... その他のメソッド
+}
 ```
 
 ```java
@@ -93,40 +92,13 @@ public class PersistenceEffectorConfig<State, Event, Message> {
     private final String persistenceId;
     private final State initialState;
     private final BiFunction<State, Event, State> applyEvent;
-    private final MessageConverter<State, Event, Message> messageConverter;
     private final PersistenceMode persistenceMode;
     private final int stashSize;
     private final Optional<SnapshotCriteria<State, Event>> snapshotCriteria;
     private final Optional<RetentionCriteria> retentionCriteria;
     private final Optional<BackoffConfig> backoffConfig; // PersistenceStoreActor 再起動用
-    private final Duration persistTimeout; // 各永続化試行のタイムアウト
-    private final int maxRetries; // 永続化操作の最大リトライ回数
+    private final MessageConverter<State, Event, Message> messageConverter;
     // コンストラクタとビルダー...
-}
-```
-
-### MessageConverter
-
-状態(S)、イベント(E)、メッセージ(M)間の相互変換を定義するトレイト (Scala) / インターフェース (Java) です。
-
-```scala
-// Scala DSL
-trait MessageConverter[S, E, M <: Matchable] {
-  def wrapPersistedEvents(events: Seq[E]): M & PersistedEvent[E, M]
-  def wrapPersistedState(state: S): M & PersistedState[S, M]
-  def wrapRecoveredState(state: S): M & RecoveredState[S, M]
-  def wrapPersistFailedAfterRetries(command: Any, cause: Throwable): M & PersistFailedAfterRetries[M]
-  // ...
-}
-```
-```java
-// Java DSL
-public interface MessageConverter<State, Event, Message> {
-    Message wrapPersistedEvents(List<Event> events);
-    Message wrapPersistedState(State state);
-    Message wrapRecoveredState(State state);
-    Message wrapPersistFailedAfterRetries(Object command, Throwable cause);
-    // アンラッパー...
 }
 ```
 
@@ -170,31 +142,6 @@ enum BankAccountCommand {
   case Deposit(id: BankAccountId, amount: Money, replyTo: ActorRef[DepositReply])
   case Withdraw(id: BankAccountId, amount: Money, replyTo: ActorRef[WithdrawReply])
   case GetBalance(id: BankAccountId, replyTo: ActorRef[GetBalanceReply])
-  
-  // PersistenceEffectorとの通信用の内部メッセージ
-  private case WrappedPersistEvent(event: BankAccountEvent)
-  private case WrappedRecoveredState(state: BankAccountAggregate.State)
-  private case WrappedPersistFailed(command: Any, cause: Throwable)
-}
-
-// MessageConverter実装
-object BankAccountCommand {
-  val messageConverter: MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] = 
-    new MessageConverter[BankAccountAggregate.State, BankAccountEvent, BankAccountCommand] {
-      override def wrapPersistedEvents(events: Seq[BankAccountEvent]): BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand] = {
-        BankAccountCommand.WrappedPersistEvent(events.head).asInstanceOf[BankAccountCommand & PersistedEvent[BankAccountEvent, BankAccountCommand]]
-      }
-        
-      override def wrapRecoveredState(state: BankAccountAggregate.State): BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand] = {
-        BankAccountCommand.WrappedRecoveredState(state).asInstanceOf[BankAccountCommand & RecoveredState[BankAccountAggregate.State, BankAccountCommand]]
-      }
-        
-      override def wrapPersistFailedAfterRetries(command: Any, cause: Throwable): BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand] = {
-        BankAccountCommand.WrappedPersistFailed(command, cause).asInstanceOf[BankAccountCommand & PersistFailedAfterRetries[BankAccountCommand]]
-      }
-        
-      // その他の必要なメソッド...
-    }
 }
 
 // イベント
@@ -265,11 +212,8 @@ object BankAccountAggregate {
         persistenceId = s"bank-account-${id.value}",
         initialState = State.NotCreated(id),
         applyEvent = (state, event) => state.applyEvent(event),
-        messageConverter = BankAccountCommand.messageConverter,
         persistenceMode = PersistenceMode.Persisted, // 開発時はInMemoryも選択可能
-        stashSize = 100,
-        persistTimeout = 5.seconds,
-        maxRetries = 3
+        stashSize = 100
       )
       
       // PersistenceEffectorの作成
@@ -331,7 +275,6 @@ object BankAccountAggregate {
         Behaviors.same
     }
   }
-}
 }
 ```
 
