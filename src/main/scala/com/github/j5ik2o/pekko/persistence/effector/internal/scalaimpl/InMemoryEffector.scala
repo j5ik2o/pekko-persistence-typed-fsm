@@ -37,11 +37,11 @@ private[effector] final class InMemoryEffector[S, E, M](
   private var currentState: S = latestSnapshot match {
     case Some(snapshot) =>
       ctx.log.debug(s"Recovered from snapshot for $persistenceId")
-      // Restore state from snapshot and apply subsequent events
+      // Restore state from the snapshot and apply subsequent events
       InMemoryEventStore.replayEvents(persistenceId, snapshot, applyEvent)
     case None =>
       ctx.log.debug(s"Starting from initial state for $persistenceId")
-      // Apply events from initial state
+      // Apply events from the initial state
       InMemoryEventStore.replayEvents(persistenceId, initialState, applyEvent)
   }
 

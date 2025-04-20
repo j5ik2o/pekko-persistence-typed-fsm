@@ -3,18 +3,26 @@ package com.github.j5ik2o.pekko.persistence.effector.scaladsl
 /**
  * Class defining snapshot retention policy
  */
-final case class RetentionCriteria private (
-  snapshotEvery: Option[Int] = None,
-  keepNSnapshots: Option[Int] = None,
-)
+trait RetentionCriteria {
+  def snapshotEvery: Option[Int]
+  def keepNSnapshots: Option[Int]
+}
 
 object RetentionCriteria {
+
+  private final case class Impl(
+    snapshotEvery: Option[Int] = None,
+    keepNSnapshots: Option[Int] = None,
+  ) extends RetentionCriteria
+
+  def unapply(self: RetentionCriteria): Option[(Option[Int], Option[Int])] =
+    Some((self.snapshotEvery, self.keepNSnapshots))
 
   /**
    * Default retention criteria with no specific settings. When this is used, no automatic snapshot
    * retention policy will be applied.
    */
-  final val Default: RetentionCriteria = RetentionCriteria()
+  final val Default: RetentionCriteria = Impl()
 
   /**
    * Take a snapshot every N events and keep the latest N snapshots
@@ -30,7 +38,7 @@ object RetentionCriteria {
     require(numberOfEvents > 0, "numberOfEvents must be greater than 0")
     require(keepNSnapshots > 0, "keepNSnapshots must be greater than 0")
 
-    RetentionCriteria(
+    Impl(
       snapshotEvery = Some(numberOfEvents),
       keepNSnapshots = Some(keepNSnapshots),
     )

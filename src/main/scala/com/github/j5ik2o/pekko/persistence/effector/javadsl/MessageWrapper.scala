@@ -90,8 +90,8 @@ trait DeletedSnapshots[M] extends MessageWrapper[M] {
 }
 
 /**
- * Adapter to convert JavaDSL version of MessageWrapper to ScalaDSL version. This object provides
- * adapter classes to convert between Java and Scala message wrappers.
+ * Adapter to convert the JavaDSL version of MessageWrapper to the ScalaDSL version. This object
+ * provides adapter classes to convert between Java and Scala message wrappers.
  */
 object MessageWrapperAdapter {
 
@@ -111,7 +111,7 @@ object MessageWrapperAdapter {
   }
 
   /**
-   * Adapter to convert JavaDSL version of PersistedState to ScalaDSL version.
+   * Adapter to convert the JavaDSL version of PersistedState to ScalaDSL version.
    *
    * @param javaState
    *   Java persisted state
@@ -126,7 +126,7 @@ object MessageWrapperAdapter {
   }
 
   /**
-   * Adapter to convert JavaDSL version of RecoveredState to ScalaDSL version.
+   * Adapter to convert the JavaDSL version of RecoveredState to the ScalaDSL version.
    *
    * @param javaState
    *   Java recovered state
@@ -141,7 +141,7 @@ object MessageWrapperAdapter {
   }
 
   /**
-   * Adapter to convert JavaDSL version of DeletedSnapshots to ScalaDSL version.
+   * Adapter to convert the JavaDSL version of DeletedSnapshots to the ScalaDSL version.
    *
    * @param javaSnapshots
    *   Java deleted snapshots

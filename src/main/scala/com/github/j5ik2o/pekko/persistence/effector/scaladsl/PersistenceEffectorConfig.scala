@@ -260,6 +260,30 @@ object PersistenceEffectorConfig {
       copy(messageConverter = value)
   }
 
+  def unapply[S, E, M](self: PersistenceEffectorConfig[S, E, M]): Option[(
+    String,
+    S,
+    (S, E) => S,
+    PersistenceMode,
+    Int,
+    Option[SnapshotCriteria[S, E]],
+    Option[RetentionCriteria],
+    Option[BackoffConfig],
+    MessageConverter[S, E, M],
+  )] =
+    Some(
+      (
+        self.persistenceId,
+        self.initialState,
+        self.applyEvent,
+        self.persistenceMode,
+        self.stashSize,
+        self.snapshotCriteria,
+        self.retentionCriteria,
+        self.backoffConfig,
+        self.messageConverter,
+      ))
+
   /**
    * Create a PersistenceEffectorConfig with specified parameters. Provides default values for
    * optional parameters.

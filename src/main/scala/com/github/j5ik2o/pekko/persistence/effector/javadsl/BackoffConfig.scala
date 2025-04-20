@@ -8,47 +8,72 @@ import scala.jdk.DurationConverters.*
 /**
  * Configuration for backoff strategy in Java API. This class defines how to handle failures with
  * backoff.
- *
- * @param minBackoff
- *   Minimum backoff time
- * @param maxBackoff
- *   Maximum backoff time
- * @param randomFactor
- *   Random factor to add jitter to backoff times
  */
-final case class BackoffConfig private (
-  minBackoff: Duration,
-  maxBackoff: Duration,
-  randomFactor: Double,
-) {
+trait BackoffConfig {
 
   /**
-   * Convert this Java BackoffConfig to its Scala equivalent.
+   * Get the minimum backoff time.
+   * @return
+   *   Minimum backoff time
+   */
+  def minBackoff: Duration
+
+  /**
+   * Get the maximum backoff time.
+   *
+   * @return
+   *   Maximum backoff time
+   */
+  def maxBackoff: Duration
+
+  /**
+   * Get the random factor to add jitter to backoff times.
+   *
+   * @return
+   *   Random factor
+   */
+  def randomFactor: Double
+
+  /**
+   * Convert this BackoffConfig to its Scala equivalent.
    *
    * @return
    *   Scala version of this BackoffConfig
    */
-  def toScala: SBackoffConfig = SBackoffConfig(
-    minBackoff = minBackoff.toScala,
-    maxBackoff = maxBackoff.toScala,
-    randomFactor = randomFactor,
-  )
+  private[effector] def toScala: SBackoffConfig
 }
 
 /**
  * Companion object for BackoffConfig. Provides factory methods to create BackoffConfig instances.
  */
 object BackoffConfig {
+
+  private final case class Impl(
+    minBackoff: Duration,
+    maxBackoff: Duration,
+    randomFactor: Double,
+  ) extends BackoffConfig {
+
+    private[effector] override def toScala: SBackoffConfig = SBackoffConfig(
+      minBackoff = minBackoff.toScala,
+      maxBackoff = maxBackoff.toScala,
+      randomFactor = randomFactor,
+    )
+  }
+
   private def apply(): BackoffConfig =
-    new BackoffConfig(
+    Impl(
       Duration.ofSeconds(1),
       Duration.ofSeconds(60),
       0.2,
     )
 
+  def unapply(self: BackoffConfig): Option[(Duration, Duration, Double)] =
+    Some((self.minBackoff, self.maxBackoff, self.randomFactor))
+
   /**
-   * Default backoff configuration. Uses 1 second minimum backoff, 60 seconds maximum backoff, and
-   * 0.2 random factor.
+   * Default backoff configuration. Uses 1 second minimum backoff, 60-second maximum backoff, and
+   * 0.2 random factors.
    */
   final val Default: BackoffConfig = apply()
 
@@ -70,7 +95,7 @@ object BackoffConfig {
     require(!maxBackoff.isNegative, "maxBackoff must not be negative")
     require(!maxBackoff.minus(minBackoff).isNegative, "maxBackoff must be >= minBackoff")
 
-    new BackoffConfig(minBackoff, maxBackoff, randomFactor)
+    Impl(minBackoff, maxBackoff, randomFactor)
   }
 
   /**
@@ -81,8 +106,8 @@ object BackoffConfig {
    * @return
    *   Java version of the BackoffConfig
    */
-  def fromScala(backoffConfig: SBackoffConfig): BackoffConfig =
-    new BackoffConfig(
+  private[effector] def fromScala(backoffConfig: SBackoffConfig): BackoffConfig =
+    Impl(
       backoffConfig.minBackoff.toJava,
       backoffConfig.maxBackoff.toJava,
       backoffConfig.randomFactor,

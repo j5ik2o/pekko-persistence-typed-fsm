@@ -44,7 +44,7 @@ private[effector] object PersistenceEffectorWrapper {
  * @tparam M
  *   Type of message
  */
-final class PersistenceEffectorWrapper[S, E, M] private (
+private[effector] final class PersistenceEffectorWrapper[S, E, M] private (
   underlying: ScalaDPE[S, E, M],
 ) extends PersistenceEffector[S, E, M] {
 

@@ -1,9 +1,13 @@
 package com.github.j5ik2o.pekko.persistence.effector.javadsl
 
+import com.github.j5ik2o.pekko.persistence.effector.internal.javaimpl.PersistenceEffectorWrapper
+import com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistenceEffector as ScalaPersistenceEffector
 import org.apache.pekko.actor.typed.Behavior
+import org.apache.pekko.actor.typed.scaladsl.Behaviors
 
 import java.util
-import java.util.function.Function
+import java.util.function.{BiFunction, Function}
+import java.util.{function, Optional}
 
 /**
  * Java API for PersistenceEffector.
@@ -57,7 +61,7 @@ trait PersistenceEffector[S, E, M] {
     persistSnapshot(snapshot, false, onPersisted)
 
   /**
-   * Persist a snapshot with force option.
+   * Persist a snapshot with the force option.
    *
    * @param snapshot
    *   snapshot to persist
@@ -92,7 +96,7 @@ trait PersistenceEffector[S, E, M] {
     persistEventWithSnapshot(event, snapshot, false, onPersisted)
 
   /**
-   * Persist event with snapshot and force option.
+   * Persist event with a snapshot and force option.
    *
    * @param event
    *   event to persist
@@ -112,7 +116,7 @@ trait PersistenceEffector[S, E, M] {
     onPersisted: Function[E, Behavior[M]]): Behavior[M]
 
   /**
-   * Persist multiple events with snapshot.
+   * Persist multiple events with a snapshot.
    *
    * @param events
    *   events to persist
@@ -151,12 +155,6 @@ trait PersistenceEffector[S, E, M] {
 }
 
 object PersistenceEffector {
-  import com.github.j5ik2o.pekko.persistence.effector.internal.javaimpl.PersistenceEffectorWrapper
-  import com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistenceEffector as ScalaPersistenceEffector
-  import org.apache.pekko.actor.typed.Behavior
-  import org.apache.pekko.actor.typed.scaladsl.Behaviors
-  import java.util.{function, Optional}
-  import java.util.function.BiFunction
 
   /**
    * Create PersistenceEffector in persistence mode
@@ -257,7 +255,7 @@ object PersistenceEffector {
   }
 
   /**
-   * Create PersistenceEffector with specified configuration
+   * Create PersistenceEffector with a specified configuration
    *
    * @param config
    *   Configuration

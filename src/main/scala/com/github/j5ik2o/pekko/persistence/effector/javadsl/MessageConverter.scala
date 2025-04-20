@@ -134,7 +134,7 @@ trait MessageConverter[S, E, M] {
       override def wrapPersistedSnapshot(state: S): M &
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.PersistedState[S, M] = {
         val result = self.wrapPersistedSnapshot(state)
-        // Create adapter to convert JavaDSL version of PersistedState to ScalaDSL version
+        // Create adapter to convert the JavaDSL version of PersistedState to the ScalaDSL version
         val adapter = new MessageWrapperAdapter.JavaPersistedStateAdapter[S, M](result)
         // Return the original message combined with the adapter
         result.asInstanceOf[M &
@@ -147,7 +147,7 @@ trait MessageConverter[S, E, M] {
       override def wrapRecoveredState(state: S): M &
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.RecoveredState[S, M] = {
         val result = self.wrapRecoveredState(state)
-        // Create adapter to convert JavaDSL version of RecoveredState to ScalaDSL version
+        // Create adapter to convert the JavaDSL version of RecoveredState to the ScalaDSL version
         val adapter = new MessageWrapperAdapter.JavaRecoveredStateAdapter[S, M](result)
         // Return the original message combined with the adapter
         result.asInstanceOf[M &
@@ -161,7 +161,7 @@ trait MessageConverter[S, E, M] {
         com.github.j5ik2o.pekko.persistence.effector.scaladsl.DeletedSnapshots[M] = {
         val javaLong = maxSequenceNumber.asInstanceOf[java.lang.Long]
         val result = self.wrapDeleteSnapshots(javaLong)
-        // Create adapter to convert JavaDSL version of DeletedSnapshots to ScalaDSL version
+        // Create adapter to convert the JavaDSL version of DeletedSnapshots to the ScalaDSL version
         val adapter = new MessageWrapperAdapter.JavaDeletedSnapshotsAdapter[M](result)
         // Return the original message combined with the adapter
         result.asInstanceOf[M &
@@ -225,7 +225,7 @@ object MessageConverter {
   ): MessageConverter[S, E, M] =
     Default(wrapPersistedEvents, wrapPersistedState, wrapRecoveredState, wrapDeleteSnapshots)
 
-  // Standard message wrapper class (consider moving to internal package)
+  // Standard message wrapper class (consider moving to an internal package)
   private[effector] class StandardJavaPersistedEvent[E](val events: java.util.List[E])
     extends PersistedEvent[E, Any]
 

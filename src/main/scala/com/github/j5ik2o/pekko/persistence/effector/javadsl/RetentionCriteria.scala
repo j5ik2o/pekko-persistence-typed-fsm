@@ -14,22 +14,10 @@ import scala.jdk.OptionConverters.*
  * @param keepNSnapshots
  *   Optional number of snapshots to keep
  */
-final case class RetentionCriteria private (
-  snapshotEvery: Optional[Integer],
-  keepNSnapshots: Optional[Integer],
-) {
-
-  /**
-   * Convert this Java RetentionCriteria to its Scala equivalent.
-   *
-   * @return
-   *   Scala version of this RetentionCriteria
-   */
-  def toScala: SRetentionCriteria =
-    (snapshotEvery.toScala, keepNSnapshots.toScala) match {
-      case (Some(every), Some(keep)) => SRetentionCriteria.snapshotEvery(every, keep)
-      case _ => SRetentionCriteria.Default
-    }
+trait RetentionCriteria {
+  def snapshotEvery: Optional[Integer]
+  def keepNSnapshots: Optional[Integer]
+  private[effector] def toScala: SRetentionCriteria
 }
 
 /**
@@ -37,13 +25,35 @@ final case class RetentionCriteria private (
  * instances.
  */
 object RetentionCriteria {
+
+  private final case class Impl(
+    snapshotEvery: Optional[Integer],
+    keepNSnapshots: Optional[Integer],
+  ) extends RetentionCriteria {
+
+    /**
+     * Convert this Java RetentionCriteria to its Scala equivalent.
+     *
+     * @return
+     *   Scala version of this RetentionCriteria
+     */
+    private[effector] override def toScala: SRetentionCriteria =
+      (snapshotEvery.toScala, keepNSnapshots.toScala) match {
+        case (Some(every), Some(keep)) => SRetentionCriteria.snapshotEvery(every, keep)
+        case _ => SRetentionCriteria.Default
+      }
+  }
+
+  def unapply(self: RetentionCriteria): Option[(Optional[Integer], Optional[Integer])] =
+    Some((self.snapshotEvery, self.keepNSnapshots))
+
   private def apply(): RetentionCriteria =
-    new RetentionCriteria(Optional.empty(), Optional.empty())
+    Impl(Optional.empty(), Optional.empty())
 
   private def apply(
     snapshotEvery: Optional[Integer],
     keepNSnapshots: Optional[Integer]): RetentionCriteria =
-    new RetentionCriteria(snapshotEvery, keepNSnapshots)
+    Impl(snapshotEvery, keepNSnapshots)
 
   /**
    * Default retention criteria with no specific settings. When this is used, no automatic snapshot
@@ -90,7 +100,7 @@ object RetentionCriteria {
    * @return
    *   Java version of the RetentionCriteria
    */
-  def fromScala(retentionCriteria: SRetentionCriteria): RetentionCriteria =
+  private[effector] def fromScala(retentionCriteria: SRetentionCriteria): RetentionCriteria =
     apply(
       retentionCriteria.snapshotEvery.map(Integer.valueOf).toJava,
       retentionCriteria.keepNSnapshots.map(Integer.valueOf).toJava,

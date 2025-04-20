@@ -1,6 +1,6 @@
 package com.github.j5ik2o.pekko.persistence.effector
 
-case class TestState(values: Vector[String] = Vector.empty) {
+final case class TestState(values: Vector[String] = Vector.empty) {
   def applyEvent(event: TestEvent): TestState =
     event match {
       case TestEvent.TestEventA(value) => copy(values = values :+ value)

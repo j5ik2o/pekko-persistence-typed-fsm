@@ -56,7 +56,7 @@ private[effector] object PersistenceStoreActor {
             randomFactor,
           ),
         )
-      case None =>
+      case _ =>
         childProps
     }
   }

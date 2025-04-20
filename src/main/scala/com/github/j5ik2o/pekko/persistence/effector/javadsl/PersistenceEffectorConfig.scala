@@ -137,7 +137,7 @@ trait PersistenceEffectorConfig[S, E, M] {
   def unwrapPersistedEvents: java.util.function.Function[M, Option[java.util.List[E]]]
 
   /**
-   * Get the function to extract persisted snapshot from a message.
+   * Get the function to extract a persisted snapshot from a message.
    *
    * @return
    *   Function to extract snapshot
@@ -145,7 +145,7 @@ trait PersistenceEffectorConfig[S, E, M] {
   def unwrapPersistedSnapshot: java.util.function.Function[M, Option[S]]
 
   /**
-   * Get the function to extract recovered state from a message.
+   * Get the function to extract the recovered state from a message.
    *
    * @return
    *   Function to extract recovered state
@@ -226,7 +226,7 @@ trait PersistenceEffectorConfig[S, E, M] {
    * @return
    *   Scala version of this configuration
    */
-  def toScala: SPersistenceEffectorConfig[S, E, M]
+  private[effector] def toScala: SPersistenceEffectorConfig[S, E, M]
 }
 
 /**
@@ -246,7 +246,7 @@ object PersistenceEffectorConfig {
     backoffConfig: Optional[BackoffConfig],
     messageConverter: MessageConverter[S, E, M],
   ) extends PersistenceEffectorConfig[S, E, M] {
-    override def toScala: SPersistenceEffectorConfig[S, E, M] = {
+    private[effector] override def toScala: SPersistenceEffectorConfig[S, E, M] = {
       val scalaPersistenceMode = persistenceMode match {
         case PersistenceMode.PERSISTENCE => SPersistenceMode.Persisted
         case PersistenceMode.EPHEMERAL => SPersistenceMode.Ephemeral
@@ -311,6 +311,31 @@ object PersistenceEffectorConfig {
       copy(messageConverter = value)
   }
 
+  def unapply[S, E, M](self: PersistenceEffectorConfig[S, E, M]): Option[(
+    String,
+    S,
+    java.util.function.BiFunction[S, E, S],
+    PersistenceMode,
+    Int,
+    Optional[SnapshotCriteria[S, E]],
+    Optional[RetentionCriteria],
+    Optional[BackoffConfig],
+    MessageConverter[S, E, M],
+  )] =
+    Some(
+      (
+        self.persistenceId,
+        self.initialState,
+        self.applyEvent,
+        self.persistenceMode,
+        self.stashSize,
+        self.snapshotCriteria,
+        self.retentionCriteria,
+        self.backoffConfig,
+        self.messageConverter,
+      ),
+    )
+
   /**
    * Create a PersistenceEffectorConfig with minimal required parameters. Uses default values for
    * optional parameters.
@@ -320,7 +345,7 @@ object PersistenceEffectorConfig {
    * @param initialState
    *   Initial state
    * @param applyEvent
-   *   Function to apply events to state
+   *   Function to apply events to a state
    * @tparam S
    *   Type of state
    * @tparam E
@@ -354,7 +379,7 @@ object PersistenceEffectorConfig {
    * @param initialState
    *   Initial state
    * @param applyEvent
-   *   Function to apply events to state
+   *   Function to apply events to a state
    * @param persistenceMode
    *   Persistence mode
    * @param stashSize

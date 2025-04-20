@@ -125,7 +125,7 @@ private[effector] object InMemoryEventStore {
   def getEventsAfterSnapshot[E](id: String): Vector[E] = {
     val allEvents = getEvents[E](id)
     if (snapshots.contains(id) && allEvents.nonEmpty) {
-      // If snapshot exists and events also exist
+      // If a snapshot exists and events also exist,
       // return only events after the last snapshot was created
       val snapshotIndex = snapshotEventIndices.getOrElse(id, 0)
       allEvents.drop(snapshotIndex)
