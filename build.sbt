@@ -20,40 +20,61 @@ ThisBuild / scmInfo := Some(
   ),
 )
 
-ThisBuild / publishMavenStyle := true
-ThisBuild / publishTo := Some(
-  "GitHub Package Registry" at
-    "https://maven.pkg.github.com/j5ik2o/pekko-persistence-effector",
-)
-ThisBuild / credentials += Credentials(
-  "GitHub Package Registry",
-  "maven.pkg.github.com",
-  sys.env.getOrElse("GITHUB_ACTOR", ""),
-  sys.env.getOrElse("GITHUB_TOKEN", ""),
+// publish設定（libraryモジュールに移動）
+val publishSettings = Seq(
+  publishMavenStyle := true,
+  publishTo := Some(
+    "GitHub Package Registry" at
+      "https://maven.pkg.github.com/j5ik2o/pekko-persistence-effector",
+  ),
+  credentials += Credentials(
+    "GitHub Package Registry",
+    "maven.pkg.github.com",
+    sys.env.getOrElse("GITHUB_ACTOR", ""),
+    sys.env.getOrElse("GITHUB_TOKEN", ""),
+  ),
 )
 
+// 共通設定
+val baseSettings = Seq(
+  javacOptions ++= Seq("-source", "17", "-target", "17"),
+  scalacOptions ++= Seq(
+    "-encoding",
+    "utf8",
+    "-feature",
+    "-deprecation",
+    "-unchecked",
+    "-source:future",
+    "-language:implicitConversions",
+    "-language:higherKinds",
+    "-language:postfixOps",
+    "-language:adhocExtensions",
+    "-explain",
+    "-explain-types",
+    "-Wunused:imports,privates",
+    "-rewrite",
+    "-no-indent",
+    "-experimental",
+  ),
+  semanticdbEnabled := true,
+  semanticdbVersion := scalafixSemanticdb.revision,
+)
+
+// ルートプロジェクト（publishなし）
 lazy val root = (project in file("."))
+  .aggregate(library, example)
+  .settings(
+    name := "pekko-persistence-effector-root",
+    publish / skip := true,
+  )
+
+// ライブラリプロジェクト（publish対象）
+lazy val library = (project in file("library"))
+  .settings(baseSettings)
+  .settings(publishSettings)
   .settings(
     name := "pekko-persistence-effector",
-    javacOptions ++= Seq("-source", "17", "-target", "17"),
-    scalacOptions ++= Seq(
-      "-encoding",
-      "utf8", // ソースファイルの文字コード指定
-      "-feature", // 言語機能使用時に警告
-      "-deprecation", // 非推奨API使用時に警告
-      "-unchecked", // 型消去によって型安全が損なわれる場合に詳細情報
-      "-source:future", // 将来のバージョンの機能を使用可能に
-      "-language:implicitConversions", // 暗黙の型変換を許可
-      "-language:higherKinds", // 高階型を許可
-      "-language:postfixOps", // 後置演算子を許可
-      "-language:adhocExtensions",
-      "-explain", // コンパイルエラーと警告に詳細な説明を追加
-      "-explain-types", // 型関連のエラーで詳細な型情報を表示
-      "-Wunused:imports,privates", // 使用されていないインポートとプライベートメンバーに警告
-      "-rewrite", // 書き換えを有効に
-      "-no-indent", // インデント構文を拒否し、中括弧に変換
-      "-experimental",
-    ),
+    // 現在のライブラリの依存関係をそのまま維持
     libraryDependencies ++= Seq(
       slf4j.api,
       apachePekko.slf4j,
@@ -75,8 +96,6 @@ lazy val root = (project in file("."))
       if (!journalDir.exists()) journalDir.mkdirs()
       if (!snapshotDir.exists()) snapshotDir.mkdirs()
     },
-    semanticdbEnabled := true,
-    semanticdbVersion := scalafixSemanticdb.revision,
     Test / fork := true,
     Test / testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oD"),
     Test / javaOptions += s"-Djacoco-agent.destfile=target/scala-${scalaVersion.value}/jacoco/data/jacoco.exec",
@@ -84,6 +103,21 @@ lazy val root = (project in file("."))
     jacocoExcludes := Seq(),
   )
 
+// サンプルプロジェクト（publishなし）
+lazy val example = (project in file("example"))
+  .dependsOn(library)
+  .settings(baseSettings)
+  .settings(
+    name := "pekko-persistence-effector-example",
+    publish / skip := true,
+    // サンプルの依存関係
+    libraryDependencies ++= Seq(
+      logback.classic,
+      apachePekko.slf4j,
+    ),
+  )
+
+// 既存のコマンドエイリアスを維持
 addCommandAlias("lint", ";scalafmtCheck;test:scalafmtCheck;scalafmtSbtCheck;scalafixAll --check")
 addCommandAlias("fmt", ";scalafmtAll;scalafmtSbt;scalafix RemoveUnused")
 addCommandAlias("testCoverage", ";test;jacocoAggregateReport")
